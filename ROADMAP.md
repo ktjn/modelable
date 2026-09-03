@@ -4,76 +4,55 @@ Modelable's stabilization baseline is complete.
 
 The latest published release is **1.13.2**.
 
-The product already has broad language, compatibility, lineage, code generation, import, browser, and tooling capability. The next priority is not adding more surface area. It is making the semantic core stable enough that future capability can be added without repeatedly changing grammar, IR, compatibility logic, and every emitter.
+The product already has broad language, compatibility, lineage, code generation, import, browser, and tooling capability. The next priority is to grow from a capable IDL/compiler into a semantic platform without destabilizing the core language or reintroducing declaration/emitter duplication.
+
+The architecture source of truth is [docs/architecture.md](docs/architecture.md). The previous shipped-state roadmap is retained as [docs/roadmap-archive-2026-08.md](docs/roadmap-archive-2026-08.md).
 
 ## Current execution status
 
-The stabilization completion criteria below are satisfied by the shipped
-1.13.2 baseline. Modelable can now resume broader feature growth while the
-conformance and repository-health checks remain release gates.
+### Stabilization baseline
 
-### Phase execution status
+- [x] Phase 1 — canonical identity/path grammar baseline.
+- [ ] Phase 2 — declaration/projection unification complete end-to-end. The baseline is shipped, but legacy declaration-specific wrappers/paths remain.
+- [x] Phase 3 — `modelable.plan/v0` migration boundary.
+- [x] Phase 4 — deterministic version-aware target overlays.
+- [ ] Phase 5 — external extension execution. Descriptors, capabilities, provenance pins, and trust policy are shipped; third-party WASM/subprocess execution remains.
+- [x] Phase 6 — stable `modelable.plan/v1` boundary.
+- [x] Phase 7 — usage graph baseline.
+- [x] Phase 8 — deterministic `modelable.lock/v1` baseline.
+- [x] Phase 9 — structured consequence graph baseline.
+- [x] Phase 10 — layered semantic/target compatibility baseline.
+- [x] Phase 11 — external policy evaluator boundary.
+- [x] Phase 12 — browser/native/showcase conformance as a continuous release gate.
 
-The phase headings below describe the architectural destination; they are not
-an unstarted twelve-item queue. The shipped stabilization baseline already
-delivered the following portions:
-
-| Phase | Current state | Modelable evidence |
-| --- | --- | --- |
-| 1. Identity/path grammar | Baseline implemented | `modelable.identity`, overlays, lineage, graph export, and usage validation share canonical identities and semantic paths; projection-chain lineage now resolves through projection sources to the ultimate canonical model path, with round-trip and collision fixtures covering canonical identity components. |
-| 2. Declaration/projection unification | Partial | `ResolvedDeclarationView` now covers model, projection, semantic-type, and enum-projection resolution; a private candidate boundary enumerates all four declaration families, semantic-type and enum-projection version selection share one helper used by emitters and registry consumers, and auto-generated projections normalize into sorted ordinary projection versions. |
-| 3. `plan/v0` | Baseline implemented | `modelable.planner.protocol` validates deterministic plans and rejects malformed or non-canonical references. |
-| 4. Overlays | Baseline implemented | Version-aware overlay selectors, including full-segment semantic-path wildcards, are validated against canonical identities and paths. |
-| 5. Extensions/capabilities/trust | Partial | Extension descriptors own standard target capabilities, including enum-projection field support; compiler admission, provenance pins, and deny-by-default trust policy are enforced, while third-party discovery and subprocess/WASM execution remain intentionally absent. |
-| 6. `plan/v1` | Baseline implemented | `plan/v1` migration, parser-free target consumers, checked-in JSON Schema, command admission defaults, repository guards for protocol/consumer import isolation, and explicit one-way v0-to-v1 compatibility rules are covered. |
-| 7. Usage graph | Baseline implemented | Compiled usage manifests, application/package identity, field references, aggregation, and dependent queries are available. |
-| 8. `lock/v1` | Baseline implemented | Deterministic registry snapshots, provenance, usage evidence, and compatibility-critical allocation ledgers are validated. |
-| 9. Consequence graph | Baseline implemented | Structured causal nodes/edges and terminal actions are emitted for compatibility, projection, consumer, and policy findings. |
-| 10. Layered compatibility | Baseline implemented | Target-neutral semantic changes are interpreted by target compatibility evaluators and admitted through extension capabilities. |
-| 11. Policy boundary | Baseline implemented | External policy evaluators return structured findings and consequences without grammar or semantic-IR changes. |
-| 12. Host/showcase conformance | Continuous gate | Browser/native conformance, generated-target smoke coverage, and external showcase validation remain release criteria. |
-
-The next implementation slice is therefore a demand-driven extension of this
-baseline, not a second pass over already-shipped stabilization plumbing. The
-deferred Playground UI uplift remains intentionally outside the current queue.
-
-The completed offline-registry/consequence and model-evolution programmes are
-archived with their implementation plans and remain part of the shipped
-stabilization baseline:
+Completed programmes retained as implementation history:
 
 - [Offline registry and consequence delivery](docs/superpowers/plans/archived/2026-08-21-offline-registry-dx-delivery.md)
 - [Model evolution slices](docs/superpowers/plans/archived/2026-08-22-model-evolution-slices-roadmap.md)
 
-The ongoing release gates are deliberately narrower:
+The active post-stabilization implementation plan is:
 
-- Phase 12 host/showcase conformance and sibling-project validation remain
-  continuous release gates.
+- [Semantic platform next phase](docs/superpowers/plans/2026-09-03-semantic-platform-next-phase.md)
 
-The phase sections below are the canonical architectural roadmap; archived
-plans provide the detailed delivery history and acceptance evidence for work
-already completed.
-
-The architecture source of truth is [docs/architecture.md](docs/architecture.md). The previous shipped-state roadmap has been retained as [docs/roadmap-archive-2026-08.md](docs/roadmap-archive-2026-08.md) so historical slice names and shipped decisions remain discoverable.
-
-## Goal
-
-Stabilize Modelable around this product boundary:
+## Product boundary
 
 ```text
+semantic packages
+      │
+      ▼
 semantic graph
-    +
-usage graph
-    +
-change graph
-    ↓
+    + usage graph
+    + change graph
+      │
+      ▼
 consequence graph
-    ↓
-versioned plan
-    ↓
-extensions
+      │
+      ├──────────────► modelable.query/v1 ─► CLI / LSP / MCP / agents / CI
+      │
+      └──────────────► modelable.plan/v1 ──► trusted extensions / emitters
 ```
 
-The semantic graph and consequence graph are the durable product. Emitters, policies, adapters, registries, catalogs, framework integrations, and runtime consumers remain replaceable edges.
+The semantic graph and consequence graph are the durable product. Emitters, policies, adapters, package transports, registries, catalogs, framework integrations, and runtime consumers remain replaceable edges.
 
 ## Operating rules
 
@@ -87,383 +66,249 @@ The semantic graph and consequence graph are the durable product. Emitters, poli
 8. **Conformance before completion.** Significant semantic changes require realistic external conformance coverage in `modelable-showcase` or an equivalent cross-surface fixture.
 9. **Runtime stays external.** Runtime execution features remain outside the core roadmap.
 10. **Security is part of extensibility.** Executable extensions, dependency refresh, and generated-code-affecting configuration require explicit provenance/trust rules.
+11. **Offline by default.** Validate/compile/diff/query do not implicitly contact package services, registries, or extension sources.
+12. **Package and extension identity is immutable.** Resolution may use ranges, but lock state records exact content digests and provenance.
 
-## Delivery model
+## Post-stabilization semantic platform programme
 
-This roadmap is **dependency-ordered, not a twelve-step serial queue**. Work can run in parallel when dependencies are satisfied.
+This programme is dependency-ordered, not a strict serial queue. Detailed tasks and acceptance criteria live in [the active implementation plan](docs/superpowers/plans/2026-09-03-semantic-platform-next-phase.md).
+
+### A — Complete generic declaration unification
+
+**Priority:** P0
+
+- [ ] Define one common internal declaration identity/version/reference surface for entity, aggregate, event, value, enum, semantic type, and projection.
+- [ ] Move shared version resolution, lineage, ownership, documentation, and deprecation behavior behind it.
+- [ ] Replace remaining declaration-kind-specific resolution paths where semantics are equivalent.
+- [ ] Remove legacy wrappers after all consumers migrate.
+- [ ] Add cross-declaration conformance fixtures.
+
+**Done when:** adding a capability common to declaration kinds does not recreate resolution, identity, lineage, or compatibility infrastructure.
+
+### B — First-class semantic packages
+
+**Priority:** P0
+
+Keep package metadata outside `.mdl` initially, preferably in a deterministic TOML manifest.
+
+- [ ] Define immutable package identity/version/content hashing.
+- [ ] Define public exports and package-private declarations.
+- [ ] Define dependency constraints and package graph rules.
+- [ ] Define deterministic local package resolution.
+- [ ] Define package-level compatibility over exported declarations.
+- [ ] Add package validation/inspection CLI surfaces.
+
+**Done when:** multiple independently versioned semantic packages compose without coupling canonical identities to file/repository locations.
+
+### C — Package-aware `modelable.lock/v1`
+
+**Priority:** P0
+
+- [ ] Record exact resolved package versions and content digests.
+- [ ] Record package provenance and deterministic transitive dependencies.
+- [ ] Make dependency refresh explicit; normal compilation never silently changes locked packages.
+- [ ] Detect immutable-version content drift.
+- [ ] Add clean-offline-checkout reproduction tests.
+
+**Done when:** manifests + lock state reproduce the exact package and semantic graphs offline.
+
+### D — `modelable.package/v1` and OCI transport
+
+**Priority:** P1
+
+OCI is the preferred first transport, but the logical package artifact must remain transport-independent.
+
+- [ ] Specify deterministic `modelable.package/v1` contents and digest rules.
+- [ ] Implement local pack/unpack/verify first.
+- [ ] Add OCI push/pull by immutable digest.
+- [ ] Pin pulled digests into `lock/v1`.
+- [ ] Keep all network operations explicit commands.
+- [ ] Add provenance/signature hooks without coupling to one signing system.
+
+**Done when:** a locally packed semantic package can round-trip through OCI with identical verified semantic content.
+
+### E — Composite identity keys
+
+**Priority:** P1
+
+- [ ] Allow one-or-more ordered `@key` fields on entities/aggregates.
+- [ ] Keep canonical declaration identity independent of instance-key values.
+- [ ] Align `primary`/index semantics with the ordered key set.
+- [ ] Define semantic compatibility for add/remove/reorder/type-change of key components.
+- [ ] Admit support per target through capabilities; unsupported targets fail explicitly.
+- [ ] Add representative SQL/JSON Schema/OpenAPI/Protobuf and browser/native conformance.
+
+**Done when:** composite identity behaves deterministically across semantic analysis and admitted targets.
+
+### F — External declaration lifecycle metadata
+
+**Priority:** P1
+
+Declaration bodies remain immutable. Lifecycle should initially live in external package/registry metadata keyed by canonical identity.
+
+Proposed lifecycle:
 
 ```text
-Phase 1 identity/path grammar
-        ↓
-Phase 2 declaration/projection unification
-        ↓
-Phase 3 plan/v0 ───────────────┐
-        ↓                      │
-Phase 4 overlays               │
-        ↓                      │
-Phase 5 extension capabilities │
-        ↓                      │
-Phase 6 plan/v1 ◀──────────────┘
-
-Phase 1 ──▶ Phase 7 usage graph ──▶ Phase 8 lock/v1
-
-Phase 2 + Phase 7 ──▶ Phase 9 consequence graph
-Phase 2 + Phase 5 + Phase 9 ──▶ Phase 10 layered compatibility
-Phase 5 + Phase 9 ──▶ Phase 11 policy extensions
-
-Phase 3 onward ──▶ Phase 12 showcase/host conformance (continuous)
+candidate -> published -> deprecated -> retired
 ```
 
-Parallel work allowed:
+- [ ] Specify lifecycle states and transition rules.
+- [ ] Define canonical replacement links.
+- [ ] Define where lifecycle state is snapshotted/locked when it affects build admission.
+- [ ] Add policy checks for new references to deprecated/retired contracts.
+- [ ] Expose lifecycle/replacement through CLI and query surfaces.
+- [ ] Feed lifecycle transitions into consequences where appropriate.
 
-- conformance and documentation cleanup can proceed throughout;
-- emitter migration to `plan/v0` can start while overlays/capabilities are being designed;
-- usage-graph work can proceed beside overlay/extension work after identity is stable;
-- security hardening for extension execution should proceed with Phase 5, not after it;
-- repository-health ratchets remain continuous and do not wait for product phases.
+**Done when:** a declaration can be deprecated/retired without editing its immutable semantic version.
 
-## Phase 1 — Freeze semantic identity and path grammar
+### G — WASM extension ABI
 
-### Outcome
+**Priority:** P0
 
-One canonical identity/path model for every reusable declaration and nested semantic location.
+WASM is the first third-party execution mechanism. Subprocess execution may follow using the same logical protocol.
 
-### Work
+- [ ] Specify `modelable.extension-host/v1` request/result protocol.
+- [ ] Use `modelable.plan/v1` as semantic input; no parser/internal compiler imports.
+- [ ] Support artifact outputs, diagnostics, compatibility findings, and structured failures.
+- [ ] Require exact extension id/version/hash/provenance pins.
+- [ ] Require explicit trust/enablement; never execute extensions merely because they are discoverable.
+- [ ] Default to no network and no ambient filesystem.
+- [ ] Add CPU/memory/output limits and deterministic failure behavior.
+- [ ] Build a reference extension outside the compiler package.
+- [ ] Prove native/browser execution where WASM host support permits.
+- [ ] Add hostile/invalid module conformance tests.
 
-- Define canonical qualified declaration identities.
-- Define the semantic path grammar used by overlays, plans, lockfiles, lineage, usage, and diagnostics.
-- Cover nested value/object fields, arrays, maps, enum members where applicable, and projection-of-projection lineage.
-- Define normalization/case rules and future escaping rules before escaped identifiers can ship.
-- Ensure identity is independent of source file location and emitter naming.
-- Unify resolution rules for entities, aggregates, events, values, enums, semantic types, and projections.
-- Continue nominal enum/semantic-type references rather than copying structural definitions.
-- Add parse/render round-trip and collision fixtures.
+**Done when:** a separately built WASM extension consumes `plan/v1` and produces deterministic admitted results under least-capability policy.
 
-### Acceptance
+### H — Stable `modelable.query/v1`
 
-The compiler can deterministically parse/render identities such as:
+**Priority:** P0
+
+Minimum query families:
 
 ```text
-customer.Customer@4
-customer.Customer@4#email
-customer.Customer@4#address.street
-customer.Customer@4#orders[]
-customer.Customer@4#attributes{}
+declaration(id)
+referencesTo(id)
+lineage(path)
+consumersOf(path)
+dependencies(id)
+dependents(id)
+changes(from, to)
+consequences(from, to)
 ```
 
-No overlay/plan/lock consumer needs to invent its own path syntax.
-
-## Phase 2 — Unify declarations and projections
-
-### Outcome
-
-Avoid parallel implementations for each semantic declaration kind before freezing an external plan.
-
-### Work
-
-- Establish a common declaration abstraction for entity, aggregate, event, value, enum, semantic type, and projection.
-- Centralize ownership, versioning, reference, identity, compatibility, and deprecation behavior where semantics are shared.
-- Treat projections as the universal named/versioned derivation mechanism.
-- Support enum and other declaration projections without separate subset systems.
-- Normalize auto projections into ordinary projection semantics early.
-- Remove declaration-kind-specific resolution paths where equivalent generic logic can be used.
-
-### Acceptance
-
-Adding a declaration capability does not recreate version resolution, identity, lineage, and compatibility infrastructure.
-
-## Phase 3 — Introduce unstable `modelable.plan/v0`
-
-### Outcome
-
-Emitters/analyzers stop depending on parser/internal Python classes without prematurely promising a stable v1 schema.
-
-### Work
-
-- Define deterministic JSON-compatible `modelable.plan/v0`.
-- Include resolved declarations, versions, nominal references, projections, lineage, and target-neutral generation facts.
-- Add golden conformance fixtures.
-- Ensure browser and native hosts produce equivalent plans.
-- Migrate representative emitters/analyzers to consume the plan boundary.
-- Permit breaking v0 revisions while Phases 4–5 reveal missing target-neutral facts.
-
-### Acceptance
-
-A standalone tool can consume `plan/v0` without importing parser/semantic-validation internals, with the explicit understanding that v0 is unstable.
-
-## Phase 4 — Separate target configuration from semantics
-
-### Outcome
-
-Target representation choices stop expanding `.mdl` and semantic IR.
-
-### Work
-
-- Adopt the TOML overlay direction in [docs/emitter-extension-overlays.md](docs/emitter-extension-overlays.md).
-- Key overlays by the canonical identity/path grammar from Phase 1.
-- Define deterministic selector inheritance and precedence:
-  - target defaults;
-  - declaration wildcard;
-  - compatible version range;
-  - exact declaration version;
-  - wildcard/range semantic path;
-  - exact semantic path.
-- Reject equal-specificity conflicts rather than rely on file order.
-- Expose overlay configuration schemas through target descriptors.
-- Keep overlays non-executable and schema validated.
-- Keep compatibility-critical allocation state out of overlays.
-- Plan migration/deprecation of `@wire` without changing existing syntax meaning.
-
-Example:
-
-```toml
-[sql-postgres."customer.Customer@*"]
-table = "customers"
-
-[csharp."customer.Customer@>=4,<7#customerId"]
-property_name = "CustomerId"
-```
-
-### `@wire` deprecation rule
-
-`@wire` keeps its current stable meaning. New target-specific capabilities prefer overlays. Deprecation diagnostics may begin only after equivalent overlay support and migration tooling exist. Removal is not part of stabilization and would require a major language-version decision after at least one full stable deprecation cycle.
-
-### Acceptance
-
-A framework-specific integration such as Unity-specific C# generation can be configured without adding a Unity/framework keyword to `.mdl`, and a version bump does not require blindly copying every overlay entry.
-
-## Phase 5 — Introduce extension descriptors, capabilities, and trust policy
-
-### Outcome
-
-Targets become discoverable components rather than entries in centralized conditionals, with an explicit execution trust model.
-
-### Work
-
-- Define `modelable.extension/v1`.
-- Define extension descriptors containing id, version, supported plan versions, capabilities, configuration schema, output kinds, and compatibility support.
-- Define standard semantic capabilities such as records, enums, semantic types, maps, unions, constraints, lineage, and compatibility.
-- Validate plans against target capabilities before emission.
-- Move target capability ownership toward target implementations.
-- Keep an in-process Python extension path while defining language-neutral subprocess/WASM boundaries.
-- Define provenance pins for third-party extensions: id + exact version + implementation hash + source/provenance.
-- Define explicit allow/trust policy for subprocess extensions.
-- Make no-network/least-filesystem capability the default for sandboxable extension hosts.
-- Never auto-execute an extension merely because it is discoverable on PATH or in a workspace.
-
-### Acceptance
-
-Unsupported constructs fail through one compiler-owned capability check, and reproducible compilation can prove exactly which extension implementation ran.
-
-## Phase 6 — Freeze `modelable.plan/v1`
-
-### Dependencies
-
-Phases 1, 2, 3, and 5.
-
-### Outcome
-
-Emitters/analyzers depend on a stable normalized contract rather than parser/internal Python classes.
-
-### Work
-
-- Incorporate lessons from `plan/v0` emitter migrations.
-- Freeze canonical identity/path representation.
-- Freeze normalized declaration/projection shape.
-- Freeze the target-neutral facts required for capability negotiation and compatibility evaluators.
-- Version the JSON schema and migration rules.
-- Keep parser/Pydantic implementation classes internal.
-
-### Acceptance
-
-`modelable.plan/v1` can evolve additively under documented compatibility rules without requiring lockstep compiler/emitter releases.
-
-## Phase 7 — Build the usage graph
-
-### Dependencies
-
-Phase 1; Phase 2 where declaration normalization affects usage evidence.
-
-### Outcome
-
-Impact analysis is based on actual consumers rather than only theoretical references or manually maintained consumer declarations.
-
-### Work
-
-- Produce usage evidence from compilation.
-- Define stable application/workspace/package identity.
-- Track exact declaration, projection, and field/path use where observable.
-- Aggregate usage snapshots across applications/repositories.
-- Keep `consumer {}` non-authoritative unless a future concrete purpose needs it.
-- Expose usage queries to CLI, CI, IDE, and agent surfaces.
-
-### Acceptance
-
-Given a declaration version/path, Modelable can identify known compiled consumers and distinguish actual blast radius from theoretical compatibility.
-
-## Phase 8 — Formalize `modelable.lock/v1`
-
-### Dependencies
-
-Phases 1 and 7. Extension pins from Phase 5 are incorporated when available.
-
-### Outcome
-
-Registry state becomes reproducible dependency/usage/allocation evidence rather than infrastructure.
-
-### Work
-
-Define deterministic lock state containing:
-
-- exact declaration versions;
-- content hashes;
-- source provenance;
-- transitive dependencies;
-- canonical semantic identities;
-- actual usage evidence;
-- extension id/version/hash/provenance;
-- compatibility-critical target allocations;
-- optional plan/generation fingerprints.
-
-The local SQLite registry/index must be reconstructable from version-controlled inputs and lock data.
-
-### Protobuf allocation rule
-
-**Protobuf field numbers belong in lock state, not optional overlays.** Missing/drifted representation configuration must never silently cause wire-incompatible field-number reassignment. Use a deterministic allocator/ledger model analogous to the existing git-tracked `registry-ids.lock` precedent.
-
-The same mechanism should generalize to future persistent target identifiers that cannot safely be recomputed.
-
-### Acceptance
-
-A clean offline checkout can reproduce resolution, verify extension provenance, reproduce compatibility-critical allocations, and prove exactly which semantic contracts a consumer compiled against.
-
-## Phase 9 — Replace flat consequences with a consequence graph
-
-### Dependencies
-
-Phases 2 and 7.
-
-### Outcome
-
-Model evolution produces explainable causal paths and actionable downstream work.
-
-### Work
-
-- Replace growing string-only consequence statuses with structured nodes/edges.
-- Represent chains such as:
-
-```text
-field removal
-  ↓
-projection affected
-  ↓
-generated schema changes
-  ↓
-known consumer affected
-  ↓
-consumer update required
-```
-
-- Preserve causal paths for every terminal action.
-- Support actions including regenerate, recompile, storage migration, data backfill, projection rebuild, event replay, governance review, consumer update, and breaking/manual intervention.
-- Keep simple CLI summaries as views over the graph.
-
-### Acceptance
-
-Every reported impact can be traced from root semantic change to affected consumer action.
-
-## Phase 10 — Separate semantic and target compatibility
-
-### Dependencies
-
-Phases 2, 5, and 9.
-
-### Outcome
-
-Core compatibility produces target-neutral facts; extensions interpret them for wire/storage/API constraints.
-
-### Work
-
-- Define a canonical semantic change vocabulary.
-- Keep generic diff logic free of Protobuf field numbers, SQL migration strategy, Avro reader/writer rules, and generated-language syntax.
-- Move target rules to target compatibility evaluators.
-- Feed target results into the consequence graph.
-- Keep compatibility deterministic and independently testable.
-
-### Acceptance
-
-Adding a target compatibility evaluator does not modify semantic diff algorithms.
-
-## Phase 11 — Policy extension boundary
-
-### Dependencies
-
-Phase 5; Phase 9 when policy findings should become consequences.
-
-### Outcome
-
-Governance grows without adding permanent language annotations for every regulation or organization.
-
-### Work
-
-- Define a policy evaluator interface over semantic/usage/consequence data.
-- Keep facts such as PII, classification, ownership, and lineage in core semantics.
-- Implement organization/regulation-specific checks outside the fixed annotation set.
-- Allow policies to produce diagnostics and consequences.
-- Define severity/configuration handling outside source semantics where appropriate.
-
-### Acceptance
-
-A custom enterprise policy can be added without grammar or semantic-IR change.
-
-## Phase 12 — Showcase and host conformance (continuous)
-
-### Outcome
-
-Real consumer builds and every host detect semantic regressions before release.
-
-### Work
-
-Make `modelable-showcase` an executable conformance suite covering:
-
-- canonical models;
-- semantic types;
-- enums and enum projections;
-- nested/value types;
-- API request/reply projections;
-- events;
-- persistence projections;
-- multiple programming-language emitters;
-- Protobuf/OpenAPI/Avro/SQL;
-- version evolution;
-- compatibility/consequence analysis;
-- generated conversions;
-- browser/native compilation;
-- real generated consumer compilation.
-
-Continue reducing filesystem/network/process assumptions in compiler-core APIs so CLI, browser, LSP, CI, build plugins, MCP, and future server surfaces remain thin hosts around one semantic engine.
-
-### Acceptance
-
-A semantic feature is not complete until realistic cross-boundary scenarios validate it, and a new host can be built without duplicating parsing/resolution/compatibility/lineage semantics.
+- [ ] Specify versioned request/response envelopes.
+- [ ] Define deterministic graph node/edge and ordering rules.
+- [ ] Define limits/pagination for large graph responses.
+- [ ] Keep v1 read-only.
+- [ ] Migrate CLI/LSP graph queries to one in-process service.
+- [ ] Add JSON/stdio transport suitable for MCP/agent bridges.
+- [ ] Add browser support over the same semantic service.
+- [ ] Check in protocol schema and golden fixtures.
+
+**Done when:** at least CLI plus one non-CLI host query semantic/usage/change/consequence data without importing internal resolver/graph implementations.
+
+### I — Declaration-level evolution and lineage
+
+**Priority:** P1
+
+Start with an external/versioned migration mapping rather than broad new grammar.
+
+- [ ] Represent declaration rename and domain/package move.
+- [ ] Represent field moves into/out of value objects.
+- [ ] Represent one-to-many split and many-to-one merge lineage.
+- [ ] Preserve immediate and ultimate source lineage.
+- [ ] Feed mappings into change/consequence graphs.
+- [ ] Reject dangling, cyclic, and ambiguous mappings.
+- [ ] Add cross-package move scenarios after package identity stabilizes.
+
+**Done when:** declaration refactors preserve explicit causal lineage rather than appearing only as remove/add pairs.
+
+### J — Named compatibility profiles
+
+**Priority:** P1
+
+Profiles remain external configuration rather than `.mdl` semantics.
+
+- [ ] Specify profile schema for backward/forward/full and target-specific requirements.
+- [ ] Bind profiles at workspace/package/CI boundaries.
+- [ ] Evaluate profiles over semantic changes, target compatibility, and known usage evidence.
+- [ ] Emit structured profile findings with causal links to lower-level findings.
+- [ ] Feed profile failures into consequences.
+- [ ] Add CI-friendly CLI selection and exit behavior.
+
+**Done when:** CI can report that a named compatibility contract failed and explain the exact semantic/target/consumer causes.
+
+### K — Typed semantic facets
+
+**Priority:** P2
+
+Keep universal built-ins small: identity, ownership, classification, PII, deprecation, and lineage. New enterprise/governance facts use typed namespaced facets.
+
+- [ ] Specify namespaced facet identity and schema versioning.
+- [ ] Define typed values and allowed semantic subjects.
+- [ ] Define projection inheritance/propagation rules.
+- [ ] Preserve unknown facets without interpreting them when their schema is unavailable.
+- [ ] Expose facets to policy evaluators, plans, and query results.
+- [ ] Keep target-specific representation metadata in overlays, not facets.
+- [ ] Add examples for retention class, jurisdiction, data subject, and confidentiality.
+
+**Done when:** a new typed governance fact and policies around it can be introduced without parser changes.
+
+## Programme-level progress
+
+- [ ] A — generic declaration model complete.
+- [ ] B — semantic package model complete.
+- [ ] C — package-aware lock state complete.
+- [ ] D — package artifact + OCI transport complete.
+- [ ] E — composite identities complete.
+- [ ] F — lifecycle metadata complete.
+- [ ] G — WASM extension ABI complete.
+- [ ] H — `modelable.query/v1` complete.
+- [ ] I — declaration-level evolution mappings complete.
+- [ ] J — compatibility profiles complete.
+- [ ] K — typed semantic facets complete.
+
+Recommended implementation order:
+
+1. A — declaration unification.
+2. B + C — package model and lock integration.
+3. G — WASM extension ABI, in parallel once A/`plan/v1` representation needs are understood.
+4. H — query protocol over the shipped graph model.
+5. E — composite identity.
+6. F — lifecycle metadata.
+7. D — OCI/package distribution after B/C semantics stabilize.
+8. I — declaration-level refactor lineage.
+9. J — compatibility profiles.
+10. K — typed semantic facets.
+
+## Continuous gates
+
+These apply to every active slice.
+
+- [ ] Browser/native semantic equivalence remains green.
+- [ ] `modelable-showcase` or equivalent external conformance covers each new semantic surface before completion.
+- [ ] New stable protocols have checked-in schemas and deterministic golden fixtures.
+- [ ] Target capability descriptors are updated when support changes.
+- [ ] Normal compile/validate/query paths remain network-independent.
+- [ ] Executable extensions/package refresh remain explicit and provenance-pinned.
+- [ ] Repository-health, typing, coverage, and release checks remain green.
 
 ## Current/deferred syntax disposition
 
-Runtime-adjacent syntax already exists and cannot simply disappear under the new runtime boundary.
-
-During stabilization:
+Runtime-adjacent syntax already exists and cannot silently disappear:
 
 - `subscription` remains parsed but explicitly `DEFERRED`; no runtime execution is added.
 - projection `materialisation` remains parsed but explicitly `DEFERRED`.
-- workspace `registry {}` / `peers` forms that have no semantic effect remain explicitly `DEFERRED`.
-- `consumer {}` remains deferred/non-authoritative; usage evidence is the preferred future mechanism.
+- workspace `registry {}` / `peers` forms with no semantic effect remain explicitly `DEFERRED`.
+- `consumer {}` remains deferred/non-authoritative; usage evidence is preferred.
 - `binding {}` retains its implemented compile-time subset; unsupported opaque content remains explicitly `DEFERRED`.
 
 No parsed construct may be silently discarded. Future removal/replacement requires an explicit language migration under Operating rule 3.
 
 ## Shipped product record retained during stabilization
 
-The old roadmap mixed shipped history with future work. That history is now retained in [docs/roadmap-archive-2026-08.md](docs/roadmap-archive-2026-08.md) rather than deleted.
+The old roadmap mixed shipped history with future work. That history remains in [docs/roadmap-archive-2026-08.md](docs/roadmap-archive-2026-08.md) rather than being deleted.
 
 ### Conversational Compilation Management
 
@@ -471,19 +316,19 @@ Conversational Compilation Management is shipped through CLI chat and the native
 
 `docs/superpowers/specs/archived/2026-07-19-conversational-compilation-management-design.md`
 
-This remains a supported shipped surface while stabilization changes compiler internals beneath it.
+This remains a supported shipped surface while semantic-platform work changes compiler internals beneath it.
 
 ## Legacy slice compatibility index
 
-Historical code comments, tests, and documentation still refer to old roadmap slices. Those references remain valid as shipped-state/history identifiers. New implementation planning should use the phases above.
+Historical comments, tests, documentation, and deep links still use these names. Preserve the headings even when their work maps to newer programme slices.
 
 ### Slice A1 — correct optionality compatibility under the current model
 
-Shipped correctness work. Maps to continuous correctness gates and Phase 10.
+Shipped correctness work. Maps to continuous correctness gates and layered compatibility.
 
 ### Slice A2 — create one property-dependency graph
 
-Shipped dependency-graph work. Foundational to Phases 7, 9, and 10.
+Shipped dependency-graph work. Foundational to usage/consequence/query work.
 
 ### Slice A3 — validate all expression positions
 
@@ -491,35 +336,35 @@ Shipped correctness work. Continues under Operating rules 1–2.
 
 ### Slice A4 — fix semantic-type resolution ambiguity
 
-Shipped resolution work. Foundational to Phases 1–2.
+Shipped resolution work. Foundational to programme A.
 
 ### Slice B1 — add a canonical capability manifest
 
-Shipped current-state capability manifest. Phase 5 evolves capability ownership toward extensions.
+Shipped capability foundation. Programme G completes executable extension hosting.
 
 ### Slice B2 — reconcile current documentation claims
 
-Historical documentation/capability consistency slice. Current architecture now explicitly states composite-key, lifecycle, and runtime-adjacent implementation status.
+Shipped documentation/capability consistency work.
 
 ### Slice B3 — eliminate silently ignored syntax
 
-Shipped `DEFERRED` diagnostic behavior. Preserved by Operating rule 2 and the current/deferred syntax disposition above.
+Shipped `DEFERRED` diagnostic behavior. Preserved by Operating rule 2.
 
 ### Slice C1 — projection-to-projection compatibility
 
-Shipped projection compatibility work. Phase 10 separates semantic facts from target evaluators without removing this behavior.
+Shipped projection compatibility work.
 
 ### Slice C2 — extend existing version resolution to `ref<>` types
 
-Shipped resolution work. Folded into Phase 1–2 identity/resolution invariants.
+Shipped resolution work. Programme A continues declaration-wide unification.
 
 ### Slice C3 — generalize existing target compatibility
 
-Shipped target-compatibility abstraction. Phase 10 completes the separation.
+Shipped target-compatibility abstraction. Programme J adds named compatibility contracts above it.
 
 ### Slice C4 — configurable compatibility and lint policy
 
-Shipped policy foundation. Phase 11 generalizes the extension boundary.
+Shipped policy foundation. Programme J adds named compatibility profiles; programme K adds typed extensible facts.
 
 ### Slice D1 — separate presence and nullability
 
@@ -527,43 +372,43 @@ Historical language-evolution slice. Any remaining work is subject to Operating 
 
 ### Slice D2 — value and semantic type evolution
 
-Historical language-evolution work; maps to Phase 2.
+Historical language-evolution work; programme A finishes common declaration infrastructure.
 
 ### Slice D3 — enum declaration convergence
 
-Historical enum work; maps to Phase 2 declaration unification.
+Historical enum work; programme A finishes common declaration infrastructure.
 
 ### Slice D4 — discriminated unions
 
-Historical/future language capability; only proceeds if existing semantics/extensions cannot represent concrete consumer needs.
+Shipped/future language capability; additional grammar only proceeds from concrete semantic need.
 
 ### Slice D5 — resolve composite-key support
 
-Composite keys remain deferred. The current architecture explicitly records the one-key invariant.
+Composite keys remain deferred in the current stable language. Programme E is the active implementation direction.
 
 ### Slice D6 — model lifecycle status
 
-Lifecycle status remains deferred and is not represented in the current stable grammar/IR.
+Lifecycle status remains absent from immutable declaration grammar/IR. Programme F intentionally models lifecycle externally first.
 
 ### Slice F1 — nominal semantic types beyond Rust
 
-Target coverage remains demand-driven. Phase 5 capability negotiation makes intentional structural erasure/nominal preservation explicit per target.
+Target coverage remains demand-driven and capability-negotiated.
 
 ### Slice F2 — OpenAPI emission
 
-OpenAPI emission is shipped. This legacy heading is retained so existing deep links remain valid.
+OpenAPI emission is shipped. This heading remains for existing deep links.
 
 ### Slice G1 — critical compatibility coverage
 
-Continuous coverage ratchet; remains active throughout stabilization.
+Continuous coverage ratchet.
 
 ### Slice G2 — strict typing baseline reduction
 
-Continuous typing ratchet; remains active throughout stabilization.
+Continuous typing ratchet.
 
 ### Slice G3 — conformance fixtures
 
-Shipped/continuous conformance foundation. Phase 12 broadens it into external showcase/host conformance.
+Shipped/continuous conformance foundation; remains a release gate.
 
 ## Deferred product areas
 
@@ -585,30 +430,32 @@ Modelable may generate contracts, plans, mappings, migrations, validation packag
 |---|---|
 | GraphQL | emitter + compatibility evaluator |
 | AsyncAPI | emitter |
-| additional wire/schema formats | emitter |
-| Iceberg/Delta | emitter |
-| ORM/framework bindings | overlay + emitter |
-| Unity | C# emitter extension + overlay |
-| SDK generation | emitter |
+| additional wire/schema formats | extension/emitter |
+| Iceberg/Delta | extension/emitter |
+| ORM/framework bindings | overlay + extension |
+| Unity | C# extension + overlay |
+| SDK generation | extension/emitter |
 | industry standards | extension package |
-| enterprise governance | policy evaluator |
+| enterprise governance | typed facet + policy evaluator |
 | catalog integration | adapter |
 | schema registry integration | adapter |
 | API migration tooling | consequence graph + action generator |
-| AI-assisted refactoring | semantic/usage/consequence query API |
-| code migrations | action generator |
-| cross-repo blast radius | lock snapshots + usage graph |
+| AI-assisted refactoring | `modelable.query/v1` |
+| code migrations | declaration evolution mapping + action generator |
+| cross-repo blast radius | packages + lock snapshots + usage graph |
 | runtime validation | generated package |
-| MCP/agent integration | host/query protocol |
+| MCP/agent integration | `modelable.query/v1` transport |
 
-## Explicit non-goals for stabilization
+## Explicit non-goals
 
-Do not spend stabilization capacity on:
+Do not spend semantic-platform capacity on:
 
 - adding emitters solely for breadth;
 - adding grammar syntax for target configuration;
 - making SQLite registry state authoritative;
-- building a remote registry service;
+- building a remote/distributed Modelable registry service;
+- making package resolution implicitly networked;
+- executing plugins merely because they are present on PATH or in a workspace;
 - implementing runtime materialization/subscriptions;
 - creating duplicate semantic implementations for browser or integrations.
 
@@ -619,29 +466,28 @@ Before extending the language:
 ```text
 Can existing semantic constructs represent this correctly?
   │
-  ├─ yes → extension / overlay / emitter / analyzer / policy
+  ├─ yes → extension / overlay / package metadata / migration mapping / policy / facet
   │
   └─ no  → propose a semantic-model change
 ```
 
-A semantic-model proposal must document why projections, semantic types, overlays, extension capabilities, and action/policy mechanisms are insufficient.
+A semantic-model proposal must document why projections, semantic types, overlays, extension capabilities, package metadata, migration mappings, facets, and policy/action mechanisms are insufficient.
 
-## Completion criteria for stabilization
+## Stabilization completion criteria
 
-Stabilization is complete when:
+The shipped stabilization baseline remains complete when these invariants stay true:
 
 - canonical declaration identity and nested semantic path grammar are defined and used consistently;
-- declarations/projections share common resolution/version/lineage infrastructure;
-- `plan/v0` migration has validated the boundary and `modelable.plan/v1` is frozen;
-- external target configuration has deterministic version-aware overlays;
-- extension capability negotiation and provenance/trust rules are implemented;
-- usage evidence precedes and feeds deterministic `modelable.lock/v1`;
+- declarations/projections share common baseline resolution/version/lineage infrastructure;
+- `modelable.plan/v1` remains stable and parser-independent;
+- external target configuration uses deterministic version-aware overlays;
+- extension capability negotiation and provenance/trust rules are enforced;
+- usage evidence feeds deterministic `modelable.lock/v1`;
 - compatibility-critical target allocations are lock state, not optional config;
 - consequences form an explainable graph;
-- semantic and target compatibility are separated;
+- semantic and target compatibility remain separated;
 - browser/native semantic conformance is enforced;
 - showcase provides realistic cross-target conformance;
-- significant new integrations can be added without changing `.mdl`.
+- significant integrations can be added without changing `.mdl`.
 
-Modelable can resume broad feature growth with substantially lower
-architectural cost.
+The post-stabilization programme extends this baseline rather than replacing it.
