@@ -57,7 +57,10 @@ Selection, rename, computation, join, filtering, aggregation, conversion, projec
 
 Published declaration versions are immutable semantic contracts. Incompatible change creates a new version rather than silently changing the meaning of an existing version.
 
-The current stable grammar **does not represent a model lifecycle status** such as `draft`, `published`, `deprecated`, or `retired`. Lifecycle status remains deferred; field-level deprecation is supported separately.
+The current stable grammar does not represent a model lifecycle status such as
+`candidate`, `published`, `deprecated`, or `retired`. Lifecycle status is kept
+in external `modelable.lifecycle/v1` metadata keyed by canonical declaration
+identity; field-level deprecation remains supported in the language separately.
 
 ### 2.4 Platform-neutral definitions
 
@@ -149,9 +152,14 @@ Declaration kinds may impose different constraints but should not create paralle
 
 A declaration version is an immutable semantic contract identified by domain, declaration name, kind, and version.
 
-Entities and aggregates currently require exactly one `@key` field. Composite keys are **not implemented** and declaring multiple key fields is rejected by semantic validation.
+Entities and aggregates require at least one `@key` field. Multiple key fields are
+preserved in declaration order and the explicit `primary` index must use that
+same order. Composite-key support remains target-dependent while emitters and
+browser/native conformance are completed.
 
-Model lifecycle status is also not represented in the current grammar or IR. The compiler therefore must not imply a draft/published/deprecated/retired lifecycle that it cannot encode.
+Model lifecycle status is not represented in the grammar or IR. The compiler
+may consume explicitly supplied external lifecycle metadata, but must not
+invent lifecycle state when that metadata is absent.
 
 ### 3.4 Projection
 
@@ -342,7 +350,9 @@ Projections are independently versioned contracts. A projection change may be af
 
 ### 8.3 Deprecation
 
-Field/declaration deprecation metadata that is represented by the language is semantic. A broader lifecycle state machine is not currently represented and remains deferred.
+Field/declaration deprecation metadata represented by the language is semantic.
+The broader lifecycle state machine is external metadata and is admitted only
+through explicit registry/package snapshot inputs.
 
 ## 9. Governance and access control
 
@@ -440,15 +450,17 @@ output kinds
 compatibility support
 ```
 
-The long-term boundary may support in-process extensions, subprocesses, and WASM.
+The extension boundary supports built-in extensions and a native WASM host;
+subprocess execution remains a future host using the same logical protocol.
 
 ### 13.1 Capability negotiation
 
 A target advertises support for capabilities such as records, enums, semantic
 types, enum-projection field types, unions, maps, constraints, lineage, or
 compatibility. The current target descriptors own these capability declarations;
-third-party discovery and subprocess/WASM execution remain outside the shipped
-boundary.
+third-party discovery and subprocess execution remain outside the shipped
+boundary. WASM execution is available only through the explicit, pinned
+extension host.
 
 The compiler validates normalized semantic input against advertised capabilities before emission.
 
@@ -471,6 +483,13 @@ Built-in extensions run with the trust level of Modelable itself. Third-party su
 The host should minimize filesystem/network/process capabilities, pass only declared inputs, and collect only declared outputs. WASM is preferred where it provides a practical capability sandbox; subprocess execution requires an explicit trust/allow policy.
 
 A plugin protocol must not imply that arbitrary downloaded code is safe to execute during compilation.
+
+The native WASM host uses `modelable.extension-host/v1`. It supplies canonical
+`modelable.plan/v1` JSON and deterministic configuration through linear memory
+and admits modules with no imports. Modules return structured JSON containing
+artifacts, diagnostics, compatibility findings, and failures. Exact
+implementation hashes, explicit trust allowlists, fuel, memory, and output
+limits are required; filesystem and network capabilities are not ambient.
 
 ## 14. Target-specific overlays
 

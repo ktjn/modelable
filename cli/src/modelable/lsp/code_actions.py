@@ -83,7 +83,11 @@ def _has_parse_eof_diagnostic(diagnostics: list[types.Diagnostic]) -> bool:
 
 def _has_missing_key_diagnostic(diagnostics: list[types.Diagnostic]) -> bool:
     return any(
-        diagnostic.code == "SEM" and "must have exactly one @key field" in diagnostic.message
+        diagnostic.code == "SEM"
+        and (
+            "must have at least one @key field" in diagnostic.message
+            or "must have exactly one @key field" in diagnostic.message
+        )
         for diagnostic in diagnostics
     )
 

@@ -32,14 +32,39 @@ from modelable.consequence import (
 )
 from modelable.diagnostics.model import render_diagnostic
 from modelable.llm.context import parse_model_ref_version_spec
-from modelable.parser.ir import ProjectionVersion
-from modelable.registry.resolver import resolve_model_ref
+from modelable.parser.ir import MdlFile, ProjectionVersion
+from modelable.registry.resolver import ResolvedDeclaration, resolve_declaration
 from modelable.registry.snapshot import load_snapshot_usage_manifest, load_workspace_with_snapshot
 from modelable.registry.usage_protocol import UsageProtocolError, load_usage_manifest
 
 
 def register_impact_commands(cli_group: click.Group) -> None:
     cli_group.add_command(impact)
+
+
+def _resolve_impact_declarations(
+    mdl: MdlFile, from_ref: str, to_ref: str
+) -> tuple[ResolvedDeclaration, ResolvedDeclaration]:
+    """Resolve impact endpoints through the common declaration boundary."""
+    from_domain, from_name, from_spec = parse_model_ref_version_spec(from_ref)
+    to_domain, to_name, to_spec = parse_model_ref_version_spec(to_ref)
+    if (from_domain, from_name) != (to_domain, to_name):
+        raise ValueError("impact requires refs from the same domain and model")
+    allowed_kinds = frozenset({"model", "projection"})
+    return (
+        resolve_declaration(
+            mdl,
+            f"{from_domain}.{from_name}",
+            from_spec,
+            allowed_kinds=allowed_kinds,
+        ),
+        resolve_declaration(
+            mdl,
+            f"{to_domain}.{to_name}",
+            to_spec,
+            allowed_kinds=allowed_kinds,
+        ),
+    )
 
 
 @click.command("impact")
@@ -91,32 +116,29 @@ def impact(
         console.print(f"[red]ERROR[/red] Cannot load usage manifest: {exc}")
         sys.exit(1)
     try:
-        from_domain, from_name, from_spec = parse_model_ref_version_spec(from_ref)
-        to_domain, to_name, to_spec = parse_model_ref_version_spec(to_ref)
-        if (from_domain, from_name) != (to_domain, to_name):
-            raise ValueError("impact requires refs from the same domain and model")
-        old = resolve_model_ref(workspace.mdl, from_ref.split("@", 1)[0], from_spec)
-        new = resolve_model_ref(workspace.mdl, to_ref.split("@", 1)[0], to_spec)
-        if old.version.__class__ is not new.version.__class__:
+        old, new = _resolve_impact_declarations(workspace.mdl, from_ref, to_ref)
+        if old.kind != new.kind:
             raise ValueError("impact requires refs of the same definition kind")
-        if not hasattr(old.version, "fields") or not hasattr(new.version, "fields"):
+        old_version = old.declaration
+        new_version = new.declaration
+        if not hasattr(old_version, "fields") or not hasattr(new_version, "fields"):
             raise ValueError("impact currently supports model and projection versions")
         report: CompatibilityReport | ProjectionCompatibilityReport
-        if isinstance(old.version, ProjectionVersion):
+        if isinstance(old_version, ProjectionVersion):
             report = check_projection_version_compatibility(
                 workspace.mdl,
                 old.domain_name,
-                old.model_name,
-                old.version.version,
-                new.version.version,
+                old.name,
+                old.version_number,
+                new.version_number,
             )
         else:
             report = check_model_version_compatibility(
                 workspace.mdl,
                 old.domain_name,
-                old.model_name,
-                old.version.version,
-                new.version.version,
+                old.name,
+                old.version_number,
+                new.version_number,
             )
     except (LookupError, ValueError) as exc:
         console.print(f"[red]ERROR[/red] {exc}")

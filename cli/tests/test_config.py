@@ -87,7 +87,7 @@ def test_config_loads_registry_policy_severity(tmp_path: Path) -> None:
 
     config = load_config(tmp_path)
 
-    assert config.registry_policy_severities() == {"pii_changes": "error"}
+    assert config.registry_policy_severities() == {"lifecycle_references": "off", "pii_changes": "error"}
 
 
 def test_config_rejects_invalid_registry_policy_severity(tmp_path: Path) -> None:

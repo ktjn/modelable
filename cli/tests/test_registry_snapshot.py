@@ -66,6 +66,216 @@ def test_git_source_adapter_loads_tracked_mdl_from_local_ref(tmp_path: Path) -> 
     assert "@HEAD/customer.mdl" in workspace.sources[0].uri
 
 
+def test_resolve_persists_explicit_package_manifest_in_lock(tmp_path: Path) -> None:
+    manifest = tmp_path / "modelable.package.toml"
+    manifest.write_text(
+        """
+[package]
+name = "customer.contracts"
+version = "1.2.3"
+
+[exports]
+declarations = ["customer.Customer@1"]
+
+[dependencies]
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    result = resolve_workspace_snapshot(
+        load_workspace(FIXTURE), tmp_path / ".modelable", package_manifest_path=manifest
+    )
+
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    package = lock["packages"][0]
+    assert package["manifest"]["package"] == {"name": "customer.contracts", "version": "1.2.3"}
+    assert package["objects"] == ["customer.Customer@1"]
+    assert package["resolved_dependencies"] == []
+    assert package["provenance"]["source"] == str(manifest)
+    assert package["provenance"]["source_hash"] == hashlib.sha256(manifest.read_bytes()).hexdigest()
+    assert len(package["content_hash"]) == 64
+    assert verify_snapshot(tmp_path / ".modelable") == []
+
+    lock["packages"][0]["content_hash"] = "0" * 64
+    result.lock_path.write_text(json.dumps(lock, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    assert any("package content hash mismatch" in error for error in verify_snapshot(tmp_path / ".modelable"))
+
+
+def test_resolve_expands_domain_wildcard_package_exports(tmp_path: Path) -> None:
+    manifest = tmp_path / "modelable.package.toml"
+    manifest.write_text(
+        '[package]\nname = "customer.contracts"\nversion = "1.2.3"\n\n[exports]\ndeclarations = ["customer.*"]\n',
+        encoding="utf-8",
+    )
+
+    result = resolve_workspace_snapshot(
+        load_workspace(FIXTURE), tmp_path / ".modelable", package_manifest_path=manifest
+    )
+
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    assert lock["packages"][0]["objects"] == ["customer.Customer@1", "customer.Customer@2"]
+
+
+def test_resolve_ignores_adjacent_package_manifest_without_explicit_flag(tmp_path: Path) -> None:
+    manifest = tmp_path / "modelable.package.toml"
+    manifest.write_text(
+        '[package]\nname = "customer.contracts"\nversion = "1.2.3"\n\n[exports]\ndeclarations = []\n',
+        encoding="utf-8",
+    )
+
+    result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
+
+    assert "packages" not in json.loads(result.lock_path.read_text(encoding="utf-8"))
+
+
+def test_resolve_rejects_missing_local_package_dependencies(tmp_path: Path) -> None:
+    manifest = tmp_path / "modelable.package.toml"
+    manifest.write_text(
+        """
+[package]
+name = "customer.contracts"
+version = "1.2.3"
+
+[exports]
+declarations = ["customer.Customer@1"]
+
+[dependencies]
+"identity.contracts" = ">=2,<3"
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="no local package satisfies"):
+        resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable", package_manifest_path=manifest)
+
+
+def test_resolve_records_transitive_local_package_dependencies(tmp_path: Path) -> None:
+    root = tmp_path / "customer.package.toml"
+    dependency = tmp_path / "identity.package.toml"
+    root.write_text(
+        '[package]\nname = "customer.contracts"\nversion = "1.0.0"\n\n'
+        '[exports]\ndeclarations = ["customer.Customer@1"]\n\n'
+        '[dependencies]\n"identity.contracts" = ">=2,<3"\n',
+        encoding="utf-8",
+    )
+    dependency.write_text(
+        '[package]\nname = "identity.contracts"\nversion = "2.4.0"\n\n[exports]\ndeclarations = []\n',
+        encoding="utf-8",
+    )
+
+    result = resolve_workspace_snapshot(
+        load_workspace(FIXTURE),
+        tmp_path / ".modelable",
+        package_manifest_paths=(root, dependency),
+    )
+
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    packages = {item["manifest"]["package"]["name"]: item for item in lock["packages"]}
+    assert packages["customer.contracts"]["resolved_dependencies"] == ["identity.contracts@2.4.0"]
+    assert packages["identity.contracts"]["resolved_dependencies"] == []
+
+
+def test_diff_reports_package_only_changes(tmp_path: Path) -> None:
+    old_manifest = tmp_path / "old.package.toml"
+    new_manifest = tmp_path / "new.package.toml"
+    for path, version in ((old_manifest, "1.2.3"), (new_manifest, "1.2.4")):
+        path.write_text(
+            f'[package]\nname = "customer.contracts"\nversion = "{version}"\n\n'
+            '[exports]\ndeclarations = ["customer.Customer@1"]\n',
+            encoding="utf-8",
+        )
+    output_dir = tmp_path / ".modelable"
+    workspace = load_workspace(FIXTURE)
+    resolve_workspace_snapshot(workspace, output_dir, package_manifest_path=old_manifest)
+
+    snapshot_diff = diff_workspace_snapshot(workspace, output_dir, package_manifest_path=new_manifest)
+
+    assert snapshot_diff.added == ()
+    assert snapshot_diff.removed == ()
+    assert snapshot_diff.changed == ()
+    assert snapshot_diff.packages == {
+        "added": ["customer.contracts@1.2.4"],
+        "removed": ["customer.contracts@1.2.3"],
+        "changed": [],
+    }
+    assert snapshot_diff.package_compatibility == (
+        {
+            "package": "customer.contracts",
+            "from": "1.2.3",
+            "to": "1.2.4",
+            "status": "compatible",
+            "findings": [],
+        },
+    )
+    assert not snapshot_diff.empty
+
+
+def test_diff_reports_cross_package_declaration_move_with_explicit_migration(tmp_path: Path) -> None:
+    old_source = tmp_path / "old.mdl"
+    old_source.write_text(
+        'domain customer { owner: "customer" entity Customer @ 1 (additive) { @key customerId: uuid } }\n',
+        encoding="utf-8",
+    )
+    new_source = tmp_path / "new.mdl"
+    new_source.write_text(
+        'domain billing { owner: "billing" entity Customer @ 1 (additive) { @key customerId: uuid } }\n',
+        encoding="utf-8",
+    )
+    old_manifest = tmp_path / "old.package.toml"
+    old_manifest.write_text(
+        '[package]\nname = "customer.contracts"\nversion = "1.0.0"\n\n'
+        '[exports]\ndeclarations = ["customer.Customer@1"]\n',
+        encoding="utf-8",
+    )
+    new_manifest = tmp_path / "new.package.toml"
+    new_manifest.write_text(
+        '[package]\nname = "billing.contracts"\nversion = "1.0.0"\n\n'
+        '[exports]\ndeclarations = ["billing.Customer@1"]\n',
+        encoding="utf-8",
+    )
+    snapshot_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(old_source), snapshot_dir, package_manifest_path=old_manifest)
+    migration = tmp_path / "migration.json"
+    migration.write_text(
+        json.dumps(
+            {
+                "$schema": "modelable.migration/v1",
+                "mappings": [
+                    {
+                        "kind": "move",
+                        "sources": ["customer.Customer@1"],
+                        "targets": ["billing.Customer@1"],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    snapshot_diff = diff_workspace_snapshot(
+        load_workspace(new_source),
+        snapshot_dir,
+        package_manifest_path=new_manifest,
+        migration_path=migration,
+    )
+
+    assert snapshot_diff.packages == {
+        "added": ["billing.contracts@1.0.0"],
+        "removed": ["customer.contracts@1.0.0"],
+        "changed": [],
+    }
+    assert snapshot_diff.usage["consequences"] == [
+        {
+            "action": "consumer_update",
+            "subject": "billing.Customer@1",
+            "status": "required",
+            "reason": "explicit move migration mapping",
+            "causal_path": ["customer.Customer@1", "billing.Customer@1"],
+        }
+    ]
+
+
 def test_local_source_adapter_loads_explicit_imported_domain_from_mirror(tmp_path: Path) -> None:
     consumer = tmp_path / "consumer.mdl"
     consumer.write_text(
@@ -187,6 +397,134 @@ def test_resolve_writes_deterministic_lock_and_objects(tmp_path: Path) -> None:
     assert verify_snapshot(tmp_path / ".modelable") == []
     lock = json.loads(first.lock_path.read_text(encoding="utf-8"))
     assert [entry["identity"] for entry in lock["objects"]] == ["customer.Customer@1", "customer.Customer@2"]
+
+
+def test_resolve_snapshots_external_lifecycle_metadata(tmp_path: Path) -> None:
+    lifecycle = tmp_path / "lifecycle.json"
+    lifecycle.write_text(
+        json.dumps(
+            {
+                "$schema": "modelable.lifecycle/v1",
+                "entries": [
+                    {"identity": "customer.Customer@2", "state": "deprecated", "replacement": "customer.Customer@1"},
+                    {"identity": "customer.Customer@1", "state": "published"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable", lifecycle_path=lifecycle)
+
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    assert lock["lifecycle"]["entries"][0]["identity"] == "customer.Customer@1"
+    assert verify_snapshot(tmp_path / ".modelable") == []
+
+
+def test_resolve_rejects_lifecycle_regression_in_existing_snapshot(tmp_path: Path) -> None:
+    lifecycle = tmp_path / "lifecycle.json"
+    lifecycle.write_text(
+        json.dumps(
+            {
+                "$schema": "modelable.lifecycle/v1",
+                "entries": [{"identity": "customer.Customer@1", "state": "published"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / ".modelable"
+    workspace = load_workspace(FIXTURE)
+    resolve_workspace_snapshot(workspace, output, lifecycle_path=lifecycle)
+    lifecycle.write_text(
+        json.dumps(
+            {
+                "$schema": "modelable.lifecycle/v1",
+                "entries": [{"identity": "customer.Customer@1", "state": "candidate"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="cannot transition"):
+        resolve_workspace_snapshot(workspace, output, lifecycle_path=lifecycle)
+
+
+def test_diff_reports_lifecycle_state_changes(tmp_path: Path) -> None:
+    lifecycle = tmp_path / "lifecycle.json"
+    lifecycle.write_text(
+        json.dumps(
+            {
+                "$schema": "modelable.lifecycle/v1",
+                "entries": [{"identity": "customer.Customer@1", "state": "published"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / ".modelable"
+    workspace = load_workspace(FIXTURE)
+    resolve_workspace_snapshot(workspace, output, lifecycle_path=lifecycle)
+    lifecycle.write_text(
+        json.dumps(
+            {
+                "$schema": "modelable.lifecycle/v1",
+                "entries": [{"identity": "customer.Customer@1", "state": "deprecated"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    snapshot_diff = diff_workspace_snapshot(workspace, output, lifecycle_path=lifecycle)
+
+    assert snapshot_diff.lifecycle["changed"] == [
+        {"identity": "customer.Customer@1", "from": "published", "to": "deprecated"}
+    ]
+    assert {
+        "action": "consumer_update",
+        "subject": "customer.Customer@1",
+        "status": "required",
+        "reason": "declaration lifecycle state changed to deprecated",
+        "causal_path": ["customer.Customer@1"],
+    } in snapshot_diff.usage["consequences"]
+
+
+def test_diff_reports_new_lifecycle_reference_findings() -> None:
+    current = {
+        "objects": [{"identity": "orders.Order@1", "dependencies": ["customer.Customer@1"]}],
+        "lifecycle": {
+            "$schema": "modelable.lifecycle/v1",
+            "entries": [{"identity": "customer.Customer@1", "state": "published"}],
+        },
+    }
+    candidate = {
+        "objects": current["objects"],
+        "lifecycle": {
+            "$schema": "modelable.lifecycle/v1",
+            "entries": [{"identity": "customer.Customer@1", "state": "deprecated"}],
+        },
+    }
+
+    assert snapshot_module._new_lifecycle_references(current, candidate) == (
+        {"source": "orders.Order@1", "target": "customer.Customer@1", "state": "deprecated"},
+    )
+
+
+def test_migration_mapping_adds_consequence_for_affected_snapshot_identity() -> None:
+    mapping = {
+        "$schema": "modelable.migration/v1",
+        "mappings": [{"kind": "rename", "sources": ["legacy.Customer@1"], "targets": ["customer.Customer@1"]}],
+    }
+
+    consequences = snapshot_module._migration_consequences(mapping, {"customer.Customer@1"})
+
+    assert [item.as_dict() for item in consequences] == [
+        {
+            "action": "consumer_update",
+            "subject": "customer.Customer@1",
+            "status": "required",
+            "reason": "explicit rename migration mapping",
+            "causal_path": ["legacy.Customer@1", "customer.Customer@1"],
+        }
+    ]
 
 
 def test_resolve_uses_formal_modelable_lock_protocol(tmp_path: Path) -> None:
@@ -1311,6 +1649,29 @@ def test_registry_cli_resolve_and_verify_json(tmp_path: Path) -> None:
     assert json.loads(verified.output) == {"valid": True, "errors": []}
 
 
+def test_registry_cli_resolve_persists_lifecycle_metadata(tmp_path: Path) -> None:
+    lifecycle = tmp_path / "lifecycle.json"
+    lifecycle.write_text(
+        json.dumps(
+            {
+                "$schema": "modelable.lifecycle/v1",
+                "entries": [{"identity": "customer.Customer@1", "state": "published"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+
+    result = CliRunner().invoke(
+        cli,
+        ["registry", "resolve", str(FIXTURE), "--out", str(output_dir), "--lifecycle", str(lifecycle)],
+    )
+
+    assert result.exit_code == 0, result.output
+    lock = json.loads((output_dir / "registry.lock").read_text(encoding="utf-8"))
+    assert lock["lifecycle"]["entries"] == [{"identity": "customer.Customer@1", "state": "published"}]
+
+
 def test_registry_cli_resolve_git_preserves_git_provenance(tmp_path: Path) -> None:
     repository = tmp_path / "contracts"
     repository.mkdir()
@@ -1905,6 +2266,41 @@ def test_configured_policy_blocks_error_severity_for_pii_change() -> None:
     assert evaluation.blocked_actions == ("governance_review",)
     assert evaluation.findings[0].severity == "error"
     assert evaluation.as_dict()["findings"][0]["severity"] == "error"
+
+
+def test_configured_policy_reports_lifecycle_reference_at_warning_severity() -> None:
+    evaluation = ConfiguredRegistryPolicy(
+        lifecycle_reference_severity="warning",
+    ).evaluate(
+        SnapshotDiff(
+            added=(),
+            removed=(),
+            changed=(),
+            lifecycle_references=(
+                {"source": "orders.Order@1", "target": "customer.Customer@1", "state": "deprecated"},
+            ),
+        )
+    )
+
+    assert evaluation.blocked_actions == ()
+    assert evaluation.findings[0].action == "governance_review"
+    assert evaluation.findings[0].severity == "warning"
+    assert evaluation.findings[0].causal_path == ("orders.Order@1", "customer.Customer@1")
+
+
+def test_configured_policy_blocks_error_severity_for_lifecycle_reference() -> None:
+    evaluation = ConfiguredRegistryPolicy(
+        lifecycle_reference_severity="error",
+    ).evaluate(
+        SnapshotDiff(
+            added=(),
+            removed=(),
+            changed=(),
+            lifecycle_references=({"source": "orders.Order@1", "target": "customer.Customer@1", "state": "retired"},),
+        )
+    )
+
+    assert evaluation.blocked_actions == ("governance_review",)
 
 
 def test_configured_policy_does_not_infer_pii_from_reason_text() -> None:

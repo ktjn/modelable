@@ -115,4 +115,4 @@ def _refs_from_expression(
 
 
 def _source_ref(resolved: ResolvedModelRef) -> str:
-    return f"{resolved.domain_name}.{resolved.model_name}@{resolved.version.version}"
+    return resolved.identity

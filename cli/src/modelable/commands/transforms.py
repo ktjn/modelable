@@ -10,8 +10,13 @@ from modelable.commands.common import console, load_workspace_or_exit
 from modelable.compat.checker import check_model_version_compatibility
 from modelable.conversion import build_conversion_plans
 from modelable.llm.context import parse_model_ref_version_spec
-from modelable.migration import build_migration_facts
-from modelable.registry.resolver import resolve_model_ref
+from modelable.migration import (
+    MigrationError,
+    build_migration_facts,
+    load_migration,
+    serialize_migration,
+)
+from modelable.registry.resolver import resolve_declaration
 
 
 def register_transform_commands(cli_group: click.Group) -> None:
@@ -39,6 +44,29 @@ def migration() -> None:
     """Produce non-executable migration facts."""
 
 
+@migration.command("validate")
+@click.argument("path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+def migration_validate(path: Path) -> None:
+    """Validate external modelable.migration/v1 metadata."""
+    try:
+        document = load_migration(path)
+    except MigrationError as exc:
+        console.print(f"[red]ERROR[/red] {exc}")
+        raise click.exceptions.Exit(1) from exc
+    click.echo(f"valid: true\nschema: {document['$schema']}\nmappings: {len(document['mappings'])}")
+
+
+@migration.command("inspect")
+@click.argument("path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+def migration_inspect(path: Path) -> None:
+    """Print canonical external modelable.migration/v1 metadata."""
+    try:
+        click.echo(serialize_migration(load_migration(path)), nl=False)
+    except MigrationError as exc:
+        console.print(f"[red]ERROR[/red] {exc}")
+        raise click.exceptions.Exit(1) from exc
+
+
 @migration.command("plan")
 @click.option("--from", "from_ref", required=True)
 @click.option("--to", "to_ref", required=True)
@@ -52,10 +80,21 @@ def migration_plan(from_ref: str, to_ref: str, source: Path, output_format: str)
         to_domain, to_name, to_spec = parse_model_ref_version_spec(to_ref)
         if (from_domain, from_name) != (to_domain, to_name):
             raise ValueError("migration plan requires refs from the same model")
-        old = resolve_model_ref(workspace.mdl, f"{from_domain}.{from_name}", from_spec)
-        new = resolve_model_ref(workspace.mdl, f"{to_domain}.{to_name}", to_spec)
+        allowed_kinds = frozenset({"model", "projection"})
+        old = resolve_declaration(
+            workspace.mdl,
+            f"{from_domain}.{from_name}",
+            from_spec,
+            allowed_kinds=allowed_kinds,
+        )
+        new = resolve_declaration(
+            workspace.mdl,
+            f"{to_domain}.{to_name}",
+            to_spec,
+            allowed_kinds=allowed_kinds,
+        )
         report = check_model_version_compatibility(
-            workspace.mdl, from_domain, from_name, old.version.version, new.version.version
+            workspace.mdl, from_domain, from_name, old.version_number, new.version_number
         )
         facts = build_migration_facts(workspace, report)
     except (LookupError, ValueError) as exc:

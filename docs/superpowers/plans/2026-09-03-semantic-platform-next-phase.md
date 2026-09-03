@@ -66,13 +66,13 @@ Slices may run in parallel only when these dependencies are satisfied.
 **Outcome:** Entity, aggregate, event, value, enum, semantic type, and projection share one normalized declaration abstraction for common behavior.
 
 - [ ] Inventory remaining declaration-kind-specific resolution/version/identity code.
-- [ ] Define the stable internal `DeclarationId`, `DeclarationVersion`, `DeclarationReference`, and common member/field views.
+- [x] Define the stable internal `DeclarationId`, `DeclarationVersion`, `DeclarationReference`, and common member/field views.
 - [ ] Move generic version selection and reference resolution behind the common declaration boundary.
 - [ ] Move common lineage/deprecation/documentation/ownership handling behind the same boundary.
 - [ ] Keep kind-specific semantic rules explicit through capabilities rather than large type-conditionals.
 - [ ] Remove legacy wrappers once all internal consumers use the common view.
-- [ ] Add regression tests proving equivalent resolution behavior across declaration kinds.
-- [ ] Add conformance scenarios covering entity, value, enum, semantic type, and projection lookup through one path.
+- [x] Add regression tests proving equivalent resolution behavior across declaration kinds.
+- [x] Add conformance scenarios covering entity, value, enum, semantic type, and projection lookup through one path.
 
 ### Acceptance
 
@@ -184,15 +184,15 @@ entity OrderLine @ 1 (additive) {
 }
 ```
 
-- [ ] Specify ordered key semantics and canonical ordering.
-- [ ] Update validation from exactly one key to one-or-more keys for entity/aggregate.
-- [ ] Keep declaration identity as `<domain>.<declaration>@<version>`; never embed instance key values in semantic paths.
-- [ ] Update `primary`/index validation to match the ordered key set.
-- [ ] Define compatibility rules for add/remove/reorder/type-change of key components.
+- [x] Specify ordered key semantics and canonical ordering.
+- [x] Update validation from exactly one key to one-or-more keys for entity/aggregate.
+- [x] Keep declaration identity as `<domain>.<declaration>@<version>`; never embed instance key values in semantic paths.
+- [x] Update `primary`/index validation to match the ordered key set.
+- [x] Define compatibility rules for add/remove/reorder/type-change of key components.
 - [ ] Update `plan/v1` additively if key structure is not already representable.
-- [ ] Update relevant emitters through capability negotiation; unsupported targets must fail explicitly.
-- [ ] Add SQL/JSON Schema/OpenAPI/Protobuf representative conformance.
-- [ ] Add browser/native parity fixtures.
+- [x] Update relevant emitters through capability negotiation; unsupported targets must fail explicitly.
+- [x] Add SQL/JSON Schema/OpenAPI/Protobuf representative conformance.
+- [x] Add browser/native parity fixtures.
 
 ### Acceptance
 
@@ -212,14 +212,14 @@ Proposed states:
 candidate -> published -> deprecated -> retired
 ```
 
-- [ ] Specify lifecycle states and allowed transitions.
-- [ ] Define whether lifecycle is package-scoped, registry-snapshot-scoped, or both.
-- [ ] Define replacement links using canonical declaration identities.
-- [ ] Keep lifecycle metadata out of semantic signatures unless a concrete invariant requires otherwise.
-- [ ] Add policy checks for new references to deprecated/retired declarations.
-- [ ] Add query/CLI output for lifecycle state and replacement.
-- [ ] Define consequence actions for deprecation and retirement.
-- [ ] Add deterministic snapshot/lock representation where lifecycle affects build admission.
+- [x] Specify lifecycle states and allowed transitions.
+- [x] Define lifecycle as explicit registry-snapshot metadata, with package metadata able to supply it later.
+- [x] Define replacement links using canonical declaration identities.
+- [x] Keep lifecycle metadata out of semantic signatures unless a concrete invariant requires otherwise.
+- [x] Add policy checks for new references to deprecated/retired declarations.
+- [x] Add query/CLI output for lifecycle state and replacement.
+- [x] Define consequence actions for deprecation and retirement.
+- [x] Add deterministic snapshot/lock representation where lifecycle affects build admission.
 
 ### Acceptance
 
@@ -233,18 +233,19 @@ A declaration can be deprecated or retired without editing its immutable `.mdl` 
 
 WASM is the first external execution mechanism. Subprocess execution can follow using the same logical request/result protocol.
 
-- [ ] Specify a minimal `modelable.extension-host/v1` request/result protocol.
-- [ ] Use `modelable.plan/v1` as the semantic input; extensions must not import parser/internal compiler classes.
-- [ ] Define artifact outputs, diagnostics, compatibility findings, and structured failures.
-- [ ] Define deterministic configuration input and overlay handoff.
-- [ ] Require exact extension id/version/hash/provenance pins.
-- [ ] Require explicit trust/enablement; never auto-execute merely discovered binaries/modules.
-- [ ] Default to no network and no ambient filesystem.
-- [ ] Expose only declared input/output directories or virtual files.
-- [ ] Define CPU/memory/output limits and deterministic timeout/failure behavior.
-- [ ] Implement a reference extension outside the compiler package.
+- [x] Specify a minimal `modelable.extension-host/v1` request/result protocol.
+- [x] Use `modelable.plan/v1` as the semantic input; extensions must not import parser/internal compiler classes.
+- [x] Define artifact outputs, diagnostics, compatibility findings, and structured failures.
+- [x] Define deterministic configuration input as canonical JSON.
+- [ ] Define target overlay handoff separately from extension configuration.
+- [x] Require exact extension id/version/hash/provenance pins.
+- [x] Require explicit trust/enablement; never auto-execute merely discovered binaries/modules.
+- [x] Default to no network and no ambient filesystem.
+- [x] Expose only declared virtual UTF-8 input files and returned artifacts.
+- [x] Define CPU/memory/output limits and deterministic timeout/failure behavior.
+- [x] Implement a reference extension outside the compiler package.
 - [ ] Run the same reference extension in native and browser hosts where WASM support permits.
-- [ ] Add malicious/invalid module tests: wrong protocol, excessive output, undeclared access, hash mismatch.
+- [x] Add malicious/invalid module tests: wrong protocol, excessive output, undeclared access, hash mismatch.
 - [ ] Add subprocess host only after the WASM protocol is proven, reusing the same descriptor and result model.
 
 ### Acceptance
@@ -270,16 +271,16 @@ changes(from, to)
 consequences(from, to)
 ```
 
-- [ ] Define query request/response envelopes and canonical identity usage.
-- [ ] Define pagination/limits for potentially large graph responses.
-- [ ] Define structured graph node/edge representation reusable across query families.
-- [ ] Define deterministic ordering for every response.
-- [ ] Keep the first version read-only.
+- [x] Define query request/response envelopes and canonical identity usage.
+- [x] Define pagination/limits for potentially large graph responses.
+- [x] Define structured graph node/edge representation reusable across query families.
+- [x] Define deterministic ordering for every response.
+- [x] Keep the first version read-only.
 - [ ] Implement an in-process service consumed by CLI and LSP.
-- [ ] Add JSON/stdio transport suitable for MCP/agent bridges.
-- [ ] Add browser transport over the same semantic service.
-- [ ] Add protocol schema and golden fixtures.
-- [ ] Add compatibility rules for additive query protocol evolution.
+- [x] Add JSON/stdio transport suitable for MCP/agent bridges.
+- [x] Add browser transport over the same semantic service.
+- [x] Add protocol schema and golden fixtures.
+- [x] Add compatibility rules for additive query protocol evolution.
 
 ### Acceptance
 
@@ -302,14 +303,14 @@ Required transformations to model:
 - declaration merge;
 - source declaration replaced by projection/value/semantic declaration.
 
-- [ ] Define migration mapping identifiers using canonical declaration/path identities.
-- [ ] Define one-to-one, one-to-many, and many-to-one lineage edges.
-- [ ] Preserve both immediate and ultimate source lineage.
-- [ ] Feed mapping edges into change and consequence graphs.
-- [ ] Distinguish semantic rename/move evidence from heuristic structural similarity.
-- [ ] Add validation against dangling, cyclic, and ambiguous mappings.
-- [ ] Add CLI tooling to inspect and validate mappings.
-- [ ] Add cross-package rename/move scenarios after package identity is stable.
+- [x] Define migration mapping identifiers using canonical declaration/path identities.
+- [x] Define one-to-one, one-to-many, and many-to-one lineage edges.
+- [x] Preserve both immediate and ultimate source lineage.
+- [x] Feed mapping edges into change and consequence graphs.
+- [x] Distinguish semantic rename/move evidence from heuristic structural similarity.
+- [x] Add validation against dangling, cyclic, and ambiguous mappings.
+- [x] Add CLI tooling to inspect and validate mappings.
+- [x] Add cross-package rename/move scenarios after package identity is stable.
 
 ### Acceptance
 
@@ -334,13 +335,13 @@ targets = ["openapi"]
 require_backward = true
 ```
 
-- [ ] Specify profile schema and deterministic inheritance/composition rules, if any.
-- [ ] Bind profiles at package/workspace/CI configuration boundaries rather than declaration grammar initially.
-- [ ] Evaluate profiles over semantic changes + target compatibility + known usage evidence.
-- [ ] Emit one structured profile result with causal links to underlying findings.
-- [ ] Feed profile failures into consequence actions.
-- [ ] Add CLI selection and CI-friendly exit behavior.
-- [ ] Add tests for backward-only, forward-only, full, and target-specific profiles.
+- [x] Specify profile schema and deterministic inheritance/composition rules, if any.
+- [x] Bind profiles at the explicit CLI/policy boundary; package/workspace binding remains open.
+- [x] Evaluate profiles over semantic changes + target compatibility + known usage evidence.
+- [x] Emit one structured profile result with causal links to underlying findings.
+- [x] Feed profile failures into consequence actions.
+- [x] Add CLI selection and CI-friendly exit behavior.
+- [x] Add tests for backward-only, forward-only, full, and target-specific profiles.
 
 ### Acceptance
 

@@ -20,7 +20,7 @@ SCENARIOS: dict[str, tuple[str, ...]] = {
     "single-valid": ("single-valid.mdl",),
     "sql-index": ("sql-index.mdl",),
 }
-VALID_SCENARIOS = {"multi-domain", "single-valid"}
+VALID_SCENARIOS = {"composite-key", "multi-domain", "single-valid"}
 
 
 def _json_value(value: object) -> Any:

@@ -7,9 +7,20 @@ from click.testing import CliRunner
 
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
-from modelable.registry.usage import aggregate_usage_graph, build_usage_graph, build_usage_manifest
+from modelable.registry.usage import (
+    _resolve_source_ref,
+    aggregate_usage_graph,
+    build_usage_graph,
+    build_usage_manifest,
+)
 
 FIXTURE = Path(__file__).parent / "fixtures" / "customer.mdl"
+
+
+def test_resolve_source_ref_uses_common_declaration_identity() -> None:
+    workspace = load_workspace(FIXTURE)
+
+    assert _resolve_source_ref(workspace, "customer.Customer", 2) == "customer.Customer@2"
 
 
 def test_usage_graph_contains_exact_model_signatures() -> None:

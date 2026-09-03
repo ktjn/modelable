@@ -10,7 +10,7 @@ from modelable.compiler.render import render_model_version, render_projection_ve
 from modelable.llm.context import parse_model_ref_version_spec
 from modelable.parser.ir import VersionSpec
 from modelable.planner.lineage import build_projection_lineage
-from modelable.registry.resolver import resolve_model_ref
+from modelable.registry.resolver import resolve_declaration
 
 
 def register_workspace_commands(cli_group: click.Group) -> None:
@@ -44,7 +44,12 @@ def resolve(ref: str, path: Path) -> None:
 
     try:
         domain_name, name, version_spec = parse_model_ref_version_spec(ref)
-        resolved = resolve_model_ref(workspace.mdl, domain_name + "." + name, version_spec)
+        resolved = resolve_declaration(
+            workspace.mdl,
+            domain_name + "." + name,
+            version_spec,
+            allowed_kinds=frozenset({"model", "projection"}),
+        )
     except (ValueError, LookupError) as exc:
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)
@@ -54,25 +59,25 @@ def resolve(ref: str, path: Path) -> None:
         console.print(f"[red]ERROR[/red] domain '{resolved.domain_name}' not found.")
         sys.exit(1)
 
-    model_versions = domain.models.get(resolved.model_name, [])
-    model_version = next((version for version in model_versions if version.version == resolved.version.version), None)
+    model_versions = domain.models.get(resolved.name, [])
+    model_version = next((version for version in model_versions if version.version == resolved.version_number), None)
     if model_version is not None:
         console.print(
-            render_model_version(domain.name, resolved.model_name, model_version, domain.owner, domain.description),
+            render_model_version(domain.name, resolved.name, model_version, domain.owner, domain.description),
             end="",
         )
         sys.exit(0)
 
-    projection_versions = domain.projections.get(resolved.model_name, [])
+    projection_versions = domain.projections.get(resolved.name, [])
     projection_version = next(
-        (version for version in projection_versions if version.version == resolved.version.version),
+        (version for version in projection_versions if version.version == resolved.version_number),
         None,
     )
     if projection_version is not None:
         console.print(
             render_projection_version(
                 domain.name,
-                resolved.model_name,
+                resolved.name,
                 projection_version,
                 domain.owner,
                 domain.description,
@@ -94,7 +99,12 @@ def lineage(ref: str, path: Path) -> None:
 
     try:
         domain_name, name, version_spec = parse_model_ref_version_spec(ref)
-        resolved = resolve_model_ref(workspace.mdl, domain_name + "." + name, version_spec)
+        resolved = resolve_declaration(
+            workspace.mdl,
+            domain_name + "." + name,
+            version_spec,
+            allowed_kinds=frozenset({"model", "projection"}),
+        )
     except (ValueError, LookupError) as exc:
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)
@@ -104,13 +114,13 @@ def lineage(ref: str, path: Path) -> None:
         console.print(f"[red]ERROR[/red] domain '{resolved.domain_name}' not found.")
         sys.exit(1)
 
-    model_versions = domain.models.get(resolved.model_name, [])
+    model_versions = domain.models.get(resolved.name, [])
     model_version = next(
-        (version for version in model_versions if version.version == resolved.version.version),
+        (version for version in model_versions if version.version == resolved.version_number),
         None,
     )
     if model_version is not None:
-        console.print(f"{domain.name}.{resolved.model_name}@{model_version.version}")
+        console.print(f"{domain.name}.{resolved.name}@{model_version.version}")
         console.print(f"kind: {model_version.model_kind.value}")
         for field in model_version.fields:
             flags = []
@@ -124,14 +134,14 @@ def lineage(ref: str, path: Path) -> None:
             console.print(f"- {field.name}: {field.type.kind}{suffix}", markup=False)
         sys.exit(0)
 
-    projection_versions = domain.projections.get(resolved.model_name, [])
+    projection_versions = domain.projections.get(resolved.name, [])
     projection_version = next(
-        (version for version in projection_versions if version.version == resolved.version.version),
+        (version for version in projection_versions if version.version == resolved.version_number),
         None,
     )
     if projection_version is not None:
-        lineage = build_projection_lineage(domain.name, resolved.model_name, projection_version, workspace.mdl)
-        console.print(f"{domain.name}.{resolved.model_name}@{projection_version.version}")
+        lineage = build_projection_lineage(domain.name, resolved.name, projection_version, workspace.mdl)
+        console.print(f"{domain.name}.{resolved.name}@{projection_version.version}")
         console.print(
             f"source: {projection_version.source.model} @ {render_version_spec(projection_version.source.version)} as {projection_version.source.alias}"
         )
@@ -177,12 +187,17 @@ def inspect(ref: str, auto: bool, path: Path) -> None:
         sys.exit(1)
 
     try:
-        resolved = resolve_model_ref(workspace.mdl, domain_name + "." + model_name, version_spec)
+        resolved = resolve_declaration(
+            workspace.mdl,
+            domain_name + "." + model_name,
+            version_spec,
+            allowed_kinds=frozenset({"model", "projection"}),
+        )
     except LookupError as exc:
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)
 
-    version = resolved.version.version
+    version = resolved.version_number
 
     if auto:
         model_versions = domain.models.get(model_name)

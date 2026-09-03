@@ -13,7 +13,7 @@ from modelable.language.scanning import word_at as _word_at
 from modelable.language.workspace import LanguageWorkspace
 from modelable.llm.context import parse_model_ref
 from modelable.parser.ir import JoinRef, ModelVersion, ProjectionVersion, SourceRef
-from modelable.registry.resolver import resolve_model_ref
+from modelable.registry.resolver import resolve_declaration
 
 _QUALIFIED_REF_PATTERN = re.compile(
     r"(?P<domain>[A-Za-z_][A-Za-z0-9_]*)\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
@@ -201,18 +201,19 @@ def _references_for_field_reference(
         if source_ref.alias != alias:
             continue
         try:
-            resolved = resolve_model_ref(
+            resolved = resolve_declaration(
                 workspace.mdl,
                 source_ref.model,
                 source_ref.version,
+                allowed_kinds=frozenset({"model", "projection"}),
             )
         except LookupError:
             continue
         return _references_for_source_field(
             workspace,
             resolved.domain_name,
-            resolved.model_name,
-            resolved.version.version,
+            resolved.name,
+            resolved.version_number,
             field_name,
             include_declaration,
         )

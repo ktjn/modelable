@@ -14,23 +14,26 @@ from modelable.registry.sources import SourceAdapter
 console = Console()
 
 
-def load_workspace_or_exit(path: Path, *, source_adapter: SourceAdapter | None = None) -> Any:
+def load_workspace_or_exit(
+    path: Path, *, source_adapter: SourceAdapter | None = None, output_console: Console | None = None
+) -> Any:
+    output = output_console or console
     try:
         workspace = source_adapter.load(path) if source_adapter is not None else load_workspace(path)
     except FileNotFoundError:
-        console.print("[yellow]No .mdl files found.[/yellow]")
+        output.print("[yellow]No .mdl files found.[/yellow]")
         sys.exit(0)
     except ParseError as exc:
-        console.print(f"[red]ERROR[/red] {render_diagnostic(exc.diagnostic(path=str(path)))}")
+        output.print(f"[red]ERROR[/red] {render_diagnostic(exc.diagnostic(path=str(path)))}")
         sys.exit(1)
 
     if workspace.errors:
         for diagnostic in workspace.errors:
-            console.print(f"[red]ERROR[/red] {render_diagnostic(diagnostic)}", soft_wrap=True)
+            output.print(f"[red]ERROR[/red] {render_diagnostic(diagnostic)}", soft_wrap=True)
         sys.exit(1)
 
     for diagnostic in workspace.warnings:
-        console.print(f"[yellow]WARNING[/yellow] {render_diagnostic(diagnostic)}", soft_wrap=True)
+        output.print(f"[yellow]WARNING[/yellow] {render_diagnostic(diagnostic)}", soft_wrap=True)
 
     return workspace
 

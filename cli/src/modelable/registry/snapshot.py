@@ -63,6 +63,22 @@ from modelable.consequence import (
 from modelable.consequence_protocol import validate_consequence_graph
 from modelable.emitters.base import EmittedArtifact
 from modelable.extensions import ExtensionDescriptorError, ExtensionPin, parse_extension_pin, validate_extension_pin
+from modelable.lifecycle import (
+    LifecycleError,
+    find_lifecycle_reference_findings,
+    load_lifecycle,
+    parse_lifecycle_document,
+    validate_lifecycle_transition,
+)
+from modelable.migration import load_migration, migration_edges, validate_migration_references
+from modelable.package_manifest import (
+    _EXPORT_WILDCARD,
+    PackageManifest,
+    load_package_manifest,
+    normalize_package_manifest,
+    package_version_satisfies,
+    resolve_package_manifests,
+)
 from modelable.parser.ir import (
     ArrayType,
     DomainDef,
@@ -140,6 +156,10 @@ class SnapshotDiff:
     changed: tuple[str, ...]
     dependencies: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     usage: dict[str, Any] = field(default_factory=dict)
+    packages: dict[str, list[str]] = field(default_factory=dict)
+    lifecycle: dict[str, list[dict[str, str]]] = field(default_factory=dict)
+    lifecycle_references: tuple[dict[str, str], ...] = ()
+    package_compatibility: tuple[dict[str, Any], ...] = ()
 
     @property
     def empty(self) -> bool:
@@ -148,6 +168,10 @@ class SnapshotDiff:
             and not self.removed
             and not self.changed
             and not any(self.dependencies.values())
+            and not any(self.packages.values())
+            and not any(self.lifecycle.values())
+            and not self.lifecycle_references
+            and not self.package_compatibility
             and not any(isinstance(category, dict) and any(category.values()) for category in self.usage.values())
         )
 
@@ -157,6 +181,10 @@ class SnapshotDiff:
             "removed": list(self.removed),
             "changed": list(self.changed),
             "dependencies": self.dependencies,
+            "packages": self.packages,
+            "lifecycle": self.lifecycle,
+            "lifecycle_references": list(self.lifecycle_references),
+            "package_compatibility": list(self.package_compatibility),
             "usage": self.usage,
             "empty": self.empty,
         }
@@ -244,6 +272,7 @@ class ConfiguredRegistryPolicy:
 
     blocked_actions: tuple[str, ...] = ()
     pii_change_severity: str = "off"
+    lifecycle_reference_severity: str = "off"
 
     def evaluate(self, snapshot_diff: SnapshotDiff) -> PolicyEvaluation:
         base = BlockedActionPolicy(self.blocked_actions).evaluate(snapshot_diff)
@@ -267,8 +296,23 @@ class ConfiguredRegistryPolicy:
                     )
                 )
         findings.extend(pii_findings)
+        lifecycle_findings = []
+        if self.lifecycle_reference_severity != "off":
+            lifecycle_findings = [
+                PolicyFinding(
+                    action="governance_review",
+                    status="required",
+                    severity=self.lifecycle_reference_severity,
+                    reason=(f"{reference['source']} references {reference['state']} declaration {reference['target']}"),
+                    causal_path=(reference["source"], reference["target"]),
+                )
+                for reference in snapshot_diff.lifecycle_references
+            ]
+        findings.extend(lifecycle_findings)
         blocked = set(base.blocked_actions)
         if self.pii_change_severity == "error" and pii_findings:
+            blocked.add("governance_review")
+        if self.lifecycle_reference_severity == "error" and lifecycle_findings:
             blocked.add("governance_review")
         findings.sort(key=lambda finding: (finding.action, finding.status, finding.reason or "", finding.causal_path))
         return PolicyEvaluation(blocked_actions=tuple(sorted(blocked)), findings=tuple(findings))
@@ -284,6 +328,9 @@ def resolve_workspace_snapshot(
     allow_mutable_identity_replacements: bool = False,
     artifact_manifests: Sequence[Mapping[str, Any]] = (),
     usage_manifest: Mapping[str, Any] | None = None,
+    package_manifest_path: str | Path | None = None,
+    package_manifest_paths: Sequence[str | Path] = (),
+    lifecycle_path: str | Path | None = None,
 ) -> SnapshotResult:
     """Write a deterministic, content-addressed snapshot of a validated workspace.
 
@@ -297,6 +344,12 @@ def resolve_workspace_snapshot(
     paths = SnapshotPaths(Path(output_dir))
     paths.root.mkdir(parents=True, exist_ok=True)
     paths.objects.mkdir(parents=True, exist_ok=True)
+    manifest_paths = tuple(Path(path) for path in package_manifest_paths)
+    if package_manifest_path is not None:
+        manifest_paths = (*manifest_paths, Path(package_manifest_path))
+    existing_lock = _load_lock_payload(paths.lock)
+    if not manifest_paths and existing_lock.get("packages"):
+        raise ValueError("existing registry lock contains packages; pass --package-manifest explicitly")
     if enum_numbers_path is None:
         enum_numbers_path = _default_enum_numbers_path(workspace)
     if registry_ids_path is None:
@@ -368,6 +421,15 @@ def resolve_workspace_snapshot(
         _verify_usage_evidence(snapshot_usage, entries, usage_errors)
         if usage_errors:
             raise ValueError(usage_errors[0])
+    lifecycle = None
+    if lifecycle_path is not None:
+        try:
+            lifecycle = load_lifecycle(lifecycle_path)
+            _validate_lifecycle_snapshot(lifecycle, existing_lock.get("lifecycle"), entries)
+        except LifecycleError as exc:
+            raise ValueError(str(exc)) from exc
+    elif "lifecycle" in existing_lock:
+        raise ValueError("existing registry lock contains lifecycle metadata; pass --lifecycle explicitly")
     lock = {
         "format": LOCK_FORMAT,
         "extensions": canonical_pins,
@@ -386,6 +448,27 @@ def resolve_workspace_snapshot(
             ),
         },
     }
+    if lifecycle is not None:
+        lock["lifecycle"] = lifecycle
+    if manifest_paths:
+        try:
+            loaded_manifests = tuple(load_package_manifest(path) for path in manifest_paths)
+            resolution = resolve_package_manifests(loaded_manifests)
+            paths_by_identity = {
+                f"{manifest.identity.name}@{manifest.identity.version}": path
+                for manifest, path in zip(loaded_manifests, manifest_paths, strict=True)
+            }
+            lock["packages"] = [
+                _build_package_lock_entry(
+                    manifest,
+                    paths_by_identity[f"{manifest.identity.name}@{manifest.identity.version}"],
+                    entries,
+                    resolution.dependencies[f"{manifest.identity.name}@{manifest.identity.version}"],
+                )
+                for manifest in resolution.manifests
+            ]
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
     _atomic_write_json(paths.lock, lock)
     identities = tuple(str(entry["identity"]) for entry in entries)
     return SnapshotResult(paths.lock, len(entries), identities)
@@ -410,6 +493,14 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
     errors: list[str] = []
     if serialization_error:
         errors.append("registry lock is not deterministically serialized")
+    lifecycle = lock.get("lifecycle")
+    lifecycle_identities: set[str] = set()
+    if lifecycle is not None:
+        try:
+            lifecycle = parse_lifecycle_document(lifecycle)
+            lifecycle_identities = {entry["identity"] for entry in lifecycle["entries"]}
+        except LifecycleError as exc:
+            errors.append(f"invalid registry lifecycle metadata: {exc}")
     usage_source = lock.get("usage_source", "derived")
     if usage_source not in {"compiled", "derived"}:
         errors.append("registry lock usage_source must be 'compiled' or 'derived'")
@@ -518,6 +609,15 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
                     if actual_source_hash != expected_source_hash:
                         errors.append(f"registry source drift for {identity}: found {actual_source_hash}")
     _verify_usage_evidence(lock.get("usage"), objects, errors)
+    if lifecycle_identities:
+        object_identities = {
+            str(entry["identity"])
+            for entry in objects
+            if isinstance(entry, dict) and isinstance(entry.get("identity"), str)
+        }
+        for identity in sorted(lifecycle_identities - object_identities):
+            errors.append(f"registry lifecycle metadata references unknown identity {identity}")
+    _verify_package_entries(lock.get("packages"), objects, errors)
     _verify_generation_fingerprints(lock.get("generation", []), errors)
     _verify_allocations(lock.get("allocations"), errors, registry_declarations, enum_declarations)
     requirements = lock.get("requirements")
@@ -585,6 +685,42 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
                     errors.append("registry lock requirements do not match object dependency edges")
     _verify_imports(lock.get("imports", []), errors)
     return errors
+
+
+def _validate_lifecycle_snapshot(
+    lifecycle: dict[str, Any],
+    previous: object,
+    objects: list[dict[str, Any]],
+) -> None:
+    """Validate lifecycle identities and monotonic updates for a new lock."""
+    object_identities = {str(entry["identity"]) for entry in objects if isinstance(entry.get("identity"), str)}
+    current_entries = {entry["identity"]: entry for entry in lifecycle["entries"]}
+    unknown = sorted(set(current_entries) - object_identities)
+    if unknown:
+        raise LifecycleError(f"lifecycle metadata references unknown identity {unknown[0]!r}")
+    if previous is None:
+        return
+    old = parse_lifecycle_document(previous)
+    old_entries = {entry["identity"]: entry for entry in old["entries"]}
+    missing = sorted(set(old_entries) - set(current_entries))
+    if missing:
+        raise LifecycleError(f"lifecycle metadata cannot remove existing identity {missing[0]!r}")
+    for identity, old_entry in old_entries.items():
+        validate_lifecycle_transition(old_entry["state"], current_entries[identity]["state"])
+
+
+def _validate_lifecycle_update_input(
+    paths: SnapshotPaths,
+    existing_lock: Mapping[str, Any],
+    lifecycle_path: str | Path | None,
+) -> None:
+    if lifecycle_path is None or existing_lock.get("lifecycle") is None:
+        return
+    try:
+        lifecycle = load_lifecycle(lifecycle_path)
+        _validate_lifecycle_snapshot(lifecycle, existing_lock["lifecycle"], _load_lock_entries(paths.lock))
+    except LifecycleError as exc:
+        raise ValueError(str(exc)) from exc
 
 
 def _generation_fingerprints(manifests: Sequence[Mapping[str, Any]]) -> list[dict[str, str]]:
@@ -975,16 +1111,27 @@ def diff_workspace_snapshot(
     output_dir: str | Path = ".modelable",
     *,
     artifact_manifests: Sequence[Mapping[str, Any]] = (),
+    package_manifest_path: str | Path | None = None,
+    package_manifest_paths: Sequence[str | Path] = (),
+    lifecycle_path: str | Path | None = None,
+    migration_path: str | Path | None = None,
 ) -> SnapshotDiff:
     """Compare a validated workspace with the current local snapshot offline."""
+    existing_lock = _load_lock_payload(SnapshotPaths(Path(output_dir)).lock)
+    if package_manifest_path is None and not package_manifest_paths and existing_lock.get("packages"):
+        raise ValueError("existing registry lock contains packages; pass --package-manifest explicitly")
     with tempfile.TemporaryDirectory(prefix="modelable-registry-diff-") as temporary:
         candidate = resolve_workspace_snapshot(
             workspace,
             temporary,
             allow_mutable_identity_replacements=True,
             artifact_manifests=artifact_manifests,
+            package_manifest_path=package_manifest_path,
+            package_manifest_paths=package_manifest_paths,
+            lifecycle_path=lifecycle_path,
         )
-        return diff_snapshot_paths(Path(output_dir), candidate.lock_path.parent)
+        migration = load_migration(Path(migration_path)) if migration_path is not None else None
+        return diff_snapshot_paths(Path(output_dir), candidate.lock_path.parent, migration=migration)
 
 
 def preview_workspace_snapshot(
@@ -992,10 +1139,18 @@ def preview_workspace_snapshot(
     output_dir: str | Path = ".modelable",
     *,
     artifact_manifests: Sequence[Mapping[str, Any]] = (),
+    package_manifest_path: str | Path | None = None,
+    package_manifest_paths: Sequence[str | Path] = (),
+    lifecycle_path: str | Path | None = None,
+    migration_path: str | Path | None = None,
 ) -> tuple[SnapshotDiff, int]:
     """Resolve and validate an update candidate without changing durable state."""
     paths = SnapshotPaths(Path(output_dir))
+    existing_lock = _load_lock_payload(paths.lock)
+    if package_manifest_path is None and not package_manifest_paths and existing_lock.get("packages"):
+        raise ValueError("existing registry lock contains packages; pass --package-manifest explicitly")
     extension_pins = _load_snapshot_extension_pins(paths)
+    _validate_lifecycle_update_input(paths, existing_lock, lifecycle_path)
     with tempfile.TemporaryDirectory(prefix="modelable-registry-preview-") as temporary:
         candidate_dir = Path(temporary)
         candidate = resolve_workspace_snapshot(
@@ -1003,12 +1158,16 @@ def preview_workspace_snapshot(
             candidate_dir,
             extension_pins=extension_pins,
             artifact_manifests=artifact_manifests,
+            package_manifest_path=package_manifest_path,
+            package_manifest_paths=package_manifest_paths,
+            lifecycle_path=lifecycle_path,
         )
         candidate_errors = verify_snapshot(candidate_dir)
         if candidate_errors:
             raise ValueError("Candidate snapshot is invalid:\n" + "\n".join(candidate_errors))
         _reject_mutable_identity_replacements(paths.root, _load_lock_entries(SnapshotPaths(candidate_dir).lock))
-        return diff_snapshot_paths(paths.root, candidate_dir), candidate.object_count
+        migration = load_migration(Path(migration_path)) if migration_path is not None else None
+        return diff_snapshot_paths(paths.root, candidate_dir, migration=migration), candidate.object_count
 
 
 def update_workspace_snapshot(
@@ -1018,10 +1177,18 @@ def update_workspace_snapshot(
     blocked_actions: tuple[str, ...] = (),
     policy_evaluator: RegistryPolicyEvaluator | None = None,
     artifact_manifests: Sequence[Mapping[str, Any]] = (),
+    package_manifest_path: str | Path | None = None,
+    package_manifest_paths: Sequence[str | Path] = (),
+    lifecycle_path: str | Path | None = None,
+    migration_path: str | Path | None = None,
 ) -> tuple[SnapshotResult, SnapshotDiff]:
     """Stage and atomically install a validated local snapshot candidate."""
     paths = SnapshotPaths(Path(output_dir))
+    existing_lock = _load_lock_payload(paths.lock)
+    if package_manifest_path is None and not package_manifest_paths and existing_lock.get("packages"):
+        raise ValueError("existing registry lock contains packages; pass --package-manifest explicitly")
     extension_pins = _load_snapshot_extension_pins(paths)
+    _validate_lifecycle_update_input(paths, existing_lock, lifecycle_path)
     with tempfile.TemporaryDirectory(prefix="modelable-registry-update-") as temporary:
         candidate_dir = Path(temporary)
         candidate = resolve_workspace_snapshot(
@@ -1029,12 +1196,16 @@ def update_workspace_snapshot(
             candidate_dir,
             extension_pins=extension_pins,
             artifact_manifests=artifact_manifests,
+            package_manifest_path=package_manifest_path,
+            package_manifest_paths=package_manifest_paths,
+            lifecycle_path=lifecycle_path,
         )
         candidate_errors = verify_snapshot(candidate_dir)
         if candidate_errors:
             raise ValueError("Candidate snapshot is invalid:\n" + "\n".join(candidate_errors))
         _reject_mutable_identity_replacements(paths.root, _load_lock_entries(SnapshotPaths(candidate_dir).lock))
-        snapshot_diff = diff_snapshot_paths(paths.root, candidate_dir)
+        migration = load_migration(Path(migration_path)) if migration_path is not None else None
+        snapshot_diff = diff_snapshot_paths(paths.root, candidate_dir, migration=migration)
         evaluator = policy_evaluator or BlockedActionPolicy(blocked_actions)
         evaluation = _normalize_policy_evaluation(evaluator.evaluate(snapshot_diff))
         snapshot_diff = include_policy_consequences(snapshot_diff, evaluation.consequences)
@@ -1169,7 +1340,9 @@ def _reject_mutable_identity_replacements(current_dir: Path, candidate_entries: 
             )
 
 
-def diff_snapshot_paths(current_dir: Path, candidate_dir: Path) -> SnapshotDiff:
+def diff_snapshot_paths(
+    current_dir: Path, candidate_dir: Path, *, migration: Mapping[str, Any] | None = None
+) -> SnapshotDiff:
     current_lock = _load_lock_payload(SnapshotPaths(current_dir).lock)
     candidate_lock = _load_lock_payload(SnapshotPaths(candidate_dir).lock)
     current_entries = _lock_objects(current_lock)
@@ -1199,6 +1372,24 @@ def diff_snapshot_paths(current_dir: Path, candidate_dir: Path) -> SnapshotDiff:
     compatibility_consequences = _compatibility_consequences(current_dir, candidate_dir, added)
     usage["consequences"].extend(consequence.as_dict() for consequence in compatibility_consequences)
     usage["required_actions"].extend(_required_surface_actions(compatibility_consequences))
+    lifecycle_consequences = _lifecycle_consequences(current_lock.get("lifecycle"), candidate_lock.get("lifecycle"))
+    usage["consequences"].extend(consequence.as_dict() for consequence in lifecycle_consequences)
+    usage["required_actions"].extend(_required_surface_actions(lifecycle_consequences))
+    if migration is not None:
+        validate_migration_references(
+            migration,
+            {
+                str(entry["identity"])
+                for entry in [*current_entries, *candidate_entries]
+                if isinstance(entry.get("identity"), str)
+            },
+        )
+    migration_consequences = _migration_consequences(
+        migration,
+        {identity for _kind, identity in [*added, *removed, *changed]},
+    )
+    usage["consequences"].extend(consequence.as_dict() for consequence in migration_consequences)
+    usage["required_actions"].extend(_required_surface_actions(migration_consequences))
     consumer_consequences: list[Consequence] = []
     compiled_usage = current_lock.get("usage") if current_lock.get("usage_source") == "compiled" else None
     if isinstance(compiled_usage, dict):
@@ -1210,6 +1401,8 @@ def diff_snapshot_paths(current_dir: Path, candidate_dir: Path) -> SnapshotDiff:
     all_consequences = [
         *contract_consequences,
         *compatibility_consequences,
+        *lifecycle_consequences,
+        *migration_consequences,
         *consumer_consequences,
         *artifact_target_consequences,
     ]
@@ -1225,7 +1418,231 @@ def diff_snapshot_paths(current_dir: Path, candidate_dir: Path) -> SnapshotDiff:
         changed=tuple(_display_key(key) for key in changed),
         dependencies=_diff_lock_requirements(current_lock, candidate_lock),
         usage=usage,
+        packages=_diff_packages(current_lock.get("packages"), candidate_lock.get("packages")),
+        lifecycle=_diff_lifecycle(current_lock.get("lifecycle"), candidate_lock.get("lifecycle")),
+        lifecycle_references=_new_lifecycle_references(current_lock, candidate_lock),
+        package_compatibility=_package_compatibility(current_lock, candidate_lock),
     )
+
+
+def _new_lifecycle_references(
+    current_lock: Mapping[str, Any], candidate_lock: Mapping[str, Any]
+) -> tuple[dict[str, str], ...]:
+    def findings(lock: Mapping[str, Any]) -> set[tuple[str, str, str]]:
+        lifecycle = lock.get("lifecycle")
+        if not isinstance(lifecycle, dict):
+            return set()
+        return {
+            (finding["source"], finding["target"], finding["state"])
+            for finding in find_lifecycle_reference_findings(_lock_objects(dict(lock)), lifecycle)
+        }
+
+    return tuple(
+        {"source": source, "target": target, "state": state}
+        for source, target, state in sorted(findings(candidate_lock) - findings(current_lock))
+    )
+
+
+def _migration_consequences(migration: Mapping[str, Any] | None, affected: set[str]) -> list[Consequence]:
+    if migration is None:
+        return []
+    consequences: list[Consequence] = []
+    for edge in migration_edges(migration):
+        source = edge["source"].split("#", 1)[0]
+        target = edge["target"].split("#", 1)[0]
+        if source not in affected and target not in affected:
+            continue
+        consequences.append(
+            Consequence(
+                action=ACTION_CONSUMER_UPDATE,
+                subject=edge["target"],
+                status="required",
+                reason=f"explicit {edge['kind']} migration mapping",
+                causal_path=(edge["source"], edge["target"]),
+            )
+        )
+    return consequences
+
+
+def _diff_lifecycle(current: object, candidate: object) -> dict[str, list[dict[str, str]]]:
+    def entries(value: object) -> dict[str, dict[str, str]]:
+        if not isinstance(value, dict) or not isinstance(value.get("entries"), list):
+            return {}
+        return {
+            entry["identity"]: entry
+            for entry in value["entries"]
+            if isinstance(entry, dict)
+            and isinstance(entry.get("identity"), str)
+            and isinstance(entry.get("state"), str)
+        }
+
+    current_entries = entries(current)
+    candidate_entries = entries(candidate)
+    added = [
+        {"identity": identity, "to": candidate_entries[identity]["state"]}
+        for identity in sorted(set(candidate_entries) - set(current_entries))
+    ]
+    removed = [
+        {"identity": identity, "from": current_entries[identity]["state"]}
+        for identity in sorted(set(current_entries) - set(candidate_entries))
+    ]
+    changed = [
+        {
+            "identity": identity,
+            "from": current_entries[identity]["state"],
+            "to": candidate_entries[identity]["state"],
+            **(
+                {"replacement": candidate_entries[identity]["replacement"]}
+                if candidate_entries[identity].get("replacement") != current_entries[identity].get("replacement")
+                and isinstance(candidate_entries[identity].get("replacement"), str)
+                else {}
+            ),
+        }
+        for identity in sorted(set(current_entries) & set(candidate_entries))
+        if current_entries[identity] != candidate_entries[identity]
+    ]
+    return {"added": added, "removed": removed, "changed": changed}
+
+
+def _lifecycle_consequences(current: object, candidate: object) -> list[Consequence]:
+    def states(value: object) -> dict[str, str]:
+        if not isinstance(value, dict) or not isinstance(value.get("entries"), list):
+            return {}
+        return {
+            entry["identity"]: entry["state"]
+            for entry in value["entries"]
+            if isinstance(entry, dict)
+            and isinstance(entry.get("identity"), str)
+            and isinstance(entry.get("state"), str)
+        }
+
+    current_states = states(current)
+    candidate_states = states(candidate)
+    consequences: list[Consequence] = []
+    for identity in sorted(set(candidate_states)):
+        state = candidate_states[identity]
+        if state not in {"deprecated", "retired"} or current_states.get(identity) == state:
+            continue
+        reason = (
+            "declaration lifecycle state is"
+            if identity not in current_states
+            else "declaration lifecycle state changed to"
+        )
+        consequences.append(
+            Consequence(
+                action=ACTION_CONSUMER_UPDATE,
+                subject=identity,
+                status="required",
+                reason=f"{reason} {state}",
+                causal_path=(identity,),
+            )
+        )
+    return consequences
+
+
+def _diff_packages(current: object, candidate: object) -> dict[str, list[str]]:
+    current_entries = current if isinstance(current, list) else []
+    candidate_entries = candidate if isinstance(candidate, list) else []
+    current_by_identity = {
+        f"{entry['manifest']['package']['name']}@{entry['manifest']['package']['version']}": entry
+        for entry in current_entries
+        if isinstance(entry, dict)
+        and isinstance(entry.get("manifest"), dict)
+        and isinstance(entry["manifest"].get("package"), dict)
+        and isinstance(entry["manifest"]["package"].get("name"), str)
+        and isinstance(entry["manifest"]["package"].get("version"), str)
+    }
+    candidate_by_identity = {
+        f"{entry['manifest']['package']['name']}@{entry['manifest']['package']['version']}": entry
+        for entry in candidate_entries
+        if isinstance(entry, dict)
+        and isinstance(entry.get("manifest"), dict)
+        and isinstance(entry["manifest"].get("package"), dict)
+        and isinstance(entry["manifest"]["package"].get("name"), str)
+        and isinstance(entry["manifest"]["package"].get("version"), str)
+    }
+    shared = set(current_by_identity) & set(candidate_by_identity)
+    return {
+        "added": sorted(set(candidate_by_identity) - set(current_by_identity)),
+        "removed": sorted(set(current_by_identity) - set(candidate_by_identity)),
+        "changed": sorted(
+            identity
+            for identity in shared
+            if current_by_identity[identity].get("content_hash") != candidate_by_identity[identity].get("content_hash")
+            or current_by_identity[identity].get("provenance") != candidate_by_identity[identity].get("provenance")
+        ),
+    }
+
+
+def _package_compatibility(
+    current_lock: Mapping[str, Any], candidate_lock: Mapping[str, Any]
+) -> tuple[dict[str, Any], ...]:
+    current_packages = _packages_by_name(current_lock.get("packages"))
+    candidate_packages = _packages_by_name(candidate_lock.get("packages"))
+    current_signatures = _object_signatures(current_lock.get("objects"))
+    candidate_signatures = _object_signatures(candidate_lock.get("objects"))
+    reports: list[dict[str, Any]] = []
+    for name in sorted(set(current_packages) & set(candidate_packages)):
+        old = current_packages[name]
+        new = candidate_packages[name]
+        old_objects = set(old.get("objects", [])) if isinstance(old.get("objects"), list) else set()
+        new_objects = set(new.get("objects", [])) if isinstance(new.get("objects"), list) else set()
+        removed = sorted(old_objects - new_objects)
+        added = sorted(new_objects - old_objects)
+        changed = sorted(
+            identity
+            for identity in old_objects & new_objects
+            if current_signatures.get(identity) != candidate_signatures.get(identity)
+        )
+        if not (removed or added or changed or _package_version(old) != _package_version(new)):
+            continue
+        findings = [{"kind": "export_removed", "identity": identity, "severity": "error"} for identity in removed]
+        findings.extend({"kind": "export_changed", "identity": identity, "severity": "error"} for identity in changed)
+        findings.extend({"kind": "export_added", "identity": identity, "severity": "info"} for identity in added)
+        reports.append(
+            {
+                "package": name,
+                "from": _package_version(old),
+                "to": _package_version(new),
+                "status": "breaking" if removed or changed else "compatible",
+                "findings": findings,
+            }
+        )
+    return tuple(reports)
+
+
+def _packages_by_name(value: object) -> dict[str, dict[str, Any]]:
+    result: dict[str, dict[str, Any]] = {}
+    if not isinstance(value, list):
+        return result
+    for package in value:
+        if not isinstance(package, dict):
+            continue
+        manifest = package.get("manifest")
+        metadata = manifest.get("package") if isinstance(manifest, dict) else None
+        name = metadata.get("name") if isinstance(metadata, dict) else None
+        if isinstance(name, str):
+            result[name] = package
+    return result
+
+
+def _object_signatures(value: object) -> dict[str, str]:
+    if not isinstance(value, list):
+        return {}
+    return {
+        str(entry["identity"]): str(entry["signature"])
+        for entry in value
+        if isinstance(entry, dict)
+        and isinstance(entry.get("identity"), str)
+        and isinstance(entry.get("signature"), str)
+    }
+
+
+def _package_version(package: Mapping[str, Any]) -> str | None:
+    manifest = package.get("manifest")
+    metadata = manifest.get("package") if isinstance(manifest, dict) else None
+    version = metadata.get("version") if isinstance(metadata, dict) else None
+    return version if isinstance(version, str) else None
 
 
 def _load_snapshot_extension_pins(paths: SnapshotPaths) -> tuple[ExtensionPin, ...]:
@@ -2057,6 +2474,170 @@ def _entry_is_breaking(entry: dict[str, Any]) -> bool:
 def _content_hash(payload: dict[str, Any]) -> str:
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _build_package_lock_entry(
+    manifest: PackageManifest,
+    manifest_path: Path,
+    entries: Sequence[Mapping[str, Any]],
+    resolved_dependencies: Sequence[str] = (),
+) -> dict[str, Any]:
+    entries_by_identity = {str(entry["identity"]): entry for entry in entries}
+    missing_exact = [
+        export
+        for export in manifest.exports
+        if not _EXPORT_WILDCARD.fullmatch(export) and export not in entries_by_identity
+    ]
+    if missing_exact:
+        raise ValueError(f"package export {missing_exact[0]!r} is not present in the workspace snapshot")
+    exported_identities = _expand_package_exports(manifest.exports, entries_by_identity)
+    for export in manifest.exports:
+        if _EXPORT_WILDCARD.fullmatch(export) and not any(
+            identity.startswith(f"{export[:-2]}.") for identity in exported_identities
+        ):
+            raise ValueError(f"package export wildcard {export!r} does not match any workspace declaration")
+    package_objects: list[dict[str, str]] = []
+    for identity in exported_identities:
+        entry = entries_by_identity.get(identity)
+        if entry is None:
+            raise ValueError(f"package export {identity!r} is not present in the workspace snapshot")
+        signature = entry.get("signature")
+        if not isinstance(signature, str):
+            raise ValueError(f"package export {identity!r} has no canonical signature")
+        package_objects.append({"identity": identity, "signature": signature})
+    normalized = normalize_package_manifest(manifest)
+    content_hash = _content_hash(
+        {"manifest": normalized, "objects": sorted(package_objects, key=lambda item: item["identity"])}
+    )
+    return {
+        "manifest": normalized,
+        "objects": exported_identities,
+        "content_hash": content_hash,
+        "resolved_dependencies": sorted(resolved_dependencies),
+        "provenance": {"source": str(manifest_path), "source_hash": _file_hash(manifest_path)},
+    }
+
+
+def _verify_package_entries(
+    packages: object,
+    objects: list[object],
+    errors: list[str],
+) -> None:
+    if packages is None:
+        return
+    if not isinstance(packages, list):
+        errors.append("registry lock packages must be an array")
+        return
+    seen_identities: set[str] = set()
+    packages_by_identity: dict[str, dict[str, Any]] = {}
+    object_signatures = {
+        str(entry.get("identity")): entry.get("signature")
+        for entry in objects
+        if isinstance(entry, dict) and isinstance(entry.get("identity"), str)
+    }
+    for package in packages:
+        if not isinstance(package, dict):
+            errors.append("registry lock contains a non-object package entry")
+            continue
+        manifest = package.get("manifest")
+        package_info = manifest.get("package") if isinstance(manifest, dict) else None
+        if not isinstance(package_info, dict):
+            errors.append("registry lock package manifest requires package metadata")
+            continue
+        name = package_info.get("name")
+        version = package_info.get("version")
+        package_identity = f"{name}@{version}"
+        if not isinstance(name, str) or not isinstance(version, str):
+            errors.append("registry lock package metadata requires name and version")
+            continue
+        if package_identity in seen_identities:
+            errors.append(f"registry lock contains duplicate package identity {package_identity}")
+        seen_identities.add(package_identity)
+        packages_by_identity[package_identity] = package
+        exports = manifest.get("exports") if isinstance(manifest, dict) else None
+        export_ids = exports.get("declarations") if isinstance(exports, dict) else None
+        package_objects = package.get("objects")
+        if not isinstance(export_ids, list) or not all(isinstance(item, str) for item in export_ids):
+            errors.append(f"registry lock package {package_identity} has invalid exports")
+            continue
+        expected_objects = _expand_package_exports(export_ids, object_signatures)
+        if package_objects != expected_objects or len(set(export_ids)) != len(export_ids):
+            errors.append(f"registry lock package {package_identity} objects do not match exports")
+            continue
+        signatures: list[dict[str, str]] = []
+        for identity in expected_objects:
+            signature = object_signatures.get(identity)
+            if not isinstance(signature, str):
+                errors.append(f"registry lock package {package_identity} references missing object {identity}")
+                continue
+            signatures.append({"identity": identity, "signature": signature})
+        expected_hash = _content_hash(
+            {"manifest": manifest, "objects": sorted(signatures, key=lambda item: item["identity"])}
+        )
+        if package.get("content_hash") != expected_hash:
+            errors.append(f"registry lock package content hash mismatch for {package_identity}")
+        resolved_dependencies = package.get("resolved_dependencies")
+        if not isinstance(resolved_dependencies, list) or not all(
+            isinstance(item, str) for item in resolved_dependencies
+        ):
+            errors.append(f"registry lock package {package_identity} has invalid resolved dependencies")
+        provenance = package.get("provenance")
+        if (
+            not isinstance(provenance, dict)
+            or not isinstance(provenance.get("source"), str)
+            or not isinstance(provenance.get("source_hash"), str)
+        ):
+            errors.append(f"registry lock package {package_identity} has invalid provenance")
+        if isinstance(provenance, dict):
+            source = provenance.get("source")
+            source_hash = provenance.get("source_hash")
+            if isinstance(source, str) and isinstance(source_hash, str):
+                source_path = Path(source)
+                if source_path.exists() and source_path.is_file() and _file_hash(source_path) != source_hash:
+                    errors.append(f"registry package source drift for {package_identity}")
+    for package_identity, package in packages_by_identity.items():
+        manifest = package.get("manifest")
+        resolved = package.get("resolved_dependencies")
+        if not isinstance(manifest, dict) or not isinstance(resolved, list):
+            continue
+        resolved_ids = {item for item in resolved if isinstance(item, str)}
+        for dependency in resolved_ids:
+            if dependency not in packages_by_identity:
+                errors.append(f"registry lock package {package_identity} references missing dependency {dependency}")
+        dependencies = manifest.get("dependencies")
+        if not isinstance(dependencies, dict):
+            errors.append(f"registry lock package {package_identity} has invalid dependencies")
+            continue
+        expected: set[str] = set()
+        for name, constraint in dependencies.items():
+            if not isinstance(name, str) or not isinstance(constraint, str):
+                errors.append(f"registry lock package {package_identity} has invalid dependency entry")
+                continue
+            matches = [
+                candidate
+                for candidate in packages_by_identity
+                if candidate.startswith(f"{name}@")
+                and package_version_satisfies(candidate.rsplit("@", 1)[1], constraint)
+            ]
+            if len(matches) != 1:
+                errors.append(f"registry lock package {package_identity} does not resolve dependency {name!r}")
+            else:
+                expected.add(matches[0])
+        if resolved_ids != expected:
+            errors.append(f"registry lock package {package_identity} resolved dependencies do not match manifest")
+
+
+def _expand_package_exports(exports: Sequence[str], identities: Mapping[str, Any]) -> list[str]:
+    expanded: set[str] = set()
+    for export in exports:
+        if _EXPORT_WILDCARD.fullmatch(export):
+            prefix = export[:-2]
+            expanded.update(
+                identity for identity in identities if identity.startswith(f"{prefix}.") and "@" in identity
+            )
+        elif export in identities:
+            expanded.add(export)
+    return sorted(expanded)
 
 
 def _file_hash(path: Path) -> str:

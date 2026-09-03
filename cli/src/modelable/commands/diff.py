@@ -13,7 +13,7 @@ from modelable.compat.checker import (
 from modelable.compiler.workspace import Workspace, load_workspace
 from modelable.llm.context import parse_model_ref_version_spec
 from modelable.parser.ir import ProjectionVersion
-from modelable.registry.resolver import ResolvedModelRef, find_dependents, resolve_model_ref
+from modelable.registry.resolver import ResolvedDeclaration, find_dependents, resolve_declaration
 
 
 def register_diff_commands(cli_group: click.Group) -> None:
@@ -32,12 +32,23 @@ def run_diff(from_ref: str, to_ref: str, path: Path) -> None:
         raise click.ClickException("diff requires refs from the same domain and model")
 
     try:
-        from_resolved = resolve_model_ref(workspace.mdl, f"{from_domain}.{from_name}", from_version_spec)
-        to_resolved = resolve_model_ref(workspace.mdl, f"{to_domain}.{to_name}", to_version_spec)
+        allowed_kinds = frozenset({"model", "projection"})
+        from_resolved = resolve_declaration(
+            workspace.mdl,
+            f"{from_domain}.{from_name}",
+            from_version_spec,
+            allowed_kinds=allowed_kinds,
+        )
+        to_resolved = resolve_declaration(
+            workspace.mdl,
+            f"{to_domain}.{to_name}",
+            to_version_spec,
+            allowed_kinds=allowed_kinds,
+        )
     except LookupError as exc:
         raise click.ClickException(str(exc)) from exc
 
-    if isinstance(from_resolved.version, ProjectionVersion):
+    if isinstance(from_resolved.declaration, ProjectionVersion):
         _run_projection_diff(workspace, from_ref, to_ref, from_resolved, to_resolved)
         return
 
@@ -48,16 +59,16 @@ def _run_model_diff(
     workspace: Workspace,
     from_ref: str,
     to_ref: str,
-    from_model: ResolvedModelRef,
-    to_model: ResolvedModelRef,
+    from_model: ResolvedDeclaration,
+    to_model: ResolvedDeclaration,
 ) -> None:
     try:
         report = check_model_version_compatibility(
             workspace.mdl,
             from_model.domain_name,
-            from_model.model_name,
-            from_model.version.version,
-            to_model.version.version,
+            from_model.name,
+            from_model.version_number,
+            to_model.version_number,
         )
     except LookupError as exc:
         raise click.ClickException(str(exc)) from exc
@@ -70,9 +81,7 @@ def _run_model_diff(
     else:
         console.print("- no changes")
 
-    dependents = find_dependents(
-        workspace.mdl, from_model.domain_name, from_model.model_name, from_model.version.version
-    )
+    dependents = find_dependents(workspace.mdl, from_model.domain_name, from_model.name, from_model.version_number)
     if dependents:
         impacts = []
         for dep in dependents:
@@ -100,8 +109,8 @@ def _run_projection_diff(
     workspace: Workspace,
     from_ref: str,
     to_ref: str,
-    from_projection: ResolvedModelRef,
-    to_projection: ResolvedModelRef,
+    from_projection: ResolvedDeclaration,
+    to_projection: ResolvedDeclaration,
 ) -> None:
     # Downstream-impact analysis (find_dependents/analyze_impact) answers
     # "who depends on this model changing" and is not extended to
@@ -112,9 +121,9 @@ def _run_projection_diff(
         report = check_projection_version_compatibility(
             workspace.mdl,
             from_projection.domain_name,
-            from_projection.model_name,
-            from_projection.version.version,
-            to_projection.version.version,
+            from_projection.name,
+            from_projection.version_number,
+            to_projection.version_number,
         )
     except LookupError as exc:
         raise click.ClickException(str(exc)) from exc

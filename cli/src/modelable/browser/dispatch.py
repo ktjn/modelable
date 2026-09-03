@@ -42,6 +42,7 @@ _METHODS = {
     "language.rename",
     "workspace.graph",
     "workspace.lineage",
+    "workspace.query",
     "workspace.plans",
     "workspace.compatibility",
     "workspace.governance",
@@ -157,6 +158,7 @@ _DispatchResult = (
     | BrowserPlanResult
     | BrowserCompatibilityResult
     | BrowserGovernanceResult
+    | dict[str, object]
     | PendingPlanRequest
     | BrowserConversationReply
     | None
@@ -211,6 +213,9 @@ def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
     if method == "workspace.lineage":
         _require_exact_fields(payload, {"workspaceRevision"})
         return _compiler.lineage(_integer(payload["workspaceRevision"]))
+    if method == "workspace.query":
+        _require_exact_fields(payload, {"workspaceRevision", "request"})
+        return _compiler.query(_integer(payload["workspaceRevision"]), payload["request"])
     if method == "workspace.plans":
         _require_exact_fields(payload, {"workspaceRevision"})
         return _compiler.plans(_integer(payload["workspaceRevision"]))
@@ -316,6 +321,8 @@ def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
 def _serialize_result(result: _DispatchResult) -> Any:
     if result is None:
         return None
+    if isinstance(result, dict):
+        return _jsonable(result)
     if isinstance(result, BrowserWorkspaceResult):
         return {
             "workspace_revision": result.workspace_revision,

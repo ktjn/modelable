@@ -124,3 +124,42 @@ domain Billing {
     get = document["paths"]["/customers/{id}"]["get"]
     assert get["parameters"][0]["name"] == "id"
     assert get["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith("Billing.CustomerReply.v1")
+
+
+def test_emit_openapi_preserves_all_composite_key_path_parameters(tmp_path) -> None:
+    workspace = load_workspace_from_sources(
+        [
+            WorkspaceDocumentSource(
+                path=None,
+                uri="memory://api.mdl",
+                text="""
+domain Billing {
+  owner: "billing"
+  entity OrderLine @ 1 (additive) {
+    @key orderId: uuid
+    @key lineNumber: int
+  }
+  projection OrderLineReply @ 1 from Billing.OrderLine @ 1 as line {
+    orderId <- line.orderId
+    lineNumber <- line.lineNumber
+  }
+  api OrderLine @ 1 {
+    operation "getOrderLine" {
+      method: GET
+      path: "/orders/{orderId}/lines/{lineNumber}"
+      responses {
+        200: OrderLineReply @ 1
+      }
+    }
+  }
+}
+""",
+            )
+        ]
+    )
+
+    assert workspace.errors == []
+    document = emit_openapi(workspace, tmp_path)[0].content
+    parameters = document["paths"]["/orders/{orderId}/lines/{lineNumber}"]["get"]["parameters"]
+
+    assert [parameter["name"] for parameter in parameters] == ["orderId", "lineNumber"]

@@ -837,7 +837,7 @@ index Order @ 3 {
 
 #### `primary`
 
-`primary` must name exactly the model version's `@key` field(s) — no more, no fewer, and every model version today has exactly one `@key` field (composite keys aren't representable in the language yet, so in practice `primary` is always a single name). The declaration is still required explicitly, rather than inferred from `@key`, so that composite-key column order has a place to be recorded once composite keys are supported.
+`primary` must name exactly the model version's ordered `@key` fields — no more, no fewer, and in the same order. The declaration is still required explicitly, rather than inferred from `@key`, so that storage column order remains visible and validated.
 
 #### `secondary`
 

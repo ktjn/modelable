@@ -4,7 +4,7 @@ import re
 
 from modelable.compiler.workspace import Workspace
 from modelable.parser.ir import JoinRef, SourceRef, VersionExact, VersionMin, VersionPinned, VersionRange, VersionSpec
-from modelable.registry.resolver import resolve_model_ref
+from modelable.registry.resolver import resolve_declaration
 
 REF_TYPE_PATTERN = re.compile(
     r"ref\s*<\s*(?P<domain>[A-Za-z_][A-Za-z0-9_]*)\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)"
@@ -56,10 +56,15 @@ def resolve_ref_match_version(
     if version_spec is None:
         version_spec = VersionMin(min_inclusive=1)
     try:
-        resolved = resolve_model_ref(workspace.mdl, f"{domain_name}.{name}", version_spec)
+        resolved = resolve_declaration(
+            workspace.mdl,
+            f"{domain_name}.{name}",
+            version_spec,
+            allowed_kinds=frozenset({"model", "projection"}),
+        )
     except LookupError:
         return None
-    return resolved.version.version
+    return resolved.version_number
 
 
 def projection_aliases(
@@ -85,12 +90,17 @@ def projection_aliases(
     all_sources: list[SourceRef | JoinRef] = [projection_version.source, *projection_version.joins]
     for source_ref in all_sources:
         try:
-            resolved = resolve_model_ref(workspace.mdl, source_ref.model, source_ref.version)
+            resolved = resolve_declaration(
+                workspace.mdl,
+                source_ref.model,
+                source_ref.version,
+                allowed_kinds=frozenset({"model", "projection"}),
+            )
         except LookupError:
             continue
         aliases[source_ref.alias] = (
             resolved.domain_name,
-            resolved.model_name,
-            resolved.version.version,
+            resolved.name,
+            resolved.version_number,
         )
     return aliases

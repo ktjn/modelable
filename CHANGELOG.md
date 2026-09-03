@@ -8,6 +8,45 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Accept ordered multiple `@key` fields on entities and aggregates, with
+  explicit primary-index order validation; target-specific composite-key
+  conformance remains in progress.
+
+- Add offline `modelable package validate` and `modelable package inspect`
+  commands for strict external semantic package manifests.
+
+- Add deterministic local `modelable.package/v1` pack, verify, and unpack
+  commands for explicitly locked semantic packages.
+
+- Add the read-only `modelable.query/v1` envelope, in-process query service,
+  browser adapter, deterministic graph pagination, usage-backed `consumersOf`,
+  lifecycle lookup, and offline CLI JSON/stdin adapter.
+
+- Add external `modelable.lifecycle/v1` metadata with canonical identities,
+  monotonic state transitions, deterministic registry-lock snapshots, and
+  `registry resolve/diff/update --lifecycle` support.
+- Add lifecycle reference policy findings, deprecation/retirement consumer
+  consequences, and configurable `registry.policy.lifecycle_references`
+  warning/error severity.
+
+- Add external `modelable.migration/v1` metadata with strict lineage validation,
+  cycle/ambiguity checks, deterministic `migration validate`/`inspect` commands,
+  explicit migration edges in query lineage results, and registry snapshot
+  dangling-reference checks.
+
+- Add named compatibility profiles with backward, forward, and full-direction
+  evaluation through `validate-compat --profile`, including semantic-change
+  findings and usage-manifest consumer consequences for blocked profile
+  findings.
+
+- Add the pinned, least-capability native WASM extension host for validated
+  `modelable.plan/v1` inputs and structured `modelable.extension-host/v1`
+  results.
+
+- Add `modelable extension run` for explicit, offline execution of trusted
+  pinned WASM extensions with configurable resource limits and declared virtual
+  UTF-8 input files.
+
 - Emit an `EMIT007` diagnostic when compiling a Rust projection that is bound
   to a storage adapter (`postgres`, `clickhouse`, directly or via an
   indirect connector binding) but has no explicit

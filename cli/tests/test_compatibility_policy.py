@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from modelable.compat.policy import CompatibilityPolicy, default_policy, load_policy
+from modelable.compat.policy import CompatibilityPolicy, CompatibilityProfile, default_policy, load_policy
 from modelable.compat.targets import SEVERITIES, TargetCompatibilityFinding, TargetCompatibilityReport
 
 
@@ -27,6 +27,82 @@ def _report(target: str, *severities: str) -> TargetCompatibilityReport:
 
 def test_default_policy_has_no_configured_thresholds():
     assert default_policy().thresholds == {}
+
+
+def test_load_policy_parses_named_profiles(tmp_path: Path) -> None:
+    path = tmp_path / "policy.yml"
+    path.write_text(
+        """
+        profiles:
+          public-events:
+            targets: [protobuf, avro]
+            requirement: full
+            thresholds:
+              protobuf: breaking
+        """,
+        encoding="utf-8",
+    )
+    policy = load_policy(path)
+
+    profile = policy.profile_for("public-events")
+    assert profile.targets == ("avro", "protobuf")
+    assert profile.requirement == "full"
+    assert profile.thresholds == {"protobuf": "breaking"}
+
+
+def test_profile_for_rejects_unknown_profile() -> None:
+    with pytest.raises(ValueError, match="unknown compatibility profile"):
+        default_policy().profile_for("missing")
+
+
+@pytest.mark.parametrize(
+    ("profile", "message"),
+    [
+        ("invalid: []", "must be a mapping"),
+        ("'': {targets: [protobuf], requirement: backward}", "non-empty strings"),
+        ("invalid: {unknown: true}", "unsupported key"),
+        ("invalid: {targets: [], requirement: backward}", "targets must be"),
+        ("invalid: {targets: [protobuf], requirement: backward, thresholds: []}", "thresholds must be"),
+        (
+            "invalid: {targets: [protobuf], requirement: backward, thresholds: {protobuf: invalid}}",
+            "invalid threshold",
+        ),
+    ],
+)
+def test_load_policy_rejects_invalid_profile_shapes(tmp_path: Path, profile: str, message: str) -> None:
+    path = tmp_path / "policy.yml"
+    path.write_text(f"profiles:\n  {profile}\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        load_policy(path)
+
+
+def test_load_policy_rejects_non_mapping_profiles(tmp_path: Path) -> None:
+    path = tmp_path / "policy.yml"
+    path.write_text("profiles: [invalid]\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"profiles.*mapping"):
+        load_policy(path)
+
+
+def test_profile_requires_known_targets_and_direction(tmp_path: Path) -> None:
+    path = tmp_path / "policy.yml"
+    path.write_text(
+        "profiles:\n  invalid:\n    targets: [protobuf]\n    requirement: sideways\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="requirement"):
+        load_policy(path)
+
+
+def test_profile_enforcement_requires_target_membership_and_uses_profile_threshold() -> None:
+    profile = CompatibilityProfile("public", ("protobuf",), "backward", {"protobuf": "breaking"})
+    policy = CompatibilityPolicy(thresholds={}, profiles={"public": profile})
+
+    assert policy.enforce(_report("protobuf", "migration_required"), profile=profile).passed
+    with pytest.raises(ValueError, match="does not include target"):
+        policy.enforce(_report("avro", "compatible"), profile=profile)
 
 
 def test_default_policy_matches_the_shipped_passing_statuses_behavior():

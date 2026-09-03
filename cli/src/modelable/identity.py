@@ -10,15 +10,67 @@ _DOMAIN = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 _PATH_SEGMENT = re.compile(r"^(?:[A-Za-z_][A-Za-z0-9_]*(?:\[\]|\{\}|\{key\})?|\[\]|\{\}|\{key\})$")
 
 
+@dataclass(frozen=True)
+class DeclarationId:
+    """Typed identity for a named declaration before version selection."""
+
+    domain: str
+    name: str
+
+    def __post_init__(self) -> None:
+        if not _DOMAIN.fullmatch(self.domain):
+            raise ValueError(f"domain must be a valid domain name: {self.domain!r}")
+        if not _IDENTIFIER.fullmatch(self.name):
+            raise ValueError(f"name must be a language identifier: {self.name!r}")
+
+    def render(self) -> str:
+        return f"{self.domain}.{self.name}"
+
+
+@dataclass(frozen=True)
+class DeclarationVersion:
+    """Typed exact declaration identity including its published version."""
+
+    declaration: DeclarationId
+    version: int
+
+    def __post_init__(self) -> None:
+        if self.version < 0:
+            raise ValueError("declaration version must be non-negative")
+
+    @property
+    def identity(self) -> str:
+        return f"{self.declaration.render()}@{self.version}"
+
+    @classmethod
+    def parse(cls, value: str) -> DeclarationVersion:
+        domain, name, version = parse_declaration_id(value)
+        return cls(DeclarationId(domain, name), version)
+
+
+@dataclass(frozen=True)
+class DeclarationReference:
+    """Typed exact declaration or semantic-path reference."""
+
+    declaration: DeclarationVersion
+    segments: tuple[str, ...] = ()
+
+    def render(self) -> str:
+        if not self.segments:
+            return self.declaration.identity
+        return SemanticPath(self.declaration.identity, self.segments).render()
+
+    @classmethod
+    def parse(cls, value: str) -> DeclarationReference:
+        if "#" in value:
+            path = parse_semantic_path(value)
+            return cls(DeclarationVersion.parse(path.declaration), path.segments)
+        return cls(DeclarationVersion.parse(value))
+
+
 def declaration_id(domain: str, name: str, version: int) -> str:
     """Render an exact, source-location-independent declaration identity."""
-    if not _DOMAIN.fullmatch(domain):
-        raise ValueError(f"domain must be a valid domain name: {domain!r}")
-    if not _IDENTIFIER.fullmatch(name):
-        raise ValueError(f"name must be a language identifier: {name!r}")
-    if version < 0:
-        raise ValueError("declaration version must be non-negative")
-    return f"{domain}.{name}@{version}"
+    return DeclarationVersion(DeclarationId(domain, name), version).identity
 
 
 def parse_declaration_id(value: str) -> tuple[str, str, int]:

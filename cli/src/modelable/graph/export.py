@@ -30,6 +30,7 @@ from modelable.parser.ir import (
 )
 from modelable.registry.resolver import (
     AmbiguousSemanticTypeError,
+    resolve_declaration,
     resolve_model_ref,
     resolve_semantic_type_ref,
 )
@@ -275,7 +276,7 @@ def _add_model_field(
                 raise semantic_error from semantic_error
             builder.add_edge(
                 field_id,
-                f"model_version:{resolved_model.domain_name}.{resolved_model.model_name}@{resolved_model.version.version}",
+                f"model_version:{resolved_model.identity}",
                 "references",
             )
         else:
@@ -515,7 +516,7 @@ def _add_projection_field(
 
 def _resolve_version_ref(workspace: Workspace, model_ref: str, version_spec: VersionSpec | int) -> str:
     resolved = resolve_model_ref(workspace.mdl, model_ref, version_spec)
-    return declaration_id(resolved.domain_name, resolved.model_name, resolved.version.version)
+    return resolved.identity
 
 
 def _resolve_direct_mapping_ref(
@@ -529,9 +530,7 @@ def _resolve_direct_mapping_ref(
         raise LookupError(f"unknown source alias '{source_alias}' in projection {projection_version.version}")
     resolved = resolve_model_ref(workspace.mdl, source_model_ref.model, source_model_ref.version)
     field_name = source_field
-    return "source_ref:" + semantic_path(
-        declaration_id(resolved.domain_name, resolved.model_name, resolved.version.version), field_name
-    )
+    return "source_ref:" + semantic_path(resolved.identity, field_name)
 
 
 def _alias_map(projection_version: ProjectionVersion) -> dict[str, Any]:
@@ -630,12 +629,23 @@ def _source_neighbors_for_projection_focus(builder: _GraphBuilder, selected_ids:
 
 
 def _resolve_named_model_ref(workspace: Workspace, current_domain: str, type_name: str) -> Any:
+    allowed_kinds = frozenset({"model", "projection"})
     if "." in type_name:
-        return resolve_model_ref(workspace.mdl, type_name, VersionMin(min_inclusive=0))
+        return resolve_declaration(
+            workspace.mdl,
+            type_name,
+            VersionMin(min_inclusive=0),
+            allowed_kinds=allowed_kinds,
+        )
     candidates = [current_domain, *(domain.name for domain in workspace.mdl.domains if domain.name != current_domain)]
     for domain_name in candidates:
         try:
-            return resolve_model_ref(workspace.mdl, f"{domain_name}.{type_name}", VersionMin(min_inclusive=0))
+            return resolve_declaration(
+                workspace.mdl,
+                f"{domain_name}.{type_name}",
+                VersionMin(min_inclusive=0),
+                allowed_kinds=allowed_kinds,
+            )
         except LookupError:
             continue
     raise LookupError(f"unknown model '{type_name}'")

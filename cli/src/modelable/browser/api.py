@@ -276,6 +276,19 @@ class BrowserCompiler:
             raise BrowserLanguageError("LANGUAGE_UNAVAILABLE")
         return build_browser_lineage(semantic, workspace_revision)
 
+    def query(self, workspace_revision: int, request: object) -> dict[str, object]:
+        if workspace_revision != self.language.revision:
+            raise BrowserLanguageError("STALE_WORKSPACE")
+        semantic = self.language.semantic_workspace()
+        if semantic is None:
+            raise BrowserLanguageError("LANGUAGE_UNAVAILABLE")
+        from modelable.query_service import WorkspaceQueryProtocolService
+
+        try:
+            return WorkspaceQueryProtocolService(semantic).execute(request)
+        except ValueError as error:
+            raise BrowserRequestValidationError(str(error)) from error
+
     def plans(self, workspace_revision: int) -> BrowserPlanResult:
         if workspace_revision != self.language.revision:
             raise BrowserLanguageError("STALE_WORKSPACE")

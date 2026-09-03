@@ -115,6 +115,9 @@ External policy rules can be configured under `[registry.policy]`. Set
 `pii_changes = "warning"` to report PII changes without blocking, or
 `pii_changes = "error"` to retain the candidate and block the update with a
 structured governance finding. The default is `"off"`.
+Set `lifecycle_references = "warning"` to report new references to deprecated
+or retired declarations, or `"error"` to block the update. The default is
+`"off"`.
 
 ### 5.0.2 `doctor` — Check local toolchain health
 
@@ -277,12 +280,18 @@ modelable diff customer.Customer@1 customer.Customer@2
 
 ```text
 modelable validate-compat --from OLD --to NEW --target json-schema|sql-postgres|sql-clickhouse|fhir-profile|odcs|avro|protobuf|grpc|openapi
+  [--policy POLICY] [--profile NAME] [--usage-manifest MANIFEST]...
 ```
 
 Compares generated target artifacts from two Modelable workspaces without
 requiring `protoc`. `wire_compatible` and `read_compatible` exit `0`;
 `requires_read_rebuild`, `requires_state_migration`, and `breaking` exit
 non-zero.
+Named profiles in a YAML policy file can require `backward`, `forward`, or
+`full` direction evaluation and target-specific severity thresholds; select one
+with `--profile NAME`. Repeat `--usage-manifest` to attach known compiled
+consumer evidence; consumers covered by blocking profile findings receive
+`consumer_update` consequences in JSON output.
 
 For `odcs`, removed properties and contracts, newly required properties,
 requiredness changes, type/format changes, and removed enum values are
@@ -295,6 +304,9 @@ breaking; optional additions and enum widening remain read-compatible.
 | `--from` | Yes | Old `.mdl` file or workspace directory |
 | `--to` | Yes | New `.mdl` file or workspace directory |
 | `--target` | Yes | Target compatibility profile: `json-schema`, `sql-postgres`, `sql-clickhouse`, `fhir-profile`, `odcs`, `avro`, `protobuf`, `grpc`, or `openapi` |
+| `--policy` | No | YAML compatibility thresholds and named profiles |
+| `--profile` | No | Named profile to evaluate from `--policy` |
+| `--usage-manifest` | No | Known compiled-consumer manifest; repeatable for profile consequence analysis |
 
 **Examples:**
 
@@ -1757,16 +1769,28 @@ content-addressed objects:
 
 ```text
 modelable registry resolve SOURCE [--out DIR] [--artifact-manifest FILE]...
+  [--package-manifest FILE]... [--lifecycle FILE]
 modelable registry resolve-git REPOSITORY --ref REF [--out DIR] [--artifact-manifest FILE]...
-modelable registry diff SOURCE [--out DIR] [--format text|json] [--artifact-manifest FILE]...
+modelable registry diff SOURCE [--out DIR] [--format text|json]
+  [--artifact-manifest FILE]... [--package-manifest FILE]... [--lifecycle FILE]
+  [--migration FILE]
 modelable registry update SOURCE [--out DIR] [--format text|json] [--dry-run]
   [--artifact-manifest FILE]...
+  [--package-manifest FILE]... [--lifecycle FILE] [--migration FILE]
 modelable registry verify [--out DIR] [--format text|json]
 modelable registry rebuild-index [--out DIR]
 modelable registry status [--out DIR] [--format text|json]
 modelable registry prune [--out DIR]
 modelable registry usage SOURCE [--format text|json|manifest]
   [--usage-manifest FILE]... [--artifact-manifest FILE]...
+modelable package validate MANIFEST
+modelable package inspect MANIFEST [--format json]
+modelable package pack MANIFEST [--snapshot DIR] --out FILE
+modelable package verify ARTIFACT
+modelable package unpack ARTIFACT --out DIR
+modelable extension run MODULE --descriptor FILE --pin FILE --plan FILE [--configuration FILE] [--trust]
+modelable query SOURCE --request FILE|-
+  [--usage-manifest FILE]... [--lifecycle FILE] [--migration FILE]
 ```
 
 Compilation can compose local source files with a validated offline snapshot
@@ -1788,6 +1812,16 @@ validation and target generation.
   its SHA-256 descriptor hash in the lock. `registry verify` validates that
   embedded descriptor metadata still matches the pin; legacy pins without an
   embedded descriptor remain readable but cannot provide this additional check.
+  The native `modelable.extension-host/v1` WASM boundary accepts only an
+  explicitly trusted exact implementation pin and validated `modelable.plan/v1`
+  input. It returns deterministic structured artifacts, diagnostics,
+  compatibility findings, or failures; modules have no ambient filesystem or
+  network imports.
+  `--lifecycle FILE` supplies external `modelable.lifecycle/v1` metadata keyed
+  by canonical declaration identity. The lock stores it deterministically and
+  rejects identity removal or backward state transitions.
+  Lifecycle entries are not part of declaration signatures and are absent unless
+  `--lifecycle` is explicitly supplied.
 - `registry diff` stages a candidate in a temporary directory and reports exact
   added, removed, and changed contract identities and usage surfaces without
   changing local state. Its JSON output also includes required consumer-update,
@@ -1917,6 +1951,83 @@ federated `init`, `peer`, `graph`, and `sync` commands are not part of the
 current CLI and must not be treated as available interfaces.
 
 See [compiler-reference.md](compiler-reference.md) §14.
+
+### 10.7.1 `package` — Validate and distribute semantic packages
+
+Package manifests are external TOML files with immutable package identity,
+explicit exports, and dependency constraints. Package operations are offline
+and explicit. `registry resolve` or `registry update` must first create a
+package-aware `modelable.lock/v1` snapshot using repeatable
+`--package-manifest FILE` options.
+
+```text
+modelable package validate MANIFEST
+modelable package inspect MANIFEST [--format json]
+modelable package pack MANIFEST [--snapshot DIR] --out FILE
+modelable package verify ARTIFACT
+modelable package unpack ARTIFACT --out DIR
+```
+
+`package validate` checks manifest syntax, identity/version rules, export
+selectors, and dependency constraints. `package inspect` prints the canonical
+normalized manifest. `package pack` reads only a verified local snapshot and
+writes a deterministic `modelable.package/v1` ZIP containing the normalized
+manifest and canonical semantic objects. `package verify` checks archive paths,
+canonical JSON, object hashes, exports, and package content digests without
+contacting a service. `package unpack` verifies first, then writes the checked
+manifest and objects to the requested directory; it refuses to overwrite
+existing files.
+
+OCI transport and network operations are intentionally separate follow-up
+work; normal compilation and package verification remain offline.
+
+### 10.7.2 `extension run` — Execute a trusted WASM extension
+
+```text
+modelable extension run MODULE --descriptor FILE --pin FILE --plan FILE
+  [--configuration FILE] [--virtual-file PATH=FILE]... [--trust]
+  [--fuel N] [--max-memory-pages N] [--max-output-bytes N]
+```
+
+`extension run` executes one external WASM module against a validated
+`modelable.plan/v1` document. It refuses execution unless `--trust` explicitly
+allows the exact pin supplied by `--pin`; the descriptor, implementation hash,
+and accepted plan protocol are checked before execution. The native host admits
+no module imports and applies deterministic fuel, memory, and output limits.
+Configuration is a JSON object and all artifacts, diagnostics, compatibility
+findings, and structured failures are returned as JSON. The command performs no
+network access. Repeat `--virtual-file PATH=FILE` to provide declared UTF-8
+inputs through the request; paths are relative POSIX paths and are not ambient
+filesystem access.
+
+### 10.7.3 `query` — Answer modelable.query/v1 requests
+
+```text
+modelable query SOURCE --request FILE|-
+  [--usage-manifest FILE]...
+```
+
+`query` loads SOURCE locally and answers one read-only JSON request using the
+`modelable.query/v1` envelope. Pass `--request -` to read the request from
+stdin and write exactly one canonical JSON response to stdout; diagnostics go
+to stderr. The service supports `declaration`, `referencesTo`, `lineage`,
+`consumersOf`, `dependencies`, `dependents`, `changes`, and `consequences`.
+`consumersOf` accepts exact compiled-consumer evidence through one or more
+`--usage-manifest` files. Graph responses are deterministically ordered and
+support `limit` plus opaque cursors; the limit counts edges and each page
+contains the seed and endpoints for that page. The request is explicit and no
+network or mutable state is accessed. The `lifecycle` query family requires
+`--lifecycle FILE` and returns the canonical identity's external state and
+replacement, without inventing a state when metadata is absent.
+Pass `--migration FILE` to include explicit `modelable.migration/v1` lineage
+edges in `lineage` results. Migration metadata is validated, canonicalized, and
+never inferred from structural similarity.
+
+Within query/v1, request envelopes remain strict so unsupported behavior cannot
+be silently ignored. Response envelopes and node/edge objects may gain optional
+members; existing members, meanings, ordering, and cursor selectors remain
+stable. New query families are capability additions and older hosts may report
+them as unsupported.
 
 ### 10.8 `dependents` — List downstream consumers
 

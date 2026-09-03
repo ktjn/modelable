@@ -248,6 +248,19 @@ def compare_model_versions(old_version: ModelVersion, new_version: ModelVersion)
                 )
             )
 
+    old_keys = [field.name for field in old_version.fields if field.is_key]
+    new_keys = [field.name for field in new_version.fields if field.is_key]
+    if old_keys != new_keys and set(old_keys) == set(new_keys):
+        changes.append(
+            FieldChange(
+                kind="identity_order_changed",
+                field_name="primary",
+                from_type=json.dumps(old_keys),
+                to_type=json.dumps(new_keys),
+                note="ordered @key components were reordered",
+            )
+        )
+
     changes.extend(_compare_model_governance(old_version, new_version))
     return changes
 
@@ -434,6 +447,7 @@ def is_field_change_breaking(change: FieldChange) -> bool:
         "union_variant_removed",
         "union_variant_changed",
         "identity_changed",
+        "identity_order_changed",
         "access_grant_removed",
         "pii_changed",
         "classification_changed",

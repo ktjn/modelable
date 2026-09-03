@@ -848,6 +848,7 @@ def _write_csharp_language_smoke(tmp_path: Path, model_version: int = 1) -> None
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
