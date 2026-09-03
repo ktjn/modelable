@@ -400,7 +400,8 @@ It should already be deterministic, JSON-compatible, schema-tagged, and suitable
 
 ### 12.2 `modelable.plan/v1`
 
-`modelable.plan/v1` is frozen only after:
+`modelable.plan/v1` is the stable protocol for the current release. Its
+stabilization exit criteria were:
 
 1. canonical identity/path grammar is complete;
 2. declaration/projection normalization is unified;
@@ -443,7 +444,11 @@ The long-term boundary may support in-process extensions, subprocesses, and WASM
 
 ### 13.1 Capability negotiation
 
-A target advertises support for capabilities such as records, enums, semantic types, unions, maps, constraints, lineage, or compatibility.
+A target advertises support for capabilities such as records, enums, semantic
+types, enum-projection field types, unions, maps, constraints, lineage, or
+compatibility. The current target descriptors own these capability declarations;
+third-party discovery and subprocess/WASM execution remain outside the shipped
+boundary.
 
 The compiler validates normalized semantic input against advertised capabilities before emission.
 
