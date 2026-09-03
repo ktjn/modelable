@@ -1277,15 +1277,13 @@ spans more than one line; the owning domain doesn't exist; the chosen name
 collides with an existing declaration; or the selected fields' member sets
 don't match exactly.
 
-**Not yet supported:** routing a strict-subset occurrence through a new
-`enum projection` instead of a direct reference. That requires a field to
-be *retyped to reference the projection*, which the language does not
-support today -- verified directly, `status: SomeProjection @ 1` on a
-model field is rejected (`unknown semantic type`) even though the same
-name resolves fine as the projection's own declaration. This is a
-separate, pre-existing gap in field-type resolution (`resolve_semantic_
-type_ref` only looks in `domain.semantic_types`), not an extraction-tooling
-limitation, and is tracked as its own follow-up.
+Strict-subset occurrences can be retyped to an `enum projection` reference
+after the projection is declared. The field reference uses the same exact
+version and bare-reference rules as semantic-enum references; the compiler
+and supported target capability checks then preserve the projection's nominal
+identity. Targets without a dedicated subset-enum representation report the
+documented structural-loss boundary rather than silently treating it as the
+source enum.
 
 **Example:**
 

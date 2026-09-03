@@ -1,14 +1,21 @@
 # Enum Projections as Field Types — Design
 
 Date: 2026-08-28
-Status: Proposed
+Status: Implemented in Modelable 1.13.2
 Scope: Allow a model or projection field to reference an `enum projection` declaration directly as its type, and make every compiler surface that already understands `EnumRefType`/semantic-enum references treat a projection-typed reference correctly rather than silently mishandling it.
+
+Implementation note: The resolver, validation, compatibility, registry, plan,
+and target-capability boundaries now accept projection-typed fields. Targets
+without a dedicated subset-enum representation retain the documented
+structural-loss boundary.
 
 ## 1. Context
 
 The [Model Evolution Slices Roadmap](../plans/archived/2026-08-22-model-evolution-slices-roadmap.md) shipped `enum projection` declarations (E3) with full compatibility, registry, and editor support (E4, E5, E11), plus nominal codegen across every implemented target when a projection is reached through its own declaration or through a *record* projection's field mapping (E6-E10).
 
-What was never built — and was explicitly flagged as a real, discovered gap rather than an assumption, while shipping A1's `extract-enum` tool — is using an enum projection as a field's own type:
+At proposal time, what was not built — and was explicitly flagged as a real,
+discovered gap rather than an assumption, while shipping A1's `extract-enum`
+tool — was using an enum projection as a field's own type:
 
 ```mdl
 domain orders {
@@ -25,9 +32,16 @@ domain orders {
 }
 ```
 
-Today this is rejected with `ENUMREF: unknown semantic type 'PublicOrderStatus'`. The cause is `registry/resolver.py::resolve_semantic_type_ref`, the single resolution path every `NamedType`/`EnumRefType` field-type reference goes through — it only ever looks in `domain.semantic_types`, with no fallback to `domain.enum_projections`.
+At proposal time this was rejected with `ENUMREF: unknown semantic type
+'PublicOrderStatus'` because `registry/resolver.py::resolve_semantic_type_ref`
+only searched `domain.semantic_types`.
 
-This is a real gap, not a cosmetic one: the language already lets an author declare a nominal subset with its own compatibility and lineage rules, but cannot use it anywhere a field type is written. The only place a projection is currently reachable is as a *record* projection's field-mapping source, which goes through separate `EnumProjectionDecl`-specific expansion code, not the general field-type path.
+This was a real gap, not a cosmetic one: the language already let an author
+declare a nominal subset with its own compatibility and lineage rules, but
+could not use it anywhere a field type was written. The projection was then
+reachable only as a *record* projection's field-mapping source, through
+separate `EnumProjectionDecl`-specific expansion code rather than the general
+field-type path.
 
 ## 2. Why this is bigger than a resolver fix
 
@@ -90,8 +104,11 @@ Canonical signature rendering (`compiler/render.py`, `registry/signature.py`) re
 
 Every one of the ~14 emitter files above needs an explicit decision per E9/E10's own precedent ("document rather than conceal structural loss"). Given the breadth, this must ship as a compiler-core slice first, with emitter support following in dependency order — mirroring exactly how E6-E10 sequenced after E1-E5, rather than attempting all targets in one PR.
 
-**Phase 1 — compiler core (this design's first implementation slice).**
-Resolver, validation, compatibility, signatures/snapshot/dependency-graph support land together. Every implemented emitter gets one shared, explicit rejection: a field whose type resolves to an `EnumProjectionDecl` produces a clear target-loss diagnostic ("enum-projection-typed fields are not yet supported for target `X`") instead of the current silent mis-resolution (most emitters would otherwise either crash on an unexpected type or, worse, silently fall through to a generic `unknown`/`string` fallback the way pre-E9/E10 `EnumRefType` handling did). This closes the actual authoring gap safely: a projection-typed field now parses, validates, diffs, and signs correctly, and every target fails loudly and specifically rather than emitting a wrong artifact.
+**Phase 1 — compiler core (the initial implementation slice).**
+Resolver, validation, compatibility, signatures/snapshot/dependency-graph
+support landed together. Each target now either supports projection-typed
+fields through its capability boundary or reports the documented structural
+loss explicitly, rather than silently mis-resolving the type.
 
 **Phase 2+ — per-target real support, one reviewable slice each, proposed order:**
 1. Rust — lowest marginal cost, since `_emit_enum_projection` already emits the `pub enum`; only the field-type-to-Rust-type wiring and `From`/`TryFrom` reuse need extending.
