@@ -23,7 +23,7 @@ from modelable.parser.ir import (
     ReplaceFieldOp,
     SemanticTypeDecl,
 )
-from modelable.registry.resolver import resolve_semantic_type_ref
+from modelable.registry.resolver import resolve_named_declaration
 
 _KEYWORDS = (
     "domain",
@@ -503,7 +503,16 @@ def _enum_projection_source_for_line(
         return None
     source_name, source_version = pending_from
     try:
-        return resolve_semantic_type_ref(workspace.mdl, current_domain, source_name, exact_version=source_version)
+        resolved = resolve_named_declaration(
+            workspace.mdl,
+            current_domain,
+            source_name,
+            exact_version=source_version,
+            include_enum_projections=False,
+        )
+        if not isinstance(resolved.declaration, SemanticTypeDecl):
+            return None
+        return resolved.domain_name, resolved.declaration
     except LookupError:
         return None
 
