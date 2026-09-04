@@ -78,11 +78,11 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         status=CapabilityStatus.deferred,
         description="Multiple @key fields on a single entity or aggregate",
         notes=(
-            "docs/architecture.md records the current invariant: exactly one @key field "
-            "per entity/aggregate. Composite keys remain deferred; see ROADMAP.md Slice D5 "
-            "(legacy mapping) and Phase 2 for declaration-model stabilization."
+            "Core validation preserves ordered multiple @key fields, but target "
+            "capability negotiation and emitter conformance remain deferred; see "
+            "docs/architecture.md and ROADMAP.md Programme E."
         ),
-        test_refs=("test_semantic.py::test_composite_key_is_not_yet_supported",),
+        test_refs=("test_semantic.py::test_composite_key_is_validated_as_an_ordered_key_set",),
     ),
     Capability(
         name="model-lifecycle-status",

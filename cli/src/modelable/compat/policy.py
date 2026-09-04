@@ -16,6 +16,17 @@ _SEVERITY_RANK = {name: rank for rank, name in enumerate(SEVERITIES)}
 # this per target; it never changes what severity compat/targets.py already
 # assigned a finding.
 DEFAULT_THRESHOLD = "review_required"
+PROFILE_REQUIREMENTS = frozenset({"backward", "forward", "full"})
+
+
+@dataclass(frozen=True)
+class CompatibilityProfile:
+    """Named target and direction requirements for a compatibility check."""
+
+    name: str
+    targets: tuple[str, ...]
+    requirement: str
+    thresholds: dict[str, str]
 
 
 @dataclass(frozen=True)
@@ -32,12 +43,28 @@ class CompatibilityPolicy:
     """
 
     thresholds: dict[str, str]
+    profiles: dict[str, CompatibilityProfile] | None = None
+
+    def profile_for(self, name: str) -> CompatibilityProfile:
+        profiles = self.profiles or {}
+        try:
+            return profiles[name]
+        except KeyError as error:
+            raise ValueError(f"unknown compatibility profile {name!r}") from error
 
     def threshold_for(self, target: str) -> str:
         return self.thresholds.get(target, DEFAULT_THRESHOLD)
 
-    def enforce(self, report: TargetCompatibilityReport) -> EnforcementResult:
-        threshold = self.threshold_for(report.target)
+    def enforce(
+        self, report: TargetCompatibilityReport, *, profile: CompatibilityProfile | None = None
+    ) -> EnforcementResult:
+        if profile is not None and report.target not in profile.targets:
+            raise ValueError(f"compatibility profile {profile.name!r} does not include target {report.target!r}")
+        threshold = (
+            profile.thresholds.get(report.target, self.threshold_for(report.target))
+            if profile is not None
+            else self.threshold_for(report.target)
+        )
         if threshold not in _SEVERITY_RANK:
             raise ValueError(
                 f"invalid compatibility policy threshold {threshold!r} for target {report.target!r}; "
@@ -62,7 +89,7 @@ class EnforcementResult:
 
 
 def default_policy() -> CompatibilityPolicy:
-    return CompatibilityPolicy(thresholds={})
+    return CompatibilityPolicy(thresholds={}, profiles={})
 
 
 def load_policy(path: Path) -> CompatibilityPolicy:
@@ -78,7 +105,7 @@ def load_policy(path: Path) -> CompatibilityPolicy:
     if not isinstance(doc, dict):
         raise ValueError(f"policy file {path} must be a YAML mapping")
 
-    unsupported = set(doc) - {"compatibility"}
+    unsupported = set(doc) - {"compatibility", "profiles"}
     if "lint" in unsupported:
         raise ValueError(
             "policy file has a 'lint:' section, which is not yet implemented "
@@ -105,4 +132,44 @@ def load_policy(path: Path) -> CompatibilityPolicy:
             )
         thresholds[target] = threshold
 
-    return CompatibilityPolicy(thresholds=thresholds)
+    profiles_raw = doc.get("profiles") or {}
+    if not isinstance(profiles_raw, dict):
+        raise ValueError("policy file's 'profiles:' section must be a mapping of names to profiles")
+    profiles: dict[str, CompatibilityProfile] = {}
+    for name, raw_profile in profiles_raw.items():
+        if not isinstance(name, str) or not name:
+            raise ValueError(f"compatibility profile names must be non-empty strings: {name!r}")
+        if not isinstance(raw_profile, dict):
+            raise ValueError(f"compatibility profile {name!r} must be a mapping")
+        if set(raw_profile) - {"targets", "requirement", "thresholds"}:
+            unknown = sorted(set(raw_profile) - {"targets", "requirement", "thresholds"})
+            raise ValueError(f"compatibility profile {name!r} has unsupported key(s): {', '.join(unknown)}")
+        targets_raw = raw_profile.get("targets")
+        requirement = raw_profile.get("requirement")
+        if (
+            not isinstance(targets_raw, list)
+            or not targets_raw
+            or not all(isinstance(target, str) and target for target in targets_raw)
+            or len(set(targets_raw)) != len(targets_raw)
+        ):
+            raise ValueError(f"compatibility profile {name!r} targets must be a non-empty unique string array")
+        if not isinstance(requirement, str) or requirement not in PROFILE_REQUIREMENTS:
+            raise ValueError(
+                f"compatibility profile {name!r} requirement must be one of {', '.join(sorted(PROFILE_REQUIREMENTS))}"
+            )
+        profile_thresholds_raw = raw_profile.get("thresholds", {})
+        if not isinstance(profile_thresholds_raw, dict):
+            raise ValueError(f"compatibility profile {name!r} thresholds must be a mapping")
+        profile_thresholds: dict[str, str] = {}
+        for target, threshold in profile_thresholds_raw.items():
+            if not isinstance(target, str) or not isinstance(threshold, str) or threshold not in _SEVERITY_RANK:
+                raise ValueError(f"compatibility profile {name!r} has an invalid threshold for {target!r}")
+            profile_thresholds[target] = threshold
+        profiles[name] = CompatibilityProfile(
+            name=name,
+            targets=tuple(sorted(targets_raw)),
+            requirement=requirement,
+            thresholds=profile_thresholds,
+        )
+
+    return CompatibilityPolicy(thresholds=thresholds, profiles=profiles)

@@ -1,0 +1,6 @@
+{
+  "$schema": "modelable.query/v1",
+  "kind": "query",
+  "query": "declaration",
+  "id": "customer.Customer@1"
+}

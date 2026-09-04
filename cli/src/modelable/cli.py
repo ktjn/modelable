@@ -14,12 +14,15 @@ from modelable.commands.docs_ask import register_docs_ask_commands
 from modelable.commands.docs_eval import register_docs_eval_commands
 from modelable.commands.docs_index import register_docs_index_commands
 from modelable.commands.doctor import register_doctor_commands
+from modelable.commands.extension import register_extension_commands
 from modelable.commands.extract_enum import register_extract_enum_commands
 from modelable.commands.graph import register_graph_commands
 from modelable.commands.impact import register_impact_commands
 from modelable.commands.llm import register_llm_commands
 from modelable.commands.lsp import register_lsp_commands
+from modelable.commands.package import register_package_commands
 from modelable.commands.plan import register_plan_commands
+from modelable.commands.query import register_query_commands
 from modelable.commands.registry import register_registry_commands
 from modelable.commands.runtime import register_runtime_commands
 from modelable.commands.scenario import register_scenario_commands
@@ -50,12 +53,15 @@ register_create_commands(cli)
 register_diff_commands(cli)
 register_docs_index_commands(cli)
 register_doctor_commands(cli)
+register_extension_commands(cli)
 register_docs_eval_commands(cli)
 register_docs_ask_commands(cli)
 register_extract_enum_commands(cli)
 register_graph_commands(cli)
 register_impact_commands(cli)
+register_package_commands(cli)
 register_plan_commands(cli)
+register_query_commands(cli)
 register_lsp_commands(cli)
 register_llm_commands(cli)
 register_codegen_commands(cli)

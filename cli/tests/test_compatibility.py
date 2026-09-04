@@ -707,6 +707,31 @@ def test_index_changed_is_visible_when_secondary_index_added():
     assert any(change.kind == "index_changed" for change in report.changes)
 
 
+def test_composite_key_reordering_is_breaking():
+    mdl = parse_text_to_ir(
+        """
+        domain platform {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            @key lineNumber: int
+          }
+          entity Order @ 2 (breaking) {
+            @key lineNumber: int
+            @key orderId: uuid
+          }
+        }
+        """
+    )
+
+    from modelable.compat.checker import check_model_version_compatibility
+
+    report = check_model_version_compatibility(mdl, "platform", "Order", 1, 2)
+
+    assert report.status == "breaking"
+    assert any(change.kind == "identity_order_changed" for change in report.changes)
+
+
 def test_index_changed_is_not_flagged_when_neither_version_has_one():
     mdl = parse_text_to_ir(
         """

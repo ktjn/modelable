@@ -4,14 +4,19 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
+from modelable.identity import DeclarationId, DeclarationVersion, declaration_id
 from modelable.parser.ir import (
+    Annotation,
     DomainDef,
     EnumProjectionDecl,
+    FieldDef,
     MdlFile,
     ModelVersion,
+    ProjectionField,
     ProjectionVersion,
     RefType,
     SemanticTypeDecl,
+    ValueConstraint,
     VersionExact,
     VersionMin,
     VersionPinned,
@@ -20,7 +25,7 @@ from modelable.parser.ir import (
 )
 from modelable.registry.signature import compute_version_signature
 
-ResolvedDeclaration = ModelVersion | ProjectionVersion | SemanticTypeDecl | EnumProjectionDecl
+DeclarationValue = ModelVersion | ProjectionVersion | SemanticTypeDecl | EnumProjectionDecl
 
 
 @dataclass(frozen=True)
@@ -29,7 +34,10 @@ class _DeclarationCandidate:
 
     domain_name: str
     name: str
-    declaration: ResolvedDeclaration
+    declaration: DeclarationValue
+    domain_owner: str | None = None
+    domain_contact: str | None = None
+    domain_description: str | None = None
 
     @property
     def version_number(self) -> int:
@@ -46,6 +54,17 @@ class _DeclarationCandidate:
         return "enum_projection"
 
 
+@dataclass(frozen=True)
+class ResolvedMember:
+    """Common read-only member view for declaration fields and enum members."""
+
+    name: str
+    annotations: tuple[Annotation, ...] = ()
+    constraints: tuple[ValueConstraint, ...] = ()
+    optional: bool | None = None
+    nullable: bool | None = None
+
+
 def _iter_declaration_candidates(mdl: MdlFile) -> Iterator[_DeclarationCandidate]:
     """Yield all concrete named declaration versions through one boundary."""
     for domain in mdl.domains:
@@ -56,14 +75,42 @@ def _iter_domain_declaration_candidates(domain: DomainDef) -> Iterator[_Declarat
     """Yield all concrete named declarations belonging to one domain."""
     for model_name, model_versions in domain.models.items():
         for model_declaration in model_versions:
-            yield _DeclarationCandidate(domain.name, model_name, model_declaration)
+            yield _DeclarationCandidate(
+                domain.name,
+                model_name,
+                model_declaration,
+                domain.owner,
+                domain.contact,
+                domain.description,
+            )
     for projection_name, projection_versions in domain.projections.items():
         for projection_declaration in projection_versions:
-            yield _DeclarationCandidate(domain.name, projection_name, projection_declaration)
+            yield _DeclarationCandidate(
+                domain.name,
+                projection_name,
+                projection_declaration,
+                domain.owner,
+                domain.contact,
+                domain.description,
+            )
     for semantic_declaration in domain.semantic_types:
-        yield _DeclarationCandidate(domain.name, semantic_declaration.name, semantic_declaration)
+        yield _DeclarationCandidate(
+            domain.name,
+            semantic_declaration.name,
+            semantic_declaration,
+            domain.owner,
+            domain.contact,
+            domain.description,
+        )
     for enum_declaration in domain.enum_projections:
-        yield _DeclarationCandidate(domain.name, enum_declaration.name, enum_declaration)
+        yield _DeclarationCandidate(
+            domain.name,
+            enum_declaration.name,
+            enum_declaration,
+            domain.owner,
+            domain.contact,
+            domain.description,
+        )
 
 
 def _latest_declaration_candidates(domain: DomainDef, kind: str) -> list[_DeclarationCandidate]:
@@ -101,9 +148,111 @@ class ResolvedDeclarationView(Protocol):
 
     domain_name: str
     name: str
-    declaration: ResolvedDeclaration
+    declaration: DeclarationValue
     kind: str
     version_number: int
+    identity: str
+
+
+@dataclass(frozen=True)
+class ResolvedDeclaration:
+    """Canonical identity view for every named, versioned declaration."""
+
+    domain_name: str
+    name: str
+    declaration: DeclarationValue
+    kind: str
+    version_number: int
+    domain_owner: str | None = None
+    domain_contact: str | None = None
+    domain_description: str | None = None
+
+    @property
+    def identity(self) -> str:
+        return DeclarationVersion(DeclarationId(self.domain_name, self.name), self.version_number).identity
+
+    @property
+    def members(self) -> tuple[ResolvedMember, ...]:
+        if isinstance(self.declaration, ModelVersion):
+            return tuple(_resolved_field_member(field) for field in self.declaration.fields)
+        if isinstance(self.declaration, ProjectionVersion):
+            return tuple(_resolved_field_member(field) for field in self.declaration.fields)
+        if isinstance(self.declaration, EnumProjectionDecl):
+            return tuple(ResolvedMember(name) for name in self.declaration.members)
+        return ()
+
+    @property
+    def annotations(self) -> tuple[Annotation, ...]:
+        annotations = getattr(self.declaration, "annotations", ())
+        return tuple(annotations)
+
+    @property
+    def lineage(self) -> tuple[str, ...]:
+        declaration = self.declaration
+        if isinstance(declaration, ProjectionVersion):
+            references = [_versioned_reference(self.domain_name, declaration.source.model, declaration.source.version)]
+            references.extend(
+                _versioned_reference(self.domain_name, join.model, join.version) for join in declaration.joins
+            )
+            return tuple(references)
+        if isinstance(declaration, EnumProjectionDecl):
+            return (_versioned_reference(self.domain_name, declaration.source_name, declaration.source_version),)
+        return ()
+
+
+def _resolved_field_member(field: FieldDef | ProjectionField) -> ResolvedMember:
+    return ResolvedMember(
+        name=field.name,
+        annotations=tuple(field.annotations),
+        constraints=tuple(field.constraints),
+        optional=field.optional if isinstance(field, FieldDef) else None,
+        nullable=field.nullable if isinstance(field, FieldDef) else None,
+    )
+
+
+def _versioned_reference(domain_name: str, name: str, version: VersionSpec | int) -> str:
+    qualified_name = name if "." in name else f"{domain_name}.{name}"
+    return f"{qualified_name}@{_format_version_spec(version)}"
+
+
+def resolve_declaration(
+    mdl: MdlFile,
+    declaration_ref: str,
+    version_spec: VersionSpec | int,
+    *,
+    allowed_kinds: frozenset[str] | None = None,
+) -> ResolvedDeclaration:
+    """Resolve any qualified declaration reference through one boundary.
+
+    This service deliberately handles identity and version selection only.
+    Declaration-family-specific validation remains in the compatibility
+    wrappers and semantic validators.
+    """
+    domain_name, name = _split_model_ref(declaration_ref)
+    candidates = [
+        candidate
+        for candidate in _iter_declaration_candidates(mdl)
+        if candidate.domain_name == domain_name
+        and candidate.name == name
+        and (allowed_kinds is None or candidate.kind in allowed_kinds)
+    ]
+    matching = [
+        candidate for candidate in candidates if _matches_declaration(candidate, version_spec, domain_name, name)
+    ]
+    if not matching:
+        raise LookupError(f"unresolved declaration reference {declaration_ref}@{_format_version_spec(version_spec)}")
+
+    selected = max(matching, key=lambda candidate: candidate.version_number)
+    return ResolvedDeclaration(
+        domain_name=selected.domain_name,
+        name=selected.name,
+        declaration=selected.declaration,
+        kind=selected.kind,
+        version_number=selected.version_number,
+        domain_owner=selected.domain_owner,
+        domain_contact=selected.domain_contact,
+        domain_description=selected.domain_description,
+    )
 
 
 @dataclass(frozen=True)
@@ -130,6 +279,10 @@ class ResolvedModelRef:
     def version_number(self) -> int:
         return self.version.version
 
+    @property
+    def identity(self) -> str:
+        return declaration_id(self.domain_name, self.model_name, self.version.version)
+
 
 @dataclass(frozen=True)
 class ResolvedNamedDeclaration:
@@ -154,6 +307,10 @@ class ResolvedNamedDeclaration:
     def version_number(self) -> int:
         return self.version
 
+    @property
+    def identity(self) -> str:
+        return declaration_id(self.domain_name, self.name, self.version)
+
 
 def resolve_model_ref(
     mdl: MdlFile,
@@ -162,21 +319,26 @@ def resolve_model_ref(
 ) -> ResolvedModelRef:
     """Resolve a model reference to a concrete published model version."""
     domain_name, model_name = _split_model_ref(model_ref)
-    versions = _find_model_versions(mdl, domain_name, model_name)
-    if not versions:
+    try:
+        resolved = resolve_declaration(
+            mdl,
+            model_ref,
+            version_spec,
+            allowed_kinds=frozenset({"model", "projection"}),
+        )
+    except LookupError as exc:
+        raise LookupError(f"unresolved model reference {model_ref}@{_format_version_spec(version_spec)}") from exc
+    if not isinstance(resolved.declaration, (ModelVersion, ProjectionVersion)):
         raise LookupError(f"unresolved model reference {model_ref}@{_format_version_spec(version_spec)}")
 
-    matching = [version for version in versions if _matches(version, version_spec, domain_name, model_name)]
-    if not matching:
-        raise LookupError(f"unresolved model reference {model_ref}@{_format_version_spec(version_spec)}")
-
-    selected = max(matching, key=lambda version: version.version)
+    selected = resolved.declaration
 
     # If using a range or min spec, ensure no breaking change exists between
     # the requested start and the selected version.
     if isinstance(version_spec, (VersionRange, VersionMin)):
         min_v = version_spec.min_inclusive
         # Check all versions from min_v + 1 up to selected.version
+        versions = _find_model_versions(mdl, domain_name, model_name)
         for v in versions:
             if min_v < v.version <= selected.version:
                 from modelable.parser.ir import ChangeKind
@@ -285,6 +447,21 @@ def _resolve_semantic_type_ref(
     version wins, matching historical behavior.
     """
     if "." in name:
+        selector: VersionSpec | int = exact_version if exact_version is not None else VersionMin(min_inclusive=0)
+        try:
+            resolved = resolve_declaration(
+                mdl,
+                name,
+                selector,
+                allowed_kinds=frozenset({"semantic_type"}),
+            )
+        except LookupError:
+            # Preserve the established diagnostic for qualified semantic refs.
+            pass
+        else:
+            if isinstance(resolved.declaration, SemanticTypeDecl):
+                return resolved.domain_name, resolved.declaration
+
         domain_name, type_name = name.split(".", 1)
         domain = next((item for item in mdl.domains if item.name == domain_name), None)
         if domain is None:
@@ -546,24 +723,31 @@ def _split_model_ref(model_ref: str) -> tuple[str, str]:
     return parts[0], parts[1]
 
 
-def _matches(
-    version: ModelVersion | ProjectionVersion,
+def _matches_declaration(
+    candidate: _DeclarationCandidate,
     version_spec: VersionSpec | int,
     domain_name: str,
-    model_name: str,
+    name: str,
 ) -> bool:
+    """Match a version selector without imposing family-specific semantics."""
+    version = candidate.version_number
     if isinstance(version_spec, int):
-        return version.version == version_spec
+        return version == version_spec
     if isinstance(version_spec, VersionExact):
-        return version.version == version_spec.version
+        return version == version_spec.version
     if isinstance(version_spec, VersionRange):
-        return version_spec.min_inclusive <= version.version < version_spec.max_exclusive
+        return version_spec.min_inclusive <= version < version_spec.max_exclusive
     if isinstance(version_spec, VersionMin):
-        return version.version >= version_spec.min_inclusive
+        return version >= version_spec.min_inclusive
     if isinstance(version_spec, VersionPinned):
-        if version.version != version_spec.version:
+        if version != version_spec.version:
             return False
-        return compute_version_signature(domain_name, model_name, version).lower() == version_spec.content_hash.lower()
+        if not isinstance(candidate.declaration, (ModelVersion, ProjectionVersion)):
+            return False
+        return (
+            compute_version_signature(domain_name, name, candidate.declaration).lower()
+            == version_spec.content_hash.lower()
+        )
     return False
 
 

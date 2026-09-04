@@ -189,7 +189,7 @@ test('browser compiler matches native snapshots including cross-file references'
         if (scenario === 'single-valid') {
           result.format = await client.formatSource(sources[0]!);
         }
-        if (scenario === 'single-valid' || scenario === 'multi-domain') {
+        if (scenario === 'composite-key' || scenario === 'single-valid' || scenario === 'multi-domain') {
           result.compile = await client.compileJsonSchema(sources);
         }
         if (scenario === 'compatibility') {

@@ -28,7 +28,7 @@ from modelable.parser.ir import (
     ProjectionVersion,
     VersionSpec,
 )
-from modelable.registry.resolver import resolve_model_ref
+from modelable.registry.resolver import resolve_declaration
 
 _QUALIFIED_REF_PATTERN = re.compile(
     r"(?P<domain>[A-Za-z_][A-Za-z0-9_]*)\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
@@ -379,18 +379,19 @@ def _hover_for_field_reference(
         return None
     model_ref, version_spec = current_reference
     try:
-        resolved = resolve_model_ref(
+        resolved = resolve_declaration(
             workspace.mdl,
             model_ref,
             version_spec,
+            allowed_kinds=frozenset({"model", "projection"}),
         )
     except LookupError:
         return None
     return _hover_for_source_field(
         workspace,
         resolved.domain_name,
-        resolved.model_name,
-        resolved.version.version,
+        resolved.name,
+        resolved.version_number,
         field_name,
         line,
         start,

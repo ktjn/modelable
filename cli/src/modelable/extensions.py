@@ -31,6 +31,7 @@ from modelable.registry.resolver import resolve_enum_type_ref
 PROTOCOL = "modelable.extension/v1"
 STANDARD_CAPABILITIES = frozenset(
     {
+        "composite-keys",
         "records",
         "enums",
         "enum-projections",
@@ -118,8 +119,8 @@ class ExtensionTrustPolicy:
     Built-in extensions run with the trust level of Modelable. Third-party
     execution requires an exact pinned implementation in the corresponding
     allowlist. Network and filesystem access stay disabled unless a host opts
-    in explicitly. The policy is a decision boundary; this release has no
-    third-party execution or discovery path.
+    in explicitly. The native WASM host consumes the explicit allowlist;
+    discovery and subprocess execution remain out of scope.
     """
 
     allowed_subprocess_pins: tuple[ExtensionPin, ...] = ()
@@ -443,6 +444,8 @@ def required_capabilities(mdl: MdlFile) -> tuple[str, ...]:
         for model_versions in domain.models.values():
             for model_version in model_versions:
                 required.add("records")
+                if sum(field.is_key for field in model_version.fields) > 1:
+                    required.add("composite-keys")
                 for model_field in model_version.fields:
                     visit(model_field.type, model_field, current_domain=domain.name)
         for projection_versions in domain.projections.values():

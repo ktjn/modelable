@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "modelable.lifecycle/v1",
+  "title": "Modelable external lifecycle metadata v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "entries"],
+  "properties": {
+    "$schema": {"const": "modelable.lifecycle/v1"},
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["identity", "state"],
+        "properties": {
+          "identity": {"type": "string", "minLength": 1},
+          "state": {"enum": ["candidate", "published", "deprecated", "retired"]},
+          "replacement": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

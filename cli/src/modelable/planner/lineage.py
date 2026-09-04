@@ -87,7 +87,7 @@ def _build_alias_map(pv: ProjectionVersion, mdl: MdlFile) -> dict[str, str]:
         try:
             resolved = resolved_version_spec(mdl, model_ref, version_spec)
             target = resolve_model_ref(mdl, model_ref, resolved.version)
-            alias_map[alias] = f"{target.domain_name}.{target.model_name}@{target.version.version}"
+            alias_map[alias] = target.identity
         except LookupError:
             pass
 
@@ -114,7 +114,7 @@ def _expand_lineage_ref(
     except LookupError:
         return [_canonical_lineage_ref(declaration_ref, field_path)]
 
-    canonical_declaration = f"{resolved.domain_name}.{resolved.model_name}@{resolved.version.version}"
+    canonical_declaration = resolved.identity
     if isinstance(resolved.version, ModelVersion):
         return [_canonical_lineage_ref(canonical_declaration, field_path)]
 

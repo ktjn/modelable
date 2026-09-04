@@ -1,0 +1,15 @@
+{
+  "$schema": "modelable.query/v1",
+  "kind": "query_result",
+  "query": "declaration",
+  "data": {
+    "nodes": [
+      {
+        "id": "model_version:customer.Customer@1",
+        "kind": "model_version",
+        "target_ref": "customer.Customer@1"
+      }
+    ],
+    "edges": []
+  }
+}

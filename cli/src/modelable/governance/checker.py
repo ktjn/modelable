@@ -260,6 +260,6 @@ def _build_resolved_sources(
 ) -> dict[str, tuple[str, ModelVersion | ProjectionVersion]]:
     resolved_sources: dict[str, tuple[str, ModelVersion | ProjectionVersion]] = {}
     for alias, resolved in resolve_projection_aliases(pv, mdl).items():
-        ref = f"{resolved.domain_name}.{resolved.model_name}@{resolved.version.version}"
+        ref = resolved.identity
         resolved_sources[alias] = (ref, resolved.version)
     return resolved_sources

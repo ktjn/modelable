@@ -26,7 +26,7 @@ REGISTRY_POLICY_ACTIONS = frozenset(
         "storage_migration",
     }
 )
-REGISTRY_POLICY_RULES = frozenset({"pii_changes"})
+REGISTRY_POLICY_RULES = frozenset({"lifecycle_references", "pii_changes"})
 REGISTRY_POLICY_SEVERITIES = frozenset({"off", "warning", "error"})
 
 

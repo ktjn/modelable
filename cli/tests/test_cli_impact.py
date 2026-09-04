@@ -6,12 +6,34 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from modelable.cli import cli
+from modelable.commands.impact import _resolve_impact_declarations
 from modelable.compiler.workspace import load_workspace
 from modelable.consequence_protocol import validate_consequence_graph
+from modelable.parser import parse_text_to_ir
 from modelable.registry.snapshot import resolve_workspace_snapshot
 from modelable.registry.usage import build_usage_manifest
 
 FIXTURE = Path(__file__).parent / "fixtures" / "customer.mdl"
+
+
+def test_impact_resolves_both_versions_through_common_declaration_view() -> None:
+    mdl = parse_text_to_ir(
+        """
+        domain customer {
+          entity Customer @ 1 (additive) { id: uuid }
+          entity Customer @ 2 (additive) {
+            id: uuid
+            name: string
+          }
+        }
+        """
+    )
+
+    old, new = _resolve_impact_declarations(mdl, "customer.Customer@1", "customer.Customer@2")
+
+    assert old.identity == "customer.Customer@1"
+    assert new.identity == "customer.Customer@2"
+    assert old.kind == new.kind == "model"
 
 
 def test_impact_json_reports_projection_consequences(tmp_path: Path) -> None:

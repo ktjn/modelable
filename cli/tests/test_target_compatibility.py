@@ -4,10 +4,12 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 from click.testing import CliRunner
 
 from modelable.cli import cli
+from modelable.commands.validate_compat import _compare_semantic_workspaces
 from modelable.compat.diff import compare_index_decls, compare_model_versions, compare_projection_versions
 from modelable.compat.targets import (
     AXES,
@@ -41,6 +43,8 @@ from modelable.emitters.openapi import emit_openapi
 from modelable.emitters.protobuf import emit_protobuf
 from modelable.emitters.sql import emit_sql
 from modelable.parser.parse import parse_text_to_ir
+from modelable.registry.usage import build_usage_manifest
+from modelable.registry.usage_protocol import serialize_usage_manifest
 
 
 def _write(path: Path, text: str) -> Path:
@@ -2313,6 +2317,119 @@ compatibility:
     assert "removed_field_not_reserved" in result.output
 
 
+def test_validate_compat_cli_applies_named_full_profile(tmp_path):
+    old = _write(
+        tmp_path / "old.mdl",
+        'domain billing { owner: "billing" entity Customer @ 1 (additive) { @key customerId: uuid legacyStatus?: string } }',
+    )
+    new = _write(
+        tmp_path / "new.mdl",
+        'domain billing { owner: "billing" entity Customer @ 1 (additive) { @key customerId: uuid } }',
+    )
+    policy = _write(
+        tmp_path / "policy.yml",
+        """
+profiles:
+  public-events:
+    targets: [protobuf]
+    requirement: full
+    thresholds:
+      protobuf: migration_required
+""",
+    )
+    usage_manifest = tmp_path / "usage.json"
+    usage_manifest.write_text(
+        serialize_usage_manifest(build_usage_manifest(load_workspace(new))),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "validate-compat",
+            "--from",
+            str(old),
+            "--to",
+            str(new),
+            "--target",
+            "protobuf",
+            "--policy",
+            str(policy),
+            "--profile",
+            "public-events",
+            "--usage-manifest",
+            str(usage_manifest),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    payload = json.loads(result.output)
+    assert payload["policy"]["profile"] == "public-events"
+    assert payload["policy"]["requirement"] == "full"
+    assert any(finding["axis"] == "source_compatibility" for finding in payload["findings"])
+    profile_consequences = [
+        consequence
+        for consequence in payload["consequences"]
+        if consequence["subject"] == "compatibility-profile:public-events"
+    ]
+    assert len(profile_consequences) == 1
+    assert profile_consequences[0]["action"] == "governance_review"
+    assert profile_consequences[0]["status"] == "breaking"
+    assert any(
+        consequence["action"] == "consumer_update" and consequence["subject"] == "application:workspace"
+        for consequence in payload["consequences"]
+    )
+    assert any(
+        edge["kind"] == "causes" and edge["target"] == "compatibility-profile:public-events"
+        for edge in payload["consequence_graph"]["edges"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("requirement", "expected_exit"),
+    [("backward", 1), ("forward", 0)],
+)
+def test_validate_compat_cli_applies_named_direction_profile(tmp_path, requirement, expected_exit):
+    old = _write(
+        tmp_path / "old.mdl",
+        'domain billing { owner: "billing" entity Customer @ 1 (additive) { @key customerId: uuid legacyStatus?: string } }',
+    )
+    new = _write(
+        tmp_path / "new.mdl",
+        'domain billing { owner: "billing" entity Customer @ 1 (additive) { @key customerId: uuid } }',
+    )
+    policy = _write(
+        tmp_path / "policy.yml",
+        f"profiles:\n  public-events:\n    targets: [protobuf]\n    requirement: {requirement}\n",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "validate-compat",
+            "--from",
+            str(old),
+            "--to",
+            str(new),
+            "--target",
+            "protobuf",
+            "--policy",
+            str(policy),
+            "--profile",
+            "public-events",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == expected_exit
+    payload = json.loads(result.output)
+    assert payload["policy"]["profile"] == "public-events"
+    assert payload["policy"]["requirement"] == requirement
+
+
 def test_validate_compat_cli_rejects_an_invalid_policy_file(tmp_path):
     old = _write(
         tmp_path / "old.mdl",
@@ -2361,6 +2478,126 @@ compatibility:
 
     assert result.exit_code != 0
     assert "unknown severity" in result.output
+
+
+def test_validate_compat_cli_rejects_profile_without_policy(tmp_path):
+    old = _write(
+        tmp_path / "old.mdl", 'domain billing { owner: "billing" entity Customer @ 1 (additive) { @key id: uuid } }'
+    )
+    new = _write(
+        tmp_path / "new.mdl", 'domain billing { owner: "billing" entity Customer @ 1 (additive) { @key id: uuid } }'
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "validate-compat",
+            "--from",
+            str(old),
+            "--to",
+            str(new),
+            "--target",
+            "protobuf",
+            "--profile",
+            "public-events",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "--profile requires --policy" in result.output
+
+
+def test_validate_compat_cli_rejects_invalid_usage_manifest(tmp_path):
+    old = _write(
+        tmp_path / "old.mdl", 'domain billing { owner: "billing" entity Customer @ 1 (additive) { @key id: uuid } }'
+    )
+    new = _write(
+        tmp_path / "new.mdl", 'domain billing { owner: "billing" entity Customer @ 1 (additive) { @key id: uuid } }'
+    )
+    usage = _write(tmp_path / "usage.json", "{}")
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "validate-compat",
+            "--from",
+            str(old),
+            "--to",
+            str(new),
+            "--target",
+            "protobuf",
+            "--usage-manifest",
+            str(usage),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "cannot load usage manifest" in result.output
+
+
+def test_validate_compat_cli_rejects_profile_without_target_membership(tmp_path):
+    old = _write(
+        tmp_path / "old.mdl", 'domain billing { owner: "billing" entity Customer @ 1 (additive) { @key id: uuid } }'
+    )
+    new = _write(
+        tmp_path / "new.mdl", 'domain billing { owner: "billing" entity Customer @ 1 (additive) { @key id: uuid } }'
+    )
+    policy = _write(
+        tmp_path / "policy.yml",
+        "profiles:\n  public-events:\n    targets: [avro]\n    requirement: backward\n",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "validate-compat",
+            "--from",
+            str(old),
+            "--to",
+            str(new),
+            "--target",
+            "protobuf",
+            "--policy",
+            str(policy),
+            "--profile",
+            "public-events",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "does not include target" in result.output
+
+
+def test_compare_semantic_workspaces_handles_missing_and_empty_domains(tmp_path):
+    old = _write(
+        tmp_path / "old.mdl", 'domain billing { owner: "billing" entity Customer @ 1 (additive) { @key id: uuid } }'
+    )
+    missing = _write(
+        tmp_path / "missing.mdl", 'domain other { owner: "other" entity Invoice @ 1 (additive) { @key id: uuid } }'
+    )
+    empty = _write(tmp_path / "empty.mdl", 'domain billing { owner: "billing" }')
+
+    empty_workspace = load_workspace(empty)
+    empty_workspace.mdl.domains[0].models["Customer"] = []
+
+    assert _compare_semantic_workspaces(load_workspace(old), load_workspace(missing)).status == "compatible"
+    assert _compare_semantic_workspaces(load_workspace(old), empty_workspace).status == "compatible"
+
+
+def test_compare_semantic_workspaces_merges_matching_model_reports(tmp_path):
+    old = _write(
+        tmp_path / "old.mdl",
+        'domain billing { owner: "billing" entity Customer @ 1 (additive) { @key id: uuid } entity Invoice @ 1 (additive) { @key id: uuid } }',
+    )
+    new = _write(
+        tmp_path / "new.mdl",
+        'domain billing { owner: "billing" entity Customer @ 1 (additive) { @key id: uuid } entity Invoice @ 1 (additive) { @key id: uuid total: int } }',
+    )
+
+    report = _compare_semantic_workspaces(load_workspace(old), load_workspace(new))
+
+    assert report.target == "source"
+    assert report.findings
 
 
 def test_governance_review_is_compatible_when_no_governance_change():

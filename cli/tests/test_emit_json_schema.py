@@ -672,3 +672,25 @@ domain commerce {
     assert schema["properties"]["optionalNonNull"]["type"] == "string"
     assert schema["properties"]["requiredNullable"]["type"] == ["string", "null"]
     assert schema["properties"]["optionalNullable"]["type"] == ["string", "null"]
+
+
+def test_emit_json_schema_preserves_composite_key_metadata(tmp_path):
+    (tmp_path / "orders.mdl").write_text(
+        """
+domain orders {
+  owner: "orders-team"
+  entity OrderLine @ 1 (additive) {
+    @key orderId: uuid
+    @key lineNumber: int
+    quantity: int
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    schema = emit_json_schema(load_workspace(tmp_path), tmp_path / "out")[0].content
+
+    assert schema["required"] == ["orderId", "lineNumber", "quantity"]
+    assert schema["properties"]["orderId"]["x-modelable-field"]["key"] is True
+    assert schema["properties"]["lineNumber"]["x-modelable-field"]["key"] is True

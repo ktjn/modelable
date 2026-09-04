@@ -1097,7 +1097,7 @@ def _definition_dependencies(mdl: MdlFile, ref: str) -> tuple[str, ...]:
                 resolved = resolve_model_ref(mdl, model_ref, version_spec)
             except LookupError:
                 continue
-            dependency = f"{resolved.domain_name}.{resolved.model_name}@{resolved.version.version}"
+            dependency = resolved.identity
             dependencies.add(dependency)
             for source_field in resolved.version.fields:
                 if not isinstance(source_field, FieldDef):

@@ -301,11 +301,11 @@ def _validate_models(
             _validate_declaration_wire_annotations(f"{fqn}@{version.version}", version, diagnostics, path)
             key_fields = [field for field in version.fields if field.is_key]
             if version.model_kind in (ModelKind.entity, ModelKind.aggregate):
-                if len(key_fields) != 1:
+                if not key_fields:
                     diagnostics.append(
                         _diag(
                             "SEM",
-                            f"{fqn}@{version.version}: {version.model_kind.value} must have exactly one @key field",
+                            f"{fqn}@{version.version}: {version.model_kind.value} must have at least one @key field",
                             path,
                         )
                     )
@@ -1182,14 +1182,14 @@ def _validate_index_decl_against_version(
         return
 
     field_names = {field.name for field in model_version.fields}
-    key_field_names = {field.name for field in model_version.fields if field.is_key}
+    key_fields = [field.name for field in model_version.fields if field.is_key]
 
-    if set(decl.primary) != key_field_names:
+    if decl.primary != key_fields:
         diagnostics.append(
             _diag(
                 "SEM",
-                f"{fqn}: index primary {sorted(decl.primary)} must exactly match "
-                f"the model's @key field(s) {sorted(key_field_names)}",
+                f"{fqn}: index primary {decl.primary} must exactly match "
+                f"the model's ordered @key field(s) {key_fields}; primary index order matters",
                 path,
             )
         )

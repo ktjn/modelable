@@ -43,7 +43,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         kind="artifact",
         default_out_dir=Path("./dist/jsonschema"),
         supports_compat_check=True,
-        capabilities=("constraints", "enums", "maps", "records", "semantic-types", "unions"),
+        capabilities=("composite-keys", "constraints", "enums", "maps", "records", "semantic-types", "unions"),
     ),
     CodegenTarget(
         name="markdown",
@@ -108,6 +108,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         default_out_dir=Path("./dist/sql/postgres"),
         supports_compat_check=True,
         overlay_schema="modelable/schemas/overlays/sql-postgres-v1.schema.json",
+        capabilities=("composite-keys", "enums", "maps", "records", "semantic-types"),
     ),
     CodegenTarget(
         name="sql-clickhouse",
@@ -117,6 +118,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         default_out_dir=Path("./dist/sql/clickhouse"),
         supports_compat_check=True,
         overlay_schema="modelable/schemas/overlays/sql-clickhouse-v1.schema.json",
+        capabilities=("composite-keys", "enums", "maps", "records", "semantic-types"),
     ),
     CodegenTarget(
         name="dbt-yaml",
@@ -162,6 +164,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         kind="artifact",
         default_out_dir=Path("./dist/protobuf"),
         supports_compat_check=True,
+        capabilities=("composite-keys", "enums", "maps", "records", "semantic-types"),
     ),
     CodegenTarget(
         name="grpc",
@@ -170,6 +173,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         kind="artifact",
         default_out_dir=Path("./dist/grpc"),
         supports_compat_check=True,
+        capabilities=("composite-keys", "enums", "maps", "records", "semantic-types"),
     ),
     CodegenTarget(
         name="openapi",
@@ -178,7 +182,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         kind="artifact",
         default_out_dir=Path("./dist/openapi"),
         supports_compat_check=True,
-        capabilities=("constraints", "enums", "maps", "records", "semantic-types", "unions"),
+        capabilities=("composite-keys", "constraints", "enums", "maps", "records", "semantic-types", "unions"),
     ),
     CodegenTarget(
         name="avro",

@@ -219,7 +219,7 @@ def _plan_key_columns(plan: PlanDocument, names: dict[str, str]) -> list[str]:
     resolved = source.get("resolved")
     if not isinstance(resolved, dict):
         return []
-    keys = {
+    keys = [
         _string(field, "name")
         for field in resolved.get("fields", [])
         if isinstance(field, dict)
@@ -227,12 +227,15 @@ def _plan_key_columns(plan: PlanDocument, names: dict[str, str]) -> list[str]:
             isinstance(annotation, dict) and annotation.get("kind") == "key"
             for annotation in field.get("annotations", [])
         )
-    }
-    return [
-        names[field["source_field"]]
-        for field in _fields(plan)
-        if field.get("kind") == "direct" and field.get("source_field") in keys
     ]
+    projected_names = {
+        field["source_field"]: names[field["source_field"]]
+        for field in _fields(plan)
+        if field.get("kind") == "direct"
+        and isinstance(field.get("source_field"), str)
+        and field["source_field"] in keys
+    }
+    return [projected_names[key] for key in keys if key in projected_names]
 
 
 def _mapping(mapping: dict[str, object], key: str) -> dict[str, Any]:

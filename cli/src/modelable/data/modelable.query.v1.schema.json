@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "modelable.query/v1",
+  "title": "Modelable query/v1 envelope",
+  "oneOf": [
+    {
+      "title": "Query request",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["$schema", "kind", "query"],
+      "properties": {
+        "$schema": {"const": "modelable.query/v1"},
+        "kind": {"const": "query"},
+        "query": {
+          "enum": ["declaration", "referencesTo", "lineage", "consumersOf", "dependencies", "dependents", "changes", "consequences", "lifecycle"]
+        },
+        "id": {"type": "string", "minLength": 1},
+        "from": {"type": "string", "minLength": 1},
+        "to": {"type": "string", "minLength": 1},
+        "limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 100},
+        "cursor": {"type": "string", "minLength": 1}
+      }
+    },
+    {
+      "title": "Query response",
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["$schema", "kind", "query", "data"],
+      "properties": {
+        "$schema": {"const": "modelable.query/v1"},
+        "kind": {"const": "query_result"},
+        "query": {
+          "enum": ["declaration", "referencesTo", "lineage", "consumersOf", "dependencies", "dependents", "changes", "consequences", "lifecycle"]
+        },
+        "data": {},
+        "next_cursor": {"type": "string", "minLength": 1}
+      }
+    }
+  ]
+}

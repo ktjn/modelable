@@ -2295,7 +2295,7 @@ def test_cli_generate_auto_detects_avro_json(tmp_path):
         assert "format=avro" in result.output
         assert "domain customer" in generated
     else:
-        assert "entity must have exactly one @key field" in result.output
+        assert "entity must have at least one @key field" in result.output
 
 
 def test_cli_generate_auto_detects_sql_ddl(tmp_path):

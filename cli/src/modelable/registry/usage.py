@@ -390,10 +390,15 @@ def _package_ids_by_domain(workspace: Workspace, application_id: str) -> dict[st
 
 
 def _resolve_source_ref(workspace: Workspace, model: str, version_spec: Any) -> str:
-    from modelable.registry.resolver import resolve_model_ref
+    from modelable.registry.resolver import resolve_declaration
 
-    resolved = resolve_model_ref(workspace.mdl, model, version_spec)
-    return declaration_id(resolved.domain_name, resolved.model_name, resolved.version.version)
+    resolved = resolve_declaration(
+        workspace.mdl,
+        model,
+        version_spec,
+        allowed_kinds=frozenset({"model", "projection"}),
+    )
+    return resolved.identity
 
 
 def _projection_id(domain: str, projection: str, version: int) -> str:

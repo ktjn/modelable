@@ -106,6 +106,36 @@ domain alerts {
     assert migrated.content_hash == existing.content_hash
 
 
+def test_sql_projection_plan_preserves_composite_source_key_order(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain orders {
+  owner: "test-team"
+  entity OrderLine @ 1 (additive) {
+    @key orderId: uuid
+    @key lineNumber: int
+    quantity: int
+  }
+
+  projection OrderLineRow @ 1
+    from orders.OrderLine @ 1 as line
+  {
+    lineNumber <- line.lineNumber
+    orderId <- line.orderId
+    quantity <- line.quantity
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    plan = next(item for item in build_plan_documents(workspace) if item["projection"] == "OrderLineRow")
+
+    artifact = emit_sql_projection_plan(plan, tmp_path / "out", "postgres")
+
+    assert "PRIMARY KEY (order_id, line_number)" in artifact.content
+
+
 def test_emit_sql_overlay_overrides_table_and_column_names(tmp_path):
     (tmp_path / "model.mdl").write_text(
         """

@@ -6,7 +6,8 @@ from typing import Any
 from modelable.compat.checker import CompatibilityReport, ProjectionCompatibilityReport, analyze_impact
 from modelable.compat.diff import ProjectionChange
 from modelable.compat.enums import EXHAUSTIVE_MATCH, EnumChange, describe_enum_change
-from modelable.compat.targets import TargetCompatibilityReport
+from modelable.compat.policy import CompatibilityProfile, EnforcementResult
+from modelable.compat.targets import SEVERITIES, TargetCompatibilityReport
 from modelable.compiler.workspace import Workspace
 from modelable.consequence_protocol import CONSEQUENCE_SCHEMA, validate_consequence_graph
 from modelable.registry.resolver import find_dependents
@@ -297,6 +298,78 @@ def build_standalone_target_consequences(
                 causal_path=(source_ref, target_ref, subject),
             )
         )
+    return consequences
+
+
+def build_profile_consequences(
+    report: TargetCompatibilityReport,
+    profile: CompatibilityProfile,
+    policy_result: EnforcementResult,
+) -> list[Consequence]:
+    """Turn a failed named compatibility profile into a review action."""
+    if policy_result.passed:
+        return []
+    blocking_codes = {
+        id(finding): f"{report.target}:{finding.ref}:{finding.code}" for finding in policy_result.blocking_findings
+    }
+    blocking_refs = tuple(blocking_codes[id(finding)] for finding in report.findings if id(finding) in blocking_codes)
+    subject = f"compatibility-profile:{profile.name}"
+    target_ref = f"{report.target}:to"
+    path = (target_ref, *blocking_refs, subject)
+    severity_rank = {severity: rank for rank, severity in enumerate(SEVERITIES)}
+    status = max(policy_result.blocking_findings, key=lambda finding: severity_rank[finding.severity]).severity
+    return [
+        Consequence(
+            action=ACTION_GOVERNANCE_REVIEW,
+            subject=subject,
+            status=status,
+            reason=f"named profile requires {profile.requirement} compatibility",
+            causal_path=path,
+        )
+    ]
+
+
+def build_profile_usage_consequences(
+    report: TargetCompatibilityReport,
+    policy_result: EnforcementResult,
+    usage_manifests: list[dict[str, object]],
+) -> list[Consequence]:
+    """Attach known compiled consumers to findings blocked by a profile."""
+    if policy_result.passed:
+        return []
+    blocking = set(policy_result.blocking_findings)
+    consequences: list[Consequence] = []
+    seen: set[tuple[str, str]] = set()
+    for manifest in usage_manifests:
+        consumer = manifest.get("application_id") or manifest.get("application")
+        references = manifest.get("references")
+        if not isinstance(consumer, str) or not isinstance(references, list):
+            continue
+        for reference in references:
+            if not isinstance(reference, dict) or not isinstance(reference.get("ref"), str):
+                continue
+            reference_base = reference["ref"].split("@", 1)[0]
+            fields = reference.get("fields")
+            for finding in report.findings:
+                if finding not in blocking or (
+                    reference_base != finding.ref.split("@", 1)[0]
+                    and not (isinstance(fields, list) and finding.field is not None and finding.field in fields)
+                ):
+                    continue
+                subject = f"{report.target}:{finding.ref}:{finding.code}"
+                key = (consumer, subject)
+                if key in seen:
+                    continue
+                seen.add(key)
+                consequences.append(
+                    Consequence(
+                        action=ACTION_CONSUMER_UPDATE,
+                        subject=consumer,
+                        status=finding.severity,
+                        reason="known compiled consumer is covered by a failed compatibility profile",
+                        causal_path=(f"{report.target}:to", subject, consumer),
+                    )
+                )
     return consequences
 
 

@@ -16,7 +16,7 @@ The architecture source of truth is [docs/architecture.md](docs/architecture.md)
 - [ ] Phase 2 — declaration/projection unification complete end-to-end. The baseline is shipped, but legacy declaration-specific wrappers/paths remain.
 - [x] Phase 3 — `modelable.plan/v0` migration boundary.
 - [x] Phase 4 — deterministic version-aware target overlays.
-- [ ] Phase 5 — external extension execution. Descriptors, capabilities, provenance pins, and trust policy are shipped; third-party WASM/subprocess execution remains.
+- [ ] Phase 5 — external extension execution. Descriptors, capabilities, provenance pins, trust policy, and a native third-party WASM host are shipped; virtual capability handoff, browser execution, and subprocess execution remain.
 - [x] Phase 6 — stable `modelable.plan/v1` boundary.
 - [x] Phase 7 — usage graph baseline.
 - [x] Phase 8 — deterministic `modelable.lock/v1` baseline.
@@ -77,11 +77,11 @@ This programme is dependency-ordered, not a strict serial queue. Detailed tasks 
 
 **Priority:** P0
 
-- [ ] Define one common internal declaration identity/version/reference surface for entity, aggregate, event, value, enum, semantic type, and projection.
+- [x] Define one common internal declaration identity/version/reference surface for entity, aggregate, event, value, enum, semantic type, and projection.
 - [ ] Move shared version resolution, lineage, ownership, documentation, and deprecation behavior behind it.
 - [ ] Replace remaining declaration-kind-specific resolution paths where semantics are equivalent.
 - [ ] Remove legacy wrappers after all consumers migrate.
-- [ ] Add cross-declaration conformance fixtures.
+- [x] Add cross-declaration conformance fixtures.
 
 **Done when:** adding a capability common to declaration kinds does not recreate resolution, identity, lineage, or compatibility infrastructure.
 
@@ -91,12 +91,12 @@ This programme is dependency-ordered, not a strict serial queue. Detailed tasks 
 
 Keep package metadata outside `.mdl` initially, preferably in a deterministic TOML manifest.
 
-- [ ] Define immutable package identity/version/content hashing.
-- [ ] Define public exports and package-private declarations.
-- [ ] Define dependency constraints and package graph rules.
-- [ ] Define deterministic local package resolution.
-- [ ] Define package-level compatibility over exported declarations.
-- [ ] Add package validation/inspection CLI surfaces.
+- [x] Define immutable package identity/version/content hashing.
+- [x] Define public exports and package-private declarations.
+- [x] Define dependency constraints and package graph rules.
+- [x] Define deterministic local package resolution.
+- [x] Define package-level compatibility over exported declarations.
+- [x] Add package validation/inspection CLI surfaces.
 
 **Done when:** multiple independently versioned semantic packages compose without coupling canonical identities to file/repository locations.
 
@@ -104,11 +104,11 @@ Keep package metadata outside `.mdl` initially, preferably in a deterministic TO
 
 **Priority:** P0
 
-- [ ] Record exact resolved package versions and content digests.
-- [ ] Record package provenance and deterministic transitive dependencies.
-- [ ] Make dependency refresh explicit; normal compilation never silently changes locked packages.
-- [ ] Detect immutable-version content drift.
-- [ ] Add clean-offline-checkout reproduction tests.
+- [x] Record exact resolved package versions and content digests.
+- [x] Record package provenance and deterministic transitive dependencies.
+- [x] Make dependency refresh explicit; normal compilation never silently changes locked packages.
+- [x] Detect immutable-version content drift.
+- [x] Add clean-offline-checkout reproduction tests.
 
 **Done when:** manifests + lock state reproduce the exact package and semantic graphs offline.
 
@@ -118,11 +118,11 @@ Keep package metadata outside `.mdl` initially, preferably in a deterministic TO
 
 OCI is the preferred first transport, but the logical package artifact must remain transport-independent.
 
-- [ ] Specify deterministic `modelable.package/v1` contents and digest rules.
-- [ ] Implement local pack/unpack/verify first.
+- [x] Specify deterministic `modelable.package/v1` contents and digest rules.
+- [x] Implement local pack/unpack/verify first.
 - [ ] Add OCI push/pull by immutable digest.
 - [ ] Pin pulled digests into `lock/v1`.
-- [ ] Keep all network operations explicit commands.
+- [x] Keep all network operations explicit commands.
 - [ ] Add provenance/signature hooks without coupling to one signing system.
 
 **Done when:** a locally packed semantic package can round-trip through OCI with identical verified semantic content.
@@ -131,12 +131,12 @@ OCI is the preferred first transport, but the logical package artifact must rema
 
 **Priority:** P1
 
-- [ ] Allow one-or-more ordered `@key` fields on entities/aggregates.
-- [ ] Keep canonical declaration identity independent of instance-key values.
-- [ ] Align `primary`/index semantics with the ordered key set.
-- [ ] Define semantic compatibility for add/remove/reorder/type-change of key components.
-- [ ] Admit support per target through capabilities; unsupported targets fail explicitly.
-- [ ] Add representative SQL/JSON Schema/OpenAPI/Protobuf and browser/native conformance.
+- [x] Allow one-or-more ordered `@key` fields on entities/aggregates.
+- [x] Keep canonical declaration identity independent of instance-key values.
+- [x] Align `primary`/index semantics with the ordered key set.
+- [x] Define semantic compatibility for add/remove/reorder/type-change of key components.
+- [x] Admit support per target through capabilities; unsupported targets fail explicitly.
+- [x] Add representative SQL/JSON Schema/OpenAPI/Protobuf and browser/native conformance.
 
 **Done when:** composite identity behaves deterministically across semantic analysis and admitted targets.
 
@@ -152,12 +152,12 @@ Proposed lifecycle:
 candidate -> published -> deprecated -> retired
 ```
 
-- [ ] Specify lifecycle states and transition rules.
-- [ ] Define canonical replacement links.
-- [ ] Define where lifecycle state is snapshotted/locked when it affects build admission.
-- [ ] Add policy checks for new references to deprecated/retired contracts.
-- [ ] Expose lifecycle/replacement through CLI and query surfaces.
-- [ ] Feed lifecycle transitions into consequences where appropriate.
+- [x] Specify lifecycle states and transition rules.
+- [x] Define canonical replacement links.
+- [x] Define lifecycle state as explicit registry-snapshot metadata when it affects build admission.
+- [x] Add policy checks for new references to deprecated/retired contracts.
+- [x] Expose lifecycle/replacement through CLI and query surfaces.
+- [x] Feed lifecycle transitions into consequences where appropriate.
 
 **Done when:** a declaration can be deprecated/retired without editing its immutable semantic version.
 
@@ -167,16 +167,17 @@ candidate -> published -> deprecated -> retired
 
 WASM is the first third-party execution mechanism. Subprocess execution may follow using the same logical protocol.
 
-- [ ] Specify `modelable.extension-host/v1` request/result protocol.
-- [ ] Use `modelable.plan/v1` as semantic input; no parser/internal compiler imports.
-- [ ] Support artifact outputs, diagnostics, compatibility findings, and structured failures.
-- [ ] Require exact extension id/version/hash/provenance pins.
-- [ ] Require explicit trust/enablement; never execute extensions merely because they are discoverable.
-- [ ] Default to no network and no ambient filesystem.
-- [ ] Add CPU/memory/output limits and deterministic failure behavior.
-- [ ] Build a reference extension outside the compiler package.
+- [x] Specify `modelable.extension-host/v1` request/result protocol.
+- [x] Use `modelable.plan/v1` as semantic input; no parser/internal compiler imports.
+- [x] Support artifact outputs, diagnostics, compatibility findings, and structured failures.
+- [x] Require exact extension id/version/hash/provenance pins.
+- [x] Require explicit trust/enablement; never execute extensions merely because they are discoverable.
+- [x] Default to no network and no ambient filesystem.
+- [x] Pass only explicitly declared virtual UTF-8 input files and returned artifacts.
+- [x] Add CPU/memory/output limits and deterministic failure behavior.
+- [x] Build a reference extension outside the compiler package.
 - [ ] Prove native/browser execution where WASM host support permits.
-- [ ] Add hostile/invalid module conformance tests.
+- [x] Add hostile/invalid module conformance tests.
 
 **Done when:** a separately built WASM extension consumes `plan/v1` and produces deterministic admitted results under least-capability policy.
 
@@ -197,14 +198,14 @@ changes(from, to)
 consequences(from, to)
 ```
 
-- [ ] Specify versioned request/response envelopes.
-- [ ] Define deterministic graph node/edge and ordering rules.
-- [ ] Define limits/pagination for large graph responses.
-- [ ] Keep v1 read-only.
+- [x] Specify versioned request/response envelopes.
+- [x] Define deterministic graph node/edge and ordering rules.
+- [x] Define limits/pagination for large graph responses.
+- [x] Keep v1 read-only.
 - [ ] Migrate CLI/LSP graph queries to one in-process service.
-- [ ] Add JSON/stdio transport suitable for MCP/agent bridges.
-- [ ] Add browser support over the same semantic service.
-- [ ] Check in protocol schema and golden fixtures.
+- [x] Add JSON/stdio transport suitable for MCP/agent bridges.
+- [x] Add browser support over the same semantic service.
+- [x] Check in protocol schema and golden fixtures.
 
 **Done when:** at least CLI plus one non-CLI host query semantic/usage/change/consequence data without importing internal resolver/graph implementations.
 
@@ -214,13 +215,13 @@ consequences(from, to)
 
 Start with an external/versioned migration mapping rather than broad new grammar.
 
-- [ ] Represent declaration rename and domain/package move.
-- [ ] Represent field moves into/out of value objects.
-- [ ] Represent one-to-many split and many-to-one merge lineage.
-- [ ] Preserve immediate and ultimate source lineage.
-- [ ] Feed mappings into change/consequence graphs.
-- [ ] Reject dangling, cyclic, and ambiguous mappings.
-- [ ] Add cross-package move scenarios after package identity stabilizes.
+- [x] Represent declaration rename and domain/package move.
+- [x] Represent field moves into/out of value objects.
+- [x] Represent one-to-many split and many-to-one merge lineage.
+- [x] Preserve immediate and ultimate source lineage.
+- [x] Feed mappings into change/consequence graphs.
+- [x] Reject dangling, cyclic, and ambiguous mappings.
+- [x] Add cross-package move scenarios after package identity stabilizes.
 
 **Done when:** declaration refactors preserve explicit causal lineage rather than appearing only as remove/add pairs.
 
@@ -230,12 +231,12 @@ Start with an external/versioned migration mapping rather than broad new grammar
 
 Profiles remain external configuration rather than `.mdl` semantics.
 
-- [ ] Specify profile schema for backward/forward/full and target-specific requirements.
-- [ ] Bind profiles at workspace/package/CI boundaries.
-- [ ] Evaluate profiles over semantic changes, target compatibility, and known usage evidence.
-- [ ] Emit structured profile findings with causal links to lower-level findings.
-- [ ] Feed profile failures into consequences.
-- [ ] Add CI-friendly CLI selection and exit behavior.
+- [x] Specify profile schema for backward/forward/full and target-specific requirements.
+- [x] Bind profiles at the explicit CLI/policy boundary.
+- [x] Evaluate profiles over semantic changes, target compatibility, and known usage evidence.
+- [x] Emit structured profile findings with causal links to lower-level findings.
+- [x] Feed profile failures into consequences.
+- [x] Add CI-friendly CLI selection and exit behavior.
 
 **Done when:** CI can report that a named compatibility contract failed and explain the exact semantic/target/consumer causes.
 
@@ -258,11 +259,11 @@ Keep universal built-ins small: identity, ownership, classification, PII, deprec
 ## Programme-level progress
 
 - [ ] A — generic declaration model complete.
-- [ ] B — semantic package model complete.
-- [ ] C — package-aware lock state complete.
+- [x] B — semantic package model complete.
+- [x] C — package-aware lock state complete.
 - [ ] D — package artifact + OCI transport complete.
-- [ ] E — composite identities complete.
-- [ ] F — lifecycle metadata complete.
+- [x] E — composite identities complete.
+- [x] F — lifecycle metadata complete.
 - [ ] G — WASM extension ABI complete.
 - [ ] H — `modelable.query/v1` complete.
 - [ ] I — declaration-level evolution mappings complete.
@@ -384,7 +385,9 @@ Shipped/future language capability; additional grammar only proceeds from concre
 
 ### Slice D5 — resolve composite-key support
 
-Composite keys remain deferred in the current stable language. Programme E is the active implementation direction.
+Composite keys are accepted by core semantic validation with ordered primary
+index checking; target capability negotiation and emitter conformance remain in
+Programme E.
 
 ### Slice D6 — model lifecycle status
 

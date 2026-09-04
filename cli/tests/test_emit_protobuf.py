@@ -1172,3 +1172,28 @@ domain platform {
 
     with pytest.raises(ValueError, match=r"member collision.*'FooBar', 'foo_bar'.*FOO_BAR"):
         emit_protobuf(workspace, tmp_path / "out")
+
+
+def test_emit_protobuf_manifest_preserves_composite_key_order(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  entity OrderLine @ 1 (additive) {
+    @key orderId: uuid
+    @key lineNumber: int
+  }
+  index OrderLine @ 1 {
+    primary orderId, lineNumber
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    artifacts = emit_protobuf(workspace, tmp_path / "out")
+
+    manifest = next(artifact for artifact in artifacts if artifact.path.name == "schema-manifest.json")
+    schema = json.loads(manifest.content)["schemas"][0]
+    assert schema["indexes"]["primary"]["key_fields"] == ["orderId", "lineNumber"]

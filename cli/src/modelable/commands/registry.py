@@ -52,11 +52,27 @@ def registry() -> None:
     default=None,
     help="Validated usage manifest produced by compilation to persist in the snapshot lock.",
 )
+@click.option(
+    "--package-manifest",
+    "package_manifest_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    multiple=True,
+    help="Explicit semantic package manifest to persist in the snapshot lock (repeatable).",
+)
+@click.option(
+    "--lifecycle",
+    "lifecycle_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="External modelable.lifecycle/v1 metadata to persist in the snapshot lock.",
+)
 def resolve(
     source: Path,
     output_dir: Path,
     artifact_manifest_paths: tuple[Path, ...],
     usage_manifest_path: Path | None,
+    package_manifest_path: tuple[Path, ...],
+    lifecycle_path: Path | None,
 ) -> None:
     """Resolve SOURCE into an exact local registry snapshot."""
     workspace = load_workspace_or_exit(source, source_adapter=LocalSourceAdapter())
@@ -66,6 +82,8 @@ def resolve(
             output_dir,
             artifact_manifests=_read_artifact_manifests(artifact_manifest_paths),
             usage_manifest=_read_usage_manifest(usage_manifest_path) if usage_manifest_path is not None else None,
+            package_manifest_paths=package_manifest_path,
+            lifecycle_path=lifecycle_path,
         )
     except ValueError as exc:
         console.print(f"[red]ERROR[/red] {exc}")
@@ -111,12 +129,46 @@ def resolve_git(repository: Path, ref: str, output_dir: Path, artifact_manifest_
     multiple=True,
     help="Generated artifact manifest to include as usage evidence (repeatable).",
 )
-def diff(source: Path, output_dir: Path, output_format: str, artifact_manifest_paths: tuple[Path, ...]) -> None:
+@click.option(
+    "--package-manifest",
+    "package_manifest_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    multiple=True,
+    help="Explicit semantic package manifest to compare in the snapshot lock (repeatable).",
+)
+@click.option(
+    "--lifecycle",
+    "lifecycle_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="External modelable.lifecycle/v1 metadata to compare with the snapshot lock.",
+)
+@click.option(
+    "--migration",
+    "migration_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="External modelable.migration/v1 metadata to include in change consequences.",
+)
+def diff(
+    source: Path,
+    output_dir: Path,
+    output_format: str,
+    artifact_manifest_paths: tuple[Path, ...],
+    package_manifest_path: tuple[Path, ...],
+    lifecycle_path: Path | None,
+    migration_path: Path | None,
+) -> None:
     """Compare SOURCE with the current local snapshot without changing it."""
     workspace = load_workspace_or_exit(source, source_adapter=LocalSourceAdapter())
     try:
         snapshot_diff = diff_workspace_snapshot(
-            workspace, output_dir, artifact_manifests=_read_artifact_manifests(artifact_manifest_paths)
+            workspace,
+            output_dir,
+            artifact_manifests=_read_artifact_manifests(artifact_manifest_paths),
+            package_manifest_paths=package_manifest_path,
+            lifecycle_path=lifecycle_path,
+            migration_path=migration_path,
         )
     except ValueError as exc:
         console.print(f"[red]ERROR[/red] {exc}")
@@ -131,6 +183,12 @@ def diff(source: Path, output_dir: Path, output_format: str, artifact_manifest_p
     for category in ("added", "removed", "changed"):
         for identity in payload[category]:
             console.print(f"{category}: {identity}")
+    for category in ("added", "removed", "changed"):
+        for identity in payload["packages"].get(category, []):
+            console.print(f"package {category}: {identity}")
+    for category in ("added", "removed", "changed"):
+        for entry in payload["lifecycle"].get(category, []):
+            console.print(f"lifecycle {category}: {entry['identity']}")
 
 
 @registry.command("update")
@@ -145,12 +203,36 @@ def diff(source: Path, output_dir: Path, output_format: str, artifact_manifest_p
     multiple=True,
     help="Generated artifact manifest to include as usage evidence (repeatable).",
 )
+@click.option(
+    "--package-manifest",
+    "package_manifest_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    multiple=True,
+    help="Explicit semantic package manifest to persist in the snapshot lock (repeatable).",
+)
+@click.option(
+    "--lifecycle",
+    "lifecycle_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="External modelable.lifecycle/v1 metadata to persist in the snapshot lock.",
+)
+@click.option(
+    "--migration",
+    "migration_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="External modelable.migration/v1 metadata to include in change consequences.",
+)
 def update(
     source: Path,
     output_dir: Path,
     output_format: str,
     dry_run: bool,
     artifact_manifest_paths: tuple[Path, ...],
+    package_manifest_path: tuple[Path, ...],
+    lifecycle_path: Path | None,
+    migration_path: Path | None,
 ) -> None:
     """Stage and atomically install SOURCE as the local exact snapshot."""
     workspace = load_workspace_or_exit(source, source_adapter=LocalSourceAdapter())
@@ -162,10 +244,16 @@ def update(
         policy_evaluator = ConfiguredRegistryPolicy(
             blocked_actions=blocked_actions,
             pii_change_severity=config.registry_policy_severities()["pii_changes"],
+            lifecycle_reference_severity=config.registry_policy_severities()["lifecycle_references"],
         )
         if dry_run:
             snapshot_diff, object_count = preview_workspace_snapshot(
-                workspace, output_dir, artifact_manifests=artifact_manifests
+                workspace,
+                output_dir,
+                artifact_manifests=artifact_manifests,
+                package_manifest_paths=package_manifest_path,
+                lifecycle_path=lifecycle_path,
+                migration_path=migration_path,
             )
             policy_evaluation = policy_evaluator.evaluate(snapshot_diff)
             snapshot_diff = include_policy_consequences(snapshot_diff, policy_evaluation.consequences)
@@ -176,6 +264,9 @@ def update(
                 blocked_actions=blocked_actions,
                 policy_evaluator=policy_evaluator,
                 artifact_manifests=artifact_manifests,
+                package_manifest_paths=package_manifest_path,
+                lifecycle_path=lifecycle_path,
+                migration_path=migration_path,
             )
             object_count = result.object_count
     except RegistryPolicyError as exc:
@@ -217,10 +308,12 @@ def update(
         click.echo(json.dumps(payload, indent=2, sort_keys=True))
         return
     action = "validated candidate" if dry_run else "updated"
+    package_changes = sum(len(snapshot_diff.packages.get(category, [])) for category in ("added", "removed", "changed"))
+    package_suffix = f", {package_changes} package change(s)" if package_changes else ""
     console.print(
         f"[green]OK[/green] {action} {output_dir / 'registry.lock'} "
         f"({len(snapshot_diff.added)} added, {len(snapshot_diff.changed)} changed, "
-        f"{len(snapshot_diff.removed)} removed from the lock)"
+        f"{len(snapshot_diff.removed)} removed from the lock{package_suffix})"
     )
 
 

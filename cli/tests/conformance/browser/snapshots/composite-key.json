@@ -1,17 +1,20 @@
 {
-  "open": {
-    "diagnostics": [
+  "compile": {
+    "artifacts": [
       {
-        "code": "SEM",
-        "column": null,
-        "end_column": null,
-        "end_line": null,
-        "line": null,
-        "message": "orders.OrderLineItem@1: entity must have exactly one @key field",
-        "severity": "error",
-        "uri": "fixture:///composite-key.mdl"
+        "content": "{\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\",\n  \"$id\": \"orders.OrderLineItem.v1\",\n  \"type\": \"object\",\n  \"title\": \"OrderLineItem\",\n  \"x-modelable\": {\n    \"domain\": \"orders\",\n    \"name\": \"OrderLineItem\",\n    \"kind\": \"entity\",\n    \"version\": 1,\n    \"changeKind\": \"additive\",\n    \"owner\": \"orders-platform\"\n  },\n  \"x-modelable-por\": {\n    \"model\": \"orders.OrderLineItem.v1\",\n    \"issuer\": \"modelable-registry.local\",\n    \"issuedAt\": \"1970-01-01T00:00:00Z\"\n  },\n  \"properties\": {\n    \"orderId\": {\n      \"type\": \"string\",\n      \"format\": \"uuid\",\n      \"x-modelable-field\": {\n        \"key\": true\n      }\n    },\n    \"lineItemId\": {\n      \"type\": \"string\",\n      \"format\": \"uuid\",\n      \"x-modelable-field\": {\n        \"key\": true\n      }\n    },\n    \"sku\": {\n      \"type\": \"string\"\n    },\n    \"quantity\": {\n      \"type\": \"integer\",\n      \"format\": \"int64\"\n    }\n  },\n  \"required\": [\n    \"orderId\",\n    \"lineItemId\",\n    \"sku\",\n    \"quantity\"\n  ]\n}\n",
+        "media_type": "application/schema+json",
+        "path": "orders.OrderLineItem.v1.json",
+        "source_refs": [
+          "orders.OrderLineItem@1"
+        ],
+        "warnings": []
       }
     ],
+    "diagnostics": []
+  },
+  "open": {
+    "diagnostics": [],
     "source_hashes": {
       "fixture:///composite-key.mdl": "5e7e5a498c02079bbcd94f577d7fad6b0ac25cbd1eaac6f8b09e44de83a3c8b6"
     },
