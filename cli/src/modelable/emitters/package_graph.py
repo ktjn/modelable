@@ -15,7 +15,7 @@ from modelable.parser.ir import (
 from modelable.registry.resolver import (
     AmbiguousSemanticTypeError,
     latest_semantic_type_declarations,
-    resolve_semantic_type_ref,
+    resolve_named_declaration,
 )
 
 
@@ -98,12 +98,17 @@ def _resolve_named_type_domain(name: str, current_domain: str, mdl: MdlFile) -> 
         if name in candidate_domain.models:
             return candidate_domain.name
     try:
-        resolved_domain, _decl = resolve_semantic_type_ref(mdl, current_domain, name)
+        resolved = resolve_named_declaration(
+            mdl,
+            current_domain,
+            name,
+            include_enum_projections=False,
+        )
     except AmbiguousSemanticTypeError:
         return None
     except LookupError:
         return None
-    return resolved_domain
+    return resolved.domain_name
 
 
 def _add_dep_from_model_ref(
