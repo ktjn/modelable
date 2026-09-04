@@ -213,6 +213,9 @@ jobs:
   browser-e2e:
     name: E2E (${{ matrix.browser }})
     needs: browser-build
+    # Keep pull-request validation fast; the browser build still exercises
+    # browser packaging and unit/type checks, while full E2E runs on main.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     strategy:
