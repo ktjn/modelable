@@ -26,7 +26,7 @@ from modelable.parser.ir import (
     ProjectionField,
     UnionType,
 )
-from modelable.registry.resolver import resolve_enum_type_ref
+from modelable.registry.resolver import resolve_named_declaration
 
 PROTOCOL = "modelable.extension/v1"
 STANDARD_CAPABILITIES = frozenset(
@@ -412,7 +412,7 @@ def required_capabilities(mdl: MdlFile) -> tuple[str, ...]:
                 required.add("enums")
             if current_domain is not None:
                 try:
-                    _, declaration = resolve_enum_type_ref(
+                    resolved = resolve_named_declaration(
                         mdl,
                         current_domain,
                         field_type.name,
@@ -421,7 +421,7 @@ def required_capabilities(mdl: MdlFile) -> tuple[str, ...]:
                 except LookupError, TypeError:
                     pass
                 else:
-                    if isinstance(declaration, EnumProjectionDecl):
+                    if isinstance(resolved.declaration, EnumProjectionDecl):
                         required.add("enum-projections")
         elif isinstance(field_type, MapType):
             required.add("maps")
