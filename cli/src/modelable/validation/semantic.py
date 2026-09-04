@@ -33,11 +33,12 @@ from modelable.parser.ir import (
     ProjectionField,
     ProjectionVersion,
     RefType,
+    SemanticTypeDecl,
     SourceRef,
     UnionType,
     WireTargetHint,
 )
-from modelable.registry.resolver import resolve_model_ref, resolve_ref_type, resolve_semantic_type_ref
+from modelable.registry.resolver import resolve_model_ref, resolve_named_declaration, resolve_ref_type
 
 _VALID_CLASSIFICATION_LEVELS = {level.value for level in ClassificationLevel}
 _CLASSIFICATION_LEVELS_DISPLAY = ", ".join(sorted(_VALID_CLASSIFICATION_LEVELS))
@@ -716,7 +717,16 @@ def _validate_semantic_types(
         while isinstance(current, NamedType):
             next_name = current.name
             try:
-                next_domain_name, next_decl = resolve_semantic_type_ref(mdl, current_domain_name, next_name)
+                resolved = resolve_named_declaration(
+                    mdl,
+                    current_domain_name,
+                    next_name,
+                    include_enum_projections=False,
+                )
+                if not isinstance(resolved.declaration, SemanticTypeDecl):
+                    raise LookupError(f"unknown semantic type '{next_name}'")
+                next_domain_name = resolved.domain_name
+                next_decl = resolved.declaration
             except LookupError as exc:
                 diagnostics.append(
                     _diag(
