@@ -198,6 +198,17 @@ resolved for mutable fields. `@wire` attaches arbitrary per-target metadata
 that emitters can interpret; unknown wire targets are tolerated and surfaced
 as non-blocking diagnostics.
 
+### 2.3.1 Typed semantic facets are sidecar data
+
+Arbitrary enterprise or governance facts are not `.mdl` annotations and do not
+extend the grammar. Define them in an optional local `modelable.facets.json`
+sidecar using a versioned namespaced identity, a finite local value schema, an
+allowed semantic subject kind, and an explicit propagation mode. The sidecar
+may target declarations, fields, projections, and projection fields; known
+facets can flow through semantic lineage, while unavailable schemas preserve
+their raw values without being interpreted. Target-specific representation
+metadata remains in `@wire` overlays rather than facets.
+
 ### 2.4 Model kinds
 
 | Keyword | Rules |

@@ -30,6 +30,33 @@
     }
   },
   "$defs": {
+    "facetSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject"],
+      "properties": {
+        "subject": {"type": "string", "minLength": 1},
+        "location": {"type": "string", "minLength": 1},
+        "lineage": {"type": "string", "minLength": 1}
+      }
+    },
+    "facet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "value", "subject", "propagation", "interpretation"],
+      "properties": {
+        "identity": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z][a-z0-9]*)*/[a-z][a-z0-9]*(?:[.-][a-z][a-z0-9]*)*@[1-9][0-9]*$"},
+        "value": true,
+        "subject": {"type": "string", "pattern": "^(?:declaration|field|projection|projection_field):.+$"},
+        "propagation": {"enum": ["none", "inherit", "project"]},
+        "source": {"$ref": "#/$defs/facetSource"},
+        "interpretation": {"enum": ["known", "unknown"]}
+      }
+    },
+    "facets": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/facet"}
+    },
     "versionSpec": {
       "oneOf": [
         {"type": "object", "additionalProperties": false, "required": ["kind", "version"], "properties": {"kind": {"const": "exact"}, "version": {"type": "integer", "minimum": 1}}},
@@ -43,16 +70,16 @@
       "additionalProperties": false,
       "required": ["name", "type", "optional", "nullable", "pii", "classification", "owner"],
       "properties": {
-        "name": {"type": "string", "minLength": 1}, "type": {"type": ["object", "null"]}, "optional": {"type": ["boolean", "null"]}, "nullable": {"type": ["boolean", "null"]}, "default": {"type": ["string", "null"]}, "pii": {"type": "boolean"}, "classification": {"type": ["string", "null"]}, "owner": {"type": ["string", "null"]}, "constraints": {"type": ["array", "null"]}, "annotations": {"type": ["array", "null"]}
+        "name": {"type": "string", "minLength": 1}, "type": {"type": ["object", "null"]}, "optional": {"type": ["boolean", "null"]}, "nullable": {"type": ["boolean", "null"]}, "default": {"type": ["string", "null"]}, "pii": {"type": "boolean"}, "classification": {"type": ["string", "null"]}, "owner": {"type": ["string", "null"]}, "constraints": {"type": ["array", "null"]}, "annotations": {"type": ["array", "null"]}, "facets": {"$ref": "#/$defs/facets"}
       }
     },
     "resolvedDeclaration": {
       "type": "object", "additionalProperties": false, "required": ["domain", "name", "version", "kind", "model_kind", "fields"],
-      "properties": {"domain": {"type": "string", "minLength": 1}, "name": {"type": "string", "minLength": 1}, "version": {"type": "integer", "minimum": 1}, "kind": {"enum": ["model", "projection"]}, "model_kind": {"type": ["string", "null"]}, "fields": {"type": "array", "items": {"$ref": "#/$defs/resolvedField"}}}
+      "properties": {"domain": {"type": "string", "minLength": 1}, "name": {"type": "string", "minLength": 1}, "version": {"type": "integer", "minimum": 1}, "kind": {"enum": ["model", "projection"]}, "model_kind": {"type": ["string", "null"]}, "fields": {"type": "array", "items": {"$ref": "#/$defs/resolvedField"}}, "facets": {"$ref": "#/$defs/facets"}}
     },
     "relationBase": {
       "type": "object", "required": ["model", "version", "resolved_version", "alias", "change_kind", "resolved"],
-      "properties": {"model": {"type": "string", "minLength": 1}, "version": {"$ref": "#/$defs/versionSpec"}, "resolved_version": {"type": ["integer", "null"], "minimum": 1}, "alias": {"type": "string", "minLength": 1}, "change_kind": {"type": ["string", "null"]}, "resolved": {"anyOf": [{"$ref": "#/$defs/resolvedDeclaration"}, {"type": "null"}]}}
+      "properties": {"model": {"type": "string", "minLength": 1}, "version": {"$ref": "#/$defs/versionSpec"}, "resolved_version": {"type": ["integer", "null"], "minimum": 1}, "alias": {"type": "string", "minLength": 1}, "change_kind": {"type": ["string", "null"]}, "resolved": {"anyOf": [{"$ref": "#/$defs/resolvedDeclaration"}, {"type": "null"}]}, "facets": {"$ref": "#/$defs/facets"}}
     },
     "sourceRelation": {"$ref": "#/$defs/relationBase"},
     "joinRelation": {
@@ -66,7 +93,7 @@
     },
     "fieldCommon": {
       "type": "object", "required": ["name", "type", "optional", "lineage", "pii", "classification", "owner"],
-      "properties": {"name": {"type": "string", "minLength": 1}, "type": {"type": ["object", "null"]}, "optional": {"type": ["boolean", "null"]}, "nullable": {"type": ["boolean", "null"]}, "lineage": {"type": "array", "items": {"type": "string", "pattern": "#"}}, "pii": {"type": "boolean"}, "classification": {"type": ["string", "null"]}, "owner": {"type": ["string", "null"]}, "constraints": {"type": ["array", "null"]}, "annotations": {"type": ["array", "null"]}}
+      "properties": {"name": {"type": "string", "minLength": 1}, "type": {"type": ["object", "null"]}, "optional": {"type": ["boolean", "null"]}, "nullable": {"type": ["boolean", "null"]}, "lineage": {"type": "array", "items": {"type": "string", "pattern": "#"}}, "pii": {"type": "boolean"}, "classification": {"type": ["string", "null"]}, "owner": {"type": ["string", "null"]}, "constraints": {"type": ["array", "null"]}, "annotations": {"type": ["array", "null"]}, "facets": {"$ref": "#/$defs/facets"}}
     },
     "directField": {"allOf": [{"$ref": "#/$defs/fieldCommon"}, {"type": "object", "required": ["kind", "source_alias", "source_field"], "properties": {"kind": {"const": "direct"}, "source_alias": {"type": "string", "minLength": 1}, "source_field": {"type": "string", "minLength": 1}}}]},
     "computedField": {"allOf": [{"$ref": "#/$defs/fieldCommon"}, {"type": "object", "required": ["kind", "expression"], "properties": {"kind": {"const": "computed"}, "expression": {"type": "string", "minLength": 1}}}]},

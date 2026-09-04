@@ -1,0 +1,18 @@
+domain subjects {
+  owner: "governance-examples"
+
+  entity DataSubject @ 1 (additive) {
+    @key id: uuid
+    email: string
+  }
+}
+
+domain analytics {
+  owner: "governance-examples"
+
+  projection SubjectEmail @ 1
+    from subjects.DataSubject @ 1 as subject
+  {
+    email <- subject.email
+  }
+}

@@ -246,13 +246,13 @@ Profiles remain external configuration rather than `.mdl` semantics.
 
 Keep universal built-ins small: identity, ownership, classification, PII, deprecation, and lineage. New enterprise/governance facts use typed namespaced facets.
 
-- [ ] Specify namespaced facet identity and schema versioning.
-- [ ] Define typed values and allowed semantic subjects.
-- [ ] Define projection inheritance/propagation rules.
-- [ ] Preserve unknown facets without interpreting them when their schema is unavailable.
-- [ ] Expose facets to policy evaluators, plans, and query results.
-- [ ] Keep target-specific representation metadata in overlays, not facets.
-- [ ] Add examples for retention class, jurisdiction, data subject, and confidentiality.
+- [x] Specify namespaced facet identity and schema versioning.
+- [x] Define typed values and allowed semantic subjects.
+- [x] Define projection inheritance/propagation rules.
+- [x] Preserve unknown facets without interpreting them when their schema is unavailable.
+- [x] Expose facets to policy evaluators, plans, and query results.
+- [x] Keep target-specific representation metadata in overlays, not facets.
+- [x] Add examples for retention class, jurisdiction, data subject, and confidentiality.
 
 **Done when:** a new typed governance fact and policies around it can be introduced without parser changes.
 

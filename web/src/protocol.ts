@@ -3,6 +3,7 @@ export const BROWSER_COMPILER_PROTOCOL_VERSION = 2 as const;
 export type BrowserCompilerMethod =
   | 'runtime.initialize'
   | 'workspace.open'
+  | 'workspace.query'
   | 'source.format'
   | 'compile'
   | 'compile.jsonSchema'
@@ -67,6 +68,54 @@ export interface BrowserSource {
   uri: string;
   text: string;
   version: number;
+}
+
+export interface BrowserFacetDocument {
+  $schema: 'modelable.facets/v1';
+  schemas: Record<string, unknown>[];
+  facets: Record<string, unknown>[];
+}
+
+export type BrowserQueryKind =
+  | 'declaration'
+  | 'referencesTo'
+  | 'lineage'
+  | 'consumersOf'
+  | 'dependencies'
+  | 'dependents'
+  | 'changes'
+  | 'consequences'
+  | 'facets'
+  | 'lifecycle';
+
+interface BrowserQueryEnvelope {
+  $schema: 'modelable.query/v1';
+  kind: 'query';
+  limit?: number;
+  cursor?: string;
+}
+
+export interface BrowserReferenceQueryRequest extends BrowserQueryEnvelope {
+  query: Exclude<BrowserQueryKind, 'changes' | 'consequences'>;
+  id: string;
+}
+
+export interface BrowserComparisonQueryRequest extends BrowserQueryEnvelope {
+  query: 'changes' | 'consequences';
+  from: string;
+  to: string;
+}
+
+export type BrowserQueryRequest =
+  | BrowserReferenceQueryRequest
+  | BrowserComparisonQueryRequest;
+
+export interface BrowserQueryResult {
+  $schema: 'modelable.query/v1';
+  kind: 'query_result';
+  query: BrowserQueryKind;
+  data: unknown;
+  next_cursor?: string;
 }
 
 export interface BrowserDiagnostic {
@@ -368,6 +417,7 @@ export type BrowserResultGuard<T> = (value: unknown) => value is T;
 const methods = new Set<BrowserCompilerMethod>([
   'runtime.initialize',
   'workspace.open',
+  'workspace.query',
   'source.format',
   'compile',
   'compile.jsonSchema',
@@ -410,6 +460,19 @@ const completionKinds = new Set<BrowserCompletionKind>([
   'property',
   'reference',
   'value',
+]);
+
+const queryKinds = new Set<BrowserQueryKind>([
+  'declaration',
+  'referencesTo',
+  'lineage',
+  'consumersOf',
+  'dependencies',
+  'dependents',
+  'changes',
+  'consequences',
+  'facets',
+  'lifecycle',
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -554,6 +617,19 @@ export function isBrowserWorkspaceResult(
     Array.isArray(value.diagnostics) &&
     value.diagnostics.every(isBrowserDiagnostic) &&
     isStringRecord(value.source_hashes)
+  );
+}
+
+export function isBrowserQueryResult(value: unknown): value is BrowserQueryResult {
+  return (
+    isRecord(value) &&
+    value.$schema === 'modelable.query/v1' &&
+    value.kind === 'query_result' &&
+    typeof value.query === 'string' &&
+    queryKinds.has(value.query as BrowserQueryKind) &&
+    Object.hasOwn(value, 'data') &&
+    (value.next_cursor === undefined ||
+      (typeof value.next_cursor === 'string' && value.next_cursor.length > 0))
   );
 }
 

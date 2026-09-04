@@ -5,6 +5,11 @@ import { startLocalRequestAudit, waitForReady } from './helpers';
 test.describe.configure({ mode: 'serial' });
 
 type Source = { uri: string; text: string; version: number };
+type FacetDocument = {
+  $schema: 'modelable.facets/v1';
+  schemas: Record<string, unknown>[];
+  facets: Record<string, unknown>[];
+};
 type LanguagePosition = {
   workspaceRevision: number;
   uri: string;
@@ -22,6 +27,16 @@ type TestClient = {
   openWorkspace(
     workspaceRevision: number,
     sources: Source[],
+    facetsDocument?: FacetDocument,
+  ): Promise<unknown>;
+  query(
+    workspaceRevision: number,
+    request: {
+      $schema: 'modelable.query/v1';
+      kind: 'query';
+      query: 'facets';
+      id: string;
+    },
   ): Promise<unknown>;
   formatSource(source: Source): Promise<unknown>;
   compileJsonSchema(sources: Source[]): Promise<unknown>;
@@ -214,6 +229,86 @@ test('browser compiler matches native snapshots including cross-file references'
 
     expect(sortObject(actual)).toEqual(sortObject(expectedSnapshot));
   }
+});
+
+test('facet sidecars preserve projected query output in Chromium', async ({
+  sharedPage: page,
+}) => {
+  await ensureCompilerPage(page);
+  const result = await page.evaluate(async () => {
+    const client = (
+      globalThis as typeof globalThis & {
+        __modelableBrowserCompiler?: TestClient;
+      }
+    ).__modelableBrowserCompiler;
+    if (client === undefined) throw new Error('Test client was not exposed');
+    const workspaceRevision = 109;
+    const sources: Source[] = [
+      {
+        uri: 'fixture:///subjects.mdl',
+        version: 1,
+        text: [
+          'domain subjects {',
+          '  owner: "governance-examples"',
+          '  entity DataSubject @ 1 (additive) {',
+          '    @key id: uuid',
+          '    email: string',
+          '  }',
+          '}',
+          'domain analytics {',
+          '  owner: "governance-examples"',
+          '  projection SubjectEmail @ 1',
+          '    from subjects.DataSubject @ 1 as subject',
+          '  {',
+          '    email <- subject.email',
+          '  }',
+          '}',
+        ].join('\n'),
+      },
+    ];
+    const facetsDocument: FacetDocument = {
+      $schema: 'modelable.facets/v1',
+      schemas: [{
+        identity: 'org.example/data-subject@1',
+        value_schema: { type: 'string', enum: ['customer'] },
+        allowed_subjects: ['field', 'projection_field'],
+        propagation: 'project',
+      }],
+      facets: [{
+        identity: 'org.example/data-subject@1',
+        value: 'customer',
+        subject: 'field:subjects.DataSubject@1#email',
+        propagation: 'project',
+      }],
+    };
+    const open = await client.openWorkspace(workspaceRevision, sources, facetsDocument);
+    const query = await client.query(workspaceRevision, {
+      $schema: 'modelable.query/v1',
+      kind: 'query',
+      query: 'facets',
+      id: 'analytics.SubjectEmail@1#email',
+    });
+    return { open, query };
+  });
+
+  expect(sortObject(result)).toEqual({
+    open: expect.objectContaining({ diagnostics: [] }),
+    query: {
+      $schema: 'modelable.query/v1',
+      kind: 'query_result',
+      query: 'facets',
+      data: {
+        facets: [{
+          identity: 'org.example/data-subject@1',
+          value: 'customer',
+          subject: 'projection_field:analytics.SubjectEmail@1#email',
+          propagation: 'project',
+          source: { subject: 'field:subjects.DataSubject@1#email' },
+          interpretation: 'known',
+        }],
+      },
+    },
+  });
 });
 
 test('protocol v2 exposes completion and hover over the synchronized workspace', async ({

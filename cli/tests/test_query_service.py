@@ -24,6 +24,128 @@ domain customer {
     return load_workspace(tmp_path)
 
 
+def _faceted_workspace(tmp_path: Path):
+    _workspace(tmp_path)
+    (tmp_path / "modelable.facets.json").write_text(
+        """
+{
+  "$schema": "modelable.facets/v1",
+  "schemas": [
+    {
+      "identity": "org.example/retention-class@1",
+      "value_schema": {"type": "string"},
+      "allowed_subjects": ["field", "projection_field"],
+      "propagation": "project"
+    },
+    {
+      "identity": "org.example/jurisdiction@1",
+      "value_schema": {"type": "string"},
+      "allowed_subjects": ["declaration", "field"],
+      "propagation": "inherit"
+    }
+  ],
+  "facets": [
+    {
+      "identity": "org.example/retention-class@1",
+      "value": "regulated",
+      "subject": "field:customer.Customer@1#name",
+      "propagation": "project"
+    },
+    {
+      "identity": "org.example/jurisdiction@1",
+      "value": "SE",
+      "subject": "declaration:customer.Customer@1",
+      "propagation": "inherit"
+    },
+    {
+      "identity": "org.example/future-fact@1",
+      "value": {"rank": 2},
+      "subject": "field:customer.Customer@1#name",
+      "propagation": "none"
+    }
+  ]
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    return load_workspace(tmp_path)
+
+
+def test_query_service_exposes_normalized_facets_with_deterministic_pagination(tmp_path: Path) -> None:
+    service = WorkspaceQueryProtocolService(_faceted_workspace(tmp_path))
+    request = {
+        "$schema": "modelable.query/v1",
+        "kind": "query",
+        "query": "facets",
+        "id": "customer.Customer@1#name",
+        "limit": 2,
+    }
+
+    first = service.execute(request)
+    second = service.execute({**request, "cursor": first["next_cursor"]})
+
+    assert [facet["identity"] for facet in first["data"]["facets"]] == [
+        "org.example/future-fact@1",
+        "org.example/jurisdiction@1",
+    ]
+    assert first["data"]["facets"][0]["interpretation"] == "unknown"
+    assert isinstance(first["next_cursor"], str)
+    assert [facet["identity"] for facet in second["data"]["facets"]] == ["org.example/retention-class@1"]
+    assert "next_cursor" not in second
+
+    projected = service.execute(
+        {
+            "$schema": "modelable.query/v1",
+            "kind": "query",
+            "query": "facets",
+            "id": "customer.CustomerView@1#name",
+        }
+    )
+    assert projected["data"]["facets"] == [
+        {
+            "identity": "org.example/retention-class@1",
+            "value": "regulated",
+            "subject": "projection_field:customer.CustomerView@1#name",
+            "propagation": "project",
+            "source": {"subject": "field:customer.Customer@1#name"},
+            "interpretation": "known",
+        }
+    ]
+
+
+def test_declaration_query_exposes_facets_on_declarations_and_fields(tmp_path: Path) -> None:
+    service = WorkspaceQueryProtocolService(_faceted_workspace(tmp_path))
+
+    result = service.execute(
+        {
+            "$schema": "modelable.query/v1",
+            "kind": "query",
+            "query": "declaration",
+            "id": "customer.Customer@1",
+        }
+    )
+
+    nodes_by_ref = {node["target_ref"]: node for node in result["data"]["nodes"]}
+    assert [facet["identity"] for facet in nodes_by_ref["customer.Customer@1"]["facets"]] == [
+        "org.example/jurisdiction@1"
+    ]
+
+    lineage = service.execute(
+        {
+            "$schema": "modelable.query/v1",
+            "kind": "query",
+            "query": "lineage",
+            "id": "customer.CustomerView@1#name",
+        }
+    )
+    field_nodes_by_ref = {node["target_ref"]: node for node in lineage["data"]["nodes"]}
+    assert [facet["identity"] for facet in field_nodes_by_ref["customer.Customer@1#name"]["facets"]] == [
+        "org.example/future-fact@1",
+        "org.example/jurisdiction@1",
+        "org.example/retention-class@1",
+    ]
+
+
 def test_query_service_answers_declaration_and_dependents_deterministically(tmp_path: Path) -> None:
     service = WorkspaceQueryProtocolService(_workspace(tmp_path))
 

@@ -12,6 +12,7 @@ from modelable.browser.dto import (
     BrowserCompileResult,
     BrowserCompletionResult,
     BrowserDefinitionResult,
+    BrowserFacetDocument,
     BrowserFormatResult,
     BrowserGovernanceResult,
     BrowserGraphResult,
@@ -120,6 +121,12 @@ def _sources(value: Any) -> tuple[BrowserSource, ...]:
     return tuple(_source(source) for source in value)
 
 
+def _facet_document(value: Any) -> BrowserFacetDocument:
+    if not isinstance(value, dict):
+        raise BrowserRequestValidationError("Facet document must be an object")
+    return BrowserFacetDocument(document=value)
+
+
 def _integer(value: Any) -> int:
     if not isinstance(value, int) or isinstance(value, bool):
         raise BrowserRequestValidationError("Expected an integer")
@@ -167,10 +174,17 @@ _DispatchResult = (
 
 def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
     if method == "workspace.open":
-        _require_exact_fields(payload, {"workspaceRevision", "sources"})
+        allowed = {"workspaceRevision", "sources", "facetsDocument"}
+        if not {"workspaceRevision", "sources"}.issubset(payload) or set(payload) - allowed:
+            raise BrowserRequestValidationError("Payload does not match method schema")
+        workspace_revision = _integer(payload["workspaceRevision"])
+        sources = _sources(payload["sources"])
+        if "facetsDocument" not in payload:
+            return _compiler.open_workspace(workspace_revision, sources)
         return _compiler.open_workspace(
-            _integer(payload["workspaceRevision"]),
-            _sources(payload["sources"]),
+            workspace_revision,
+            sources,
+            facet_document=_facet_document(payload["facetsDocument"]),
         )
     if method == "source.format":
         _require_exact_fields(payload, {"source"})

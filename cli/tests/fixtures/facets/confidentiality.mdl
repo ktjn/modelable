@@ -1,0 +1,7 @@
+domain confidential {
+  owner: "governance-examples"
+
+  entity SecretRecord @ 1 (additive) {
+    @key recordId: uuid
+  }
+}
