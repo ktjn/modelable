@@ -32,7 +32,7 @@ from modelable.registry.resolver import (
     AmbiguousSemanticTypeError,
     resolve_declaration,
     resolve_model_ref,
-    resolve_semantic_type_ref,
+    resolve_named_declaration,
 )
 
 _NODE_KIND_ORDER = {
@@ -261,12 +261,16 @@ def _add_model_field(
         builder.add_edge(field_id, f"model_version:{target_id}", "references")
     for type_name, exact_version in _iter_semantic_type_refs(field.type):
         try:
-            declaring_domain, declaration = resolve_semantic_type_ref(
+            resolved = resolve_named_declaration(
                 workspace.mdl,
                 domain_name,
                 type_name,
                 exact_version=exact_version,
+                include_enum_projections=False,
             )
+            if not isinstance(resolved.declaration, SemanticTypeDecl):
+                raise TypeError("expected semantic declaration")
+            declaring_domain, declaration = resolved.domain_name, resolved.declaration
         except LookupError as semantic_error:
             if isinstance(semantic_error, AmbiguousSemanticTypeError) or exact_version is not None:
                 raise
@@ -309,12 +313,16 @@ def _add_semantic_type(
     )
     builder.add_edge(domain_id, type_id, "owns")
     for type_name, exact_version in _iter_semantic_type_refs(declaration.underlying):
-        declaring_domain, target = resolve_semantic_type_ref(
+        resolved = resolve_named_declaration(
             workspace.mdl,
             domain_name,
             type_name,
             exact_version=exact_version,
+            include_enum_projections=False,
         )
+        if not isinstance(resolved.declaration, SemanticTypeDecl):
+            raise TypeError("expected semantic declaration")
+        declaring_domain, target = resolved.domain_name, resolved.declaration
         builder.add_edge(
             type_id,
             f"semantic_type:{declaration_id(declaring_domain, target.name, target.version)}",
@@ -330,12 +338,16 @@ def _add_enum_projection(
     declaration: EnumProjectionDecl,
 ) -> None:
     projection_id = f"enum_projection:{declaration_id(domain_name, declaration.name, declaration.version)}"
-    source_domain, source = resolve_semantic_type_ref(
+    resolved = resolve_named_declaration(
         workspace.mdl,
         domain_name,
         declaration.source_name,
         exact_version=declaration.source_version,
+        include_enum_projections=False,
     )
+    if not isinstance(resolved.declaration, SemanticTypeDecl):
+        raise TypeError("expected semantic declaration")
+    source_domain, source = resolved.domain_name, resolved.declaration
     builder.add_node(
         {
             "id": projection_id,
