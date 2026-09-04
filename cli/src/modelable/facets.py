@@ -5,13 +5,18 @@ from __future__ import annotations
 import json
 import math
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from types import MappingProxyType
-from typing import Literal, TypeGuard, cast
+from typing import TYPE_CHECKING, Literal, TypeGuard, cast
 
+from modelable.dependency_graph import build_projection_dependencies
 from modelable.identity import parse_declaration_id, parse_semantic_path
+from modelable.parser.ir import FieldDef, MdlFile, ModelVersion, ObjectType, ProjectionVersion
+
+if TYPE_CHECKING:
+    from modelable.compiler.workspace import Workspace
 
 type FacetSubjectKind = Literal["declaration", "field", "projection", "projection_field"]
 type PropagationMode = Literal["none", "inherit", "project"]
@@ -48,6 +53,10 @@ _CANONICAL_IDENTITY = re.compile(
 
 class FacetError(ValueError):
     """Raised when a facet contract is malformed or does not validate."""
+
+
+class FacetPropagationError(FacetError):
+    """Raised when a validated facet cannot be attached or propagated semantically."""
 
 
 @dataclass(frozen=True)
@@ -356,6 +365,236 @@ def load_facet_document_from_mapping(document: Mapping[str, object]) -> tuple[Fa
         )
         facets.append(registry.validate(Facet.from_document(facet_document)))
     return registry, tuple(sorted(facets, key=lambda facet: (facet.identity.canonical, facet.subject.canonical)))
+
+
+def normalize_workspace_facets(workspace: Workspace) -> tuple[Facet, ...]:
+    """Resolve known facets over workspace subjects and projection field lineage.
+
+    The sidecar remains the source of explicit facts. This pass adds only known,
+    inherited or projected facts; unknown facts are retained at their source but
+    are deliberately never candidates for semantic propagation.
+    """
+    explicit_by_subject = _explicit_facets_by_subject(workspace)
+    subjects = _workspace_subjects(workspace.mdl)
+    subjects.update(explicit_by_subject)
+    resolved: dict[FacetSubject, tuple[Facet, ...]] = {}
+    resolving: set[FacetSubject] = set()
+
+    def resolve(subject: FacetSubject) -> tuple[Facet, ...]:
+        if subject in resolved:
+            return resolved[subject]
+        if subject in resolving:
+            raise FacetPropagationError(f"facet propagation cycle at {subject.canonical}")
+        resolving.add(subject)
+        try:
+            explicit = explicit_by_subject.get(subject, ())
+            explicit_identities = {facet.identity for facet in explicit}
+            inherited = _inherited_facets(subject, explicit_by_subject)
+            projected = _projected_facets(workspace.mdl, subject, resolve)
+            result = tuple(
+                sorted(
+                    (
+                        *explicit,
+                        *(facet for facet in inherited if facet.identity not in explicit_identities),
+                        *(facet for facet in projected if facet.identity not in explicit_identities),
+                    ),
+                    key=_facet_sort_key,
+                )
+            )
+            resolved[subject] = result
+            return result
+        finally:
+            resolving.remove(subject)
+
+    normalized = [facet for subject in sorted(subjects, key=lambda item: item.canonical) for facet in resolve(subject)]
+    return tuple(sorted(normalized, key=_facet_sort_key))
+
+
+def facets_for_subject(workspace: Workspace, subject: FacetSubject) -> tuple[Facet, ...]:
+    """Return the normalized facets attached to one canonical semantic subject."""
+    if not isinstance(subject, FacetSubject):
+        raise FacetPropagationError("facet subject queries require a FacetSubject")
+    return tuple(facet for facet in normalize_workspace_facets(workspace) if facet.subject == subject)
+
+
+def _explicit_facets_by_subject(workspace: Workspace) -> dict[FacetSubject, tuple[Facet, ...]]:
+    explicit: dict[FacetSubject, list[Facet]] = {}
+    seen: set[tuple[FacetSubject, FacetIdentity]] = set()
+    for facet in workspace.facets:
+        if not _subject_exists(workspace.mdl, facet.subject):
+            raise FacetPropagationError(f"facet subject does not exist: {facet.subject.canonical}")
+        key = (facet.subject, facet.identity)
+        if key in seen:
+            raise FacetPropagationError(
+                f"duplicate explicit facet {facet.identity.canonical} on {facet.subject.canonical}"
+            )
+        seen.add(key)
+        explicit.setdefault(facet.subject, []).append(facet)
+    return {subject: tuple(sorted(facets, key=_facet_sort_key)) for subject, facets in explicit.items()}
+
+
+def _workspace_subjects(mdl: MdlFile) -> set[FacetSubject]:
+    subjects: set[FacetSubject] = set()
+    for domain in mdl.domains:
+        for name, versions in domain.models.items():
+            for model_version in versions:
+                declaration = f"{domain.name}.{name}@{model_version.version}"
+                subjects.add(FacetSubject("declaration", declaration))
+                for model_field in model_version.fields:
+                    subjects.add(FacetSubject("field", f"{declaration}#{model_field.name}"))
+        for name, projection_versions in domain.projections.items():
+            for projection_version in projection_versions:
+                declaration = f"{domain.name}.{name}@{projection_version.version}"
+                subjects.add(FacetSubject("projection", declaration))
+                for projection_field in projection_version.fields:
+                    subjects.add(FacetSubject("projection_field", f"{declaration}#{projection_field.name}"))
+    return subjects
+
+
+def _subject_exists(mdl: MdlFile, subject: FacetSubject) -> bool:
+    if subject.kind in {"declaration", "projection"}:
+        domain_name, declaration_name, version_number = parse_declaration_id(subject.reference)
+        version = _declaration_version(mdl, domain_name, declaration_name, version_number, subject.kind == "projection")
+        return version is not None
+
+    path = parse_semantic_path(subject.reference)
+    domain_name, declaration_name, version_number = parse_declaration_id(path.declaration)
+    projection = subject.kind == "projection_field"
+    version = _declaration_version(mdl, domain_name, declaration_name, version_number, projection)
+    if version is None:
+        return False
+    if projection:
+        return len(path.segments) == 1 and any(field.name == path.segments[0] for field in version.fields)
+    return _model_field_path_exists(cast(ModelVersion, version).fields, path.segments)
+
+
+def _declaration_version(
+    mdl: MdlFile,
+    domain_name: str,
+    declaration_name: str,
+    version_number: int,
+    projection: bool,
+) -> ModelVersion | ProjectionVersion | None:
+    domain = next((item for item in mdl.domains if item.name == domain_name), None)
+    if domain is None:
+        return None
+    if projection:
+        versions: Sequence[ModelVersion | ProjectionVersion] = domain.projections.get(declaration_name, ())
+    else:
+        versions = domain.models.get(declaration_name, ())
+    return next((item for item in versions if item.version == version_number), None)
+
+
+def _model_field_path_exists(fields: Sequence[FieldDef], segments: tuple[str, ...]) -> bool:
+    current_fields = fields
+    for index, segment in enumerate(segments):
+        if segment in {"[]", "{}", "{key}"}:
+            return False
+        field_name = segment.removesuffix("[]").removesuffix("{}").removesuffix("{key}")
+        field = next((item for item in current_fields if getattr(item, "name", None) == field_name), None)
+        if field is None:
+            return False
+        if index == len(segments) - 1:
+            return True
+        field_type = getattr(field, "type", None)
+        if not isinstance(field_type, ObjectType):
+            return False
+        current_fields = field_type.fields
+    return False
+
+
+def _inherited_facets(
+    subject: FacetSubject,
+    explicit_by_subject: Mapping[FacetSubject, tuple[Facet, ...]],
+) -> tuple[Facet, ...]:
+    ancestors = _inheritance_ancestors(subject)
+    inherited: list[Facet] = []
+    for ancestor in ancestors:
+        for facet in explicit_by_subject.get(ancestor, ()):
+            if facet.interpretation != "known" or facet.propagation != "inherit":
+                continue
+            inherited.append(
+                replace(
+                    facet,
+                    subject=subject,
+                    source=_derived_source(ancestor, facet),
+                )
+            )
+    return tuple(inherited)
+
+
+def _inheritance_ancestors(subject: FacetSubject) -> tuple[FacetSubject, ...]:
+    if subject.kind == "field":
+        path = parse_semantic_path(subject.reference)
+        ancestors = [FacetSubject("declaration", path.declaration)]
+        for length in range(1, len(path.segments)):
+            ancestors.append(FacetSubject("field", f"{path.declaration}#{'.'.join(path.segments[:length])}"))
+        return tuple(ancestors)
+    if subject.kind == "projection_field":
+        path = parse_semantic_path(subject.reference)
+        return (FacetSubject("projection", path.declaration),)
+    return ()
+
+
+def _projected_facets(
+    mdl: MdlFile,
+    subject: FacetSubject,
+    resolve: Callable[[FacetSubject], tuple[Facet, ...]],
+) -> tuple[Facet, ...]:
+    if subject.kind != "projection_field":
+        return ()
+    path = parse_semantic_path(subject.reference)
+    if len(path.segments) != 1:
+        return ()
+    domain_name, projection_name, version_number = parse_declaration_id(path.declaration)
+    projection = _declaration_version(mdl, domain_name, projection_name, version_number, True)
+    if not isinstance(projection, ProjectionVersion):
+        return ()
+
+    dependencies = build_projection_dependencies(mdl, domain_name, projection_name, projection)
+    projected: list[Facet] = []
+    for dependency in sorted(
+        (item for item in dependencies if item.target_property == path.segments[0]),
+        key=lambda item: (item.source_ref, item.source_property, item.usage_kind),
+    ):
+        source_kind: FacetSubjectKind = (
+            "projection_field" if _declaration_version_for_identity(mdl, dependency.source_ref, True) else "field"
+        )
+        source_subject = FacetSubject(source_kind, f"{dependency.source_ref}#{dependency.source_property}")
+        for facet in resolve(source_subject):
+            if facet.interpretation == "known" and facet.propagation == "project":
+                projected.append(
+                    replace(
+                        facet,
+                        subject=subject,
+                        source=_derived_source(source_subject, facet),
+                    )
+                )
+    return tuple(projected)
+
+
+def _declaration_version_for_identity(
+    mdl: MdlFile, identity: str, projection: bool
+) -> ModelVersion | ProjectionVersion | None:
+    domain_name, declaration_name, version_number = parse_declaration_id(identity)
+    return _declaration_version(mdl, domain_name, declaration_name, version_number, projection)
+
+
+def _derived_source(subject: FacetSubject, facet: Facet) -> FacetSource:
+    source = facet.source
+    return FacetSource(
+        subject=subject,
+        location=source.location if source is not None else None,
+        lineage=source.lineage if source is not None else None,
+    )
+
+
+def _facet_sort_key(facet: Facet) -> tuple[str, str, str]:
+    return (
+        facet.subject.canonical,
+        facet.identity.canonical,
+        facet.source.subject.canonical if facet.source is not None else "",
+    )
 
 
 def _mapping(value: object, label: str) -> dict[str, object]:

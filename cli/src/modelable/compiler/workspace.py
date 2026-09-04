@@ -10,7 +10,15 @@ from pathlib import Path
 from modelable.config import ModelableConfig, apply_config_defaults, load_config
 from modelable.diagnostics.model import Diagnostic
 from modelable.expressions.cel import CelContext, FieldRef, looks_boolean, parse_cel, validate_cel_expr
-from modelable.facets import Facet, FacetError, FacetRegistry, load_facet_document, load_facet_document_from_mapping
+from modelable.facets import (
+    Facet,
+    FacetError,
+    FacetPropagationError,
+    FacetRegistry,
+    load_facet_document,
+    load_facet_document_from_mapping,
+    normalize_workspace_facets,
+)
 from modelable.parser.ir import (
     AddFieldOp,
     ArrayType,
@@ -117,7 +125,7 @@ def load_workspace(path: str | Path) -> Workspace:
                 Diagnostic(code="FACET", message=str(error), severity="error", path=str(sidecar_path)),
             ],
         )
-    return replace(workspace, facets=facets, facet_registry=facet_registry)
+    return _validate_facets(replace(workspace, facets=facets, facet_registry=facet_registry))
 
 
 def load_workspace_from_sources(
@@ -211,14 +219,30 @@ def load_workspace_from_sources(
     warnings.extend(_validate_postcard_bindings(merged))
     warnings.extend(_find_repeated_anonymous_enum_shapes(merged))
     errors.extend(_validate_cel(merged))
-    return Workspace(
-        sources=workspace_sources,
-        mdl=merged,
-        errors=errors,
-        warnings=warnings,
-        facets=facets,
-        facet_registry=facet_registry,
+    return _validate_facets(
+        Workspace(
+            sources=workspace_sources,
+            mdl=merged,
+            errors=errors,
+            warnings=warnings,
+            facets=facets,
+            facet_registry=facet_registry,
+        )
     )
+
+
+def _validate_facets(workspace: Workspace) -> Workspace:
+    try:
+        normalize_workspace_facets(workspace)
+    except FacetPropagationError as error:
+        return replace(
+            workspace,
+            errors=[
+                *workspace.errors,
+                Diagnostic(code="FACET", message=str(error), severity="error", path="<facets>"),
+            ],
+        )
+    return workspace
 
 
 def _validate_api_bindings(mdl: MdlFile) -> list[Diagnostic]:

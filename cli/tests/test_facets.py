@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+from dataclasses import replace
 from importlib.resources import files
 from pathlib import Path
 
@@ -11,6 +12,7 @@ import pytest
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError
 
+from modelable.compiler.workspace import Workspace, WorkspaceDocumentSource, load_workspace_from_sources
 from modelable.facets import (
     Facet,
     FacetError,
@@ -19,7 +21,9 @@ from modelable.facets import (
     FacetSchema,
     FacetSource,
     FacetSubject,
+    facets_for_subject,
     load_facet_document,
+    normalize_workspace_facets,
 )
 
 
@@ -403,3 +407,258 @@ def test_checked_in_facet_sidecar_schema_rejects_unsupported_value_schema_keywor
 
     with pytest.raises(ValidationError, match="Additional properties are not allowed"):
         validator.validate(document)
+
+
+def _propagation_workspace() -> Workspace:
+    """Build a resolved workspace with direct, computed, and chained projection lineage."""
+    source = WorkspaceDocumentSource(
+        path=None,
+        uri="memory://facets-propagation.mdl",
+        text="""
+domain customers {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key id: uuid
+  }
+}
+domain orders {
+  owner: "test-team"
+  entity Order @ 1 (additive) {
+    @key id: uuid
+    customerId: uuid
+  }
+}
+domain analytics {
+  owner: "test-team"
+  projection CustomerOrder @ 1
+    from orders.Order @ 1 as o
+    join customers.Customer @ 1 as c on o.customerId == c.id
+  {
+    customerId <- o.customerId
+    matches = c.id == o.customerId
+  }
+  projection CustomerOrderAgain @ 1
+    from analytics.CustomerOrder @ 1 as co
+  {
+    matches <- co.matches
+  }
+}
+""",
+    )
+    return load_workspace_from_sources(
+        [source],
+        facets_document={
+            "$schema": "modelable.facets/v1",
+            "schemas": [
+                {
+                    "identity": "org.example/data-subject@1",
+                    "value_schema": {"type": "string"},
+                    "allowed_subjects": ["field", "projection_field"],
+                    "propagation": "project",
+                },
+                {
+                    "identity": "org.example/jurisdiction@1",
+                    "value_schema": {"type": "string"},
+                    "allowed_subjects": ["declaration", "field", "projection", "projection_field"],
+                    "propagation": "inherit",
+                },
+                {
+                    "identity": "org.example/local-note@1",
+                    "value_schema": {"type": "string"},
+                    "allowed_subjects": ["field"],
+                    "propagation": "none",
+                },
+            ],
+            "facets": [
+                {
+                    "identity": "org.example/jurisdiction@1",
+                    "value": "SE",
+                    "subject": "declaration:orders.Order@1",
+                    "propagation": "inherit",
+                },
+                {
+                    "identity": "org.example/data-subject@1",
+                    "value": "customer",
+                    "subject": "field:customers.Customer@1#id",
+                    "propagation": "project",
+                },
+                {
+                    "identity": "org.example/data-subject@1",
+                    "value": "order",
+                    "subject": "field:orders.Order@1#customerId",
+                    "propagation": "project",
+                },
+                {
+                    "identity": "org.example/local-note@1",
+                    "value": "do-not-project",
+                    "subject": "field:orders.Order@1#customerId",
+                    "propagation": "none",
+                },
+                {
+                    "identity": "org.example/future@1",
+                    "value": "uninterpreted",
+                    "subject": "field:orders.Order@1#customerId",
+                    "propagation": "project",
+                },
+                {
+                    "identity": "org.example/data-subject@1",
+                    "value": "override",
+                    "subject": "projection_field:analytics.CustomerOrder@1#matches",
+                    "propagation": "project",
+                },
+            ],
+        },
+    )
+
+
+def test_facets_for_subject_applies_only_known_project_lineage_in_stable_source_order() -> None:
+    """Removing lineage propagation, source ordering, or unknown isolation breaks this contract."""
+    workspace = _propagation_workspace()
+
+    facets = facets_for_subject(workspace, FacetSubject.parse("projection_field:analytics.CustomerOrder@1#matches"))
+
+    assert [(facet.value, facet.source.subject.canonical if facet.source else None) for facet in facets] == [
+        ("override", None),
+    ]
+    chained = facets_for_subject(
+        workspace,
+        FacetSubject.parse("projection_field:analytics.CustomerOrderAgain@1#matches"),
+    )
+    assert [(facet.value, facet.source.subject.canonical if facet.source else None) for facet in chained] == [
+        ("override", "projection_field:analytics.CustomerOrder@1#matches"),
+    ]
+    assert [
+        facet.identity.canonical
+        for facet in facets_for_subject(
+            workspace,
+            FacetSubject.parse("projection_field:analytics.CustomerOrder@1#customerId"),
+        )
+    ] == ["org.example/data-subject@1"]
+
+
+def test_facets_for_subject_retains_all_computed_project_sources_in_canonical_order() -> None:
+    """Removing multi-source lineage or sorting by input order breaks this contract."""
+    workspace = _propagation_workspace()
+    without_destination_replacement = replace(
+        workspace,
+        facets=tuple(
+            facet
+            for facet in workspace.facets
+            if facet.source is None
+            and facet.subject != FacetSubject.parse("projection_field:analytics.CustomerOrder@1#matches")
+        ),
+    )
+
+    facets = facets_for_subject(
+        without_destination_replacement,
+        FacetSubject.parse("projection_field:analytics.CustomerOrder@1#matches"),
+    )
+
+    assert [(facet.value, facet.source.subject.canonical if facet.source else None) for facet in facets] == [
+        ("customer", "field:customers.Customer@1#id"),
+        ("order", "field:orders.Order@1#customerId"),
+    ]
+
+
+def test_normalize_workspace_facets_inherits_declarations_and_rejects_conflicting_explicit_identities() -> None:
+    """Removing inheritance or duplicate detection breaks deterministic facet semantics."""
+    workspace = _propagation_workspace()
+
+    normalized = normalize_workspace_facets(workspace)
+
+    inherited = [
+        facet
+        for facet in normalized
+        if facet.subject == FacetSubject.parse("field:orders.Order@1#customerId")
+        and facet.identity.canonical == "org.example/jurisdiction@1"
+    ]
+    assert [(facet.value, facet.source.subject.canonical if facet.source else None) for facet in inherited] == [
+        ("SE", "declaration:orders.Order@1"),
+    ]
+
+    duplicate = load_workspace_from_sources(
+        [
+            WorkspaceDocumentSource(
+                path=None,
+                uri="memory://duplicate.mdl",
+                text="""
+domain orders {
+  owner: "test-team"
+  entity Order @ 1 (additive) { @key id: uuid }
+}
+""",
+            )
+        ],
+        facets_document={
+            "$schema": "modelable.facets/v1",
+            "schemas": [
+                {
+                    "identity": "org.example/jurisdiction@1",
+                    "value_schema": {"type": "string"},
+                    "allowed_subjects": ["declaration"],
+                    "propagation": "inherit",
+                }
+            ],
+            "facets": [
+                {
+                    "identity": "org.example/jurisdiction@1",
+                    "value": "SE",
+                    "subject": "declaration:orders.Order@1",
+                    "propagation": "inherit",
+                },
+                {
+                    "identity": "org.example/jurisdiction@1",
+                    "value": "NO",
+                    "subject": "declaration:orders.Order@1",
+                    "propagation": "inherit",
+                },
+            ],
+        },
+    )
+
+    assert any(
+        diagnostic.code == "FACET" and "duplicate explicit facet" in diagnostic.message
+        for diagnostic in duplicate.errors
+    )
+
+
+def test_workspace_reports_a_facet_subject_that_is_not_a_resolved_field() -> None:
+    """Removing resolved-subject validation would accept inert governance facts."""
+    workspace = load_workspace_from_sources(
+        [
+            WorkspaceDocumentSource(
+                path=None,
+                uri="memory://missing-field.mdl",
+                text="""
+domain orders {
+  owner: "test-team"
+  entity Order @ 1 (additive) { @key id: uuid }
+}
+""",
+            )
+        ],
+        facets_document={
+            "$schema": "modelable.facets/v1",
+            "schemas": [
+                {
+                    "identity": "org.example/data-subject@1",
+                    "value_schema": {"type": "string"},
+                    "allowed_subjects": ["field"],
+                    "propagation": "none",
+                }
+            ],
+            "facets": [
+                {
+                    "identity": "org.example/data-subject@1",
+                    "value": "customer",
+                    "subject": "field:orders.Order@1#missing",
+                    "propagation": "none",
+                }
+            ],
+        },
+    )
+
+    assert any(
+        diagnostic.code == "FACET" and "facet subject does not exist" in diagnostic.message
+        for diagnostic in workspace.errors
+    )
