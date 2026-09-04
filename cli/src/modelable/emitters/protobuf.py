@@ -36,7 +36,7 @@ from modelable.parser.ir import (
 from modelable.planner.plans import build_plan_documents
 from modelable.planner.protocol import PLAN_V1_SCHEMA, PlanDocument
 from modelable.registry.enum_numbers import EnumNumberAllocation
-from modelable.registry.resolver import latest_semantic_type_declarations, resolve_model_ref, resolve_semantic_type_ref
+from modelable.registry.resolver import latest_semantic_type_declarations, resolve_model_ref, resolve_named_declaration
 from modelable.registry.signature import compute_version_signature
 
 
@@ -457,7 +457,17 @@ def _type_to_proto(
             return semantic.proto_type, None, None, semantic, None, None
         return "bytes", None, None, None, None, None
     if isinstance(field_type, EnumRefType):
-        declaring_domain, decl = resolve_semantic_type_ref(mdl, domain_name, field_type.name, field_type.version)
+        resolved = resolve_named_declaration(
+            mdl,
+            domain_name,
+            field_type.name,
+            exact_version=field_type.version,
+            include_enum_projections=False,
+        )
+        if not isinstance(resolved.declaration, SemanticTypeDecl):
+            raise TypeError("expected semantic declaration")
+        declaring_domain = resolved.domain_name
+        decl = resolved.declaration
         enum_ref = enum_index.by_ref[f"{declaring_domain}.{decl.name}"]
         return enum_ref.proto_type, None, None, None, None, enum_ref
     if isinstance(field_type, MapType):
