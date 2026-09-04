@@ -24,10 +24,11 @@ from modelable.parser.ir import (
     ObjectType,
     PrimitiveType,
     RefType,
+    SemanticTypeDecl,
 )
 from modelable.planner.plans import build_plan_documents
 from modelable.planner.protocol import PLAN_V1_SCHEMA
-from modelable.registry.resolver import resolve_semantic_type_ref
+from modelable.registry.resolver import resolve_named_declaration
 
 ODCS_VERSION = "v3.1.0"
 
@@ -183,9 +184,19 @@ def _type_info(field_type: FieldType, mdl: MdlFile, current_domain: str) -> dict
         return {"logicalType": "string", "modelable_type": _type_name(field_type), "enum": field_type.values}
     if isinstance(field_type, EnumRefType):
         try:
-            declaring_domain, decl = resolve_semantic_type_ref(mdl, current_domain, field_type.name, field_type.version)
+            resolved = resolve_named_declaration(
+                mdl,
+                current_domain,
+                field_type.name,
+                exact_version=field_type.version,
+                include_enum_projections=False,
+            )
         except LookupError:
             return {"logicalType": "string", "modelable_type": "unknown"}
+        if not isinstance(resolved.declaration, SemanticTypeDecl):
+            return {"logicalType": "string", "modelable_type": "unknown"}
+        declaring_domain = resolved.domain_name
+        decl = resolved.declaration
         if not isinstance(decl.underlying, EnumType):
             return {"logicalType": "string", "modelable_type": "unknown"}
         qualified_name = f"{declaring_domain}.{decl.name}"
