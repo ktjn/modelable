@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from modelable.compat.projection_fields import resolve_projection_field_type_and_optionality
 from modelable.compiler.workspace import Workspace
@@ -39,8 +40,8 @@ from modelable.planner.protocol import PLAN_SCHEMA, PLAN_V1_SCHEMA, PlanDocument
 from modelable.registry.resolver import (
     ResolvedDeclaration,
     resolve_model_ref,
+    resolve_named_declaration,
     resolve_ref_type,
-    resolve_semantic_type_ref,
 )
 
 
@@ -335,18 +336,31 @@ def _field_type_document(field_type: FieldType, mdl: MdlFile, current_domain: st
                 document["resolved_key_type"] = _field_type_document(key_field.type, mdl, resolved.domain_name)
     if isinstance(field_type, EnumRefType):
         try:
-            declaring_domain, declaration = resolve_semantic_type_ref(
-                mdl, current_domain, field_type.name, field_type.version
+            resolved = resolve_named_declaration(
+                mdl,
+                current_domain,
+                field_type.name,
+                exact_version=field_type.version,
+                include_enum_projections=False,
             )
         except LookupError:
             return document
+        declaring_domain = resolved.domain_name
+        declaration = cast(SemanticTypeDecl, resolved.declaration)
         if isinstance(declaration.underlying, EnumType):
             document["values"] = list(declaration.underlying.values)
             document["declaring_domain"] = declaring_domain
     if isinstance(field_type, NamedType):
         semantic_declaration: SemanticTypeDecl | None = None
         try:
-            declaring_domain, semantic_declaration = resolve_semantic_type_ref(mdl, current_domain, field_type.name)
+            resolved = resolve_named_declaration(
+                mdl,
+                current_domain,
+                field_type.name,
+                include_enum_projections=False,
+            )
+            declaring_domain = resolved.domain_name
+            semantic_declaration = cast(SemanticTypeDecl, resolved.declaration)
         except LookupError:
             declaring_domain = current_domain
         if semantic_declaration is not None:
