@@ -30,7 +30,7 @@ from modelable.parser.ir import (
 )
 from modelable.planner.plans import build_plan_documents
 from modelable.planner.protocol import PLAN_V1_SCHEMA, PlanDocument
-from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref, resolve_semantic_type_ref
+from modelable.registry.resolver import ResolvedDeclaration, resolve_model_ref, resolve_semantic_type_ref
 
 FHIR_R4_VERSION = "4.0.1"
 FHIR_STRUCTURE_DEFINITION_BASE = "http://hl7.org/fhir/StructureDefinition"
@@ -479,14 +479,14 @@ def _add_domain_metadata(struct_def: dict[str, object], domain: DomainDef) -> No
         struct_def["description"] = domain.description
 
 
-def _resolve_source(mdl: MdlFile, projection: ProjectionVersion) -> ResolvedModelRef | None:
+def _resolve_source(mdl: MdlFile, projection: ProjectionVersion) -> ResolvedDeclaration | None:
     try:
         return resolve_model_ref(mdl, projection.source.model, projection.source.version)
     except LookupError:
         return None
 
 
-def _base_resource(source: ResolvedModelRef | None) -> tuple[str, list[str]]:
+def _base_resource(source: ResolvedDeclaration | None) -> tuple[str, list[str]]:
     if source is None:
         return "Basic", ["FHIR profile source model could not be resolved; using Basic as the base resource"]
     resource = source.model_name
@@ -500,7 +500,7 @@ def _elements(
     domain: DomainDef,
     projection_name: str,
     projection: ProjectionVersion,
-    source: ResolvedModelRef | None,
+    source: ResolvedDeclaration | None,
     base_resource: str,
     ext_fields: list[ProjectionField],
     direct_fields: list[ProjectionField],
@@ -556,7 +556,7 @@ def _field_element(
     projection_name: str,
     projection: ProjectionVersion,
     field: ProjectionField,
-    source: ResolvedModelRef | None,
+    source: ResolvedDeclaration | None,
     base_resource: str,
     mdl: MdlFile,
 ) -> dict[str, object]:
@@ -596,7 +596,7 @@ def _field_element(
     return element
 
 
-def _source_field(field: ProjectionField, source: ResolvedModelRef | None) -> FieldDef | None:
+def _source_field(field: ProjectionField, source: ResolvedDeclaration | None) -> FieldDef | None:
     if source is None or not isinstance(field.mapping, DirectMapping):
         return None
     candidate = next(
@@ -799,7 +799,7 @@ def _extensions(field: ProjectionField, source_field: FieldDef | None) -> list[d
 def _lineage_mapping(
     field: ProjectionField,
     projection: ProjectionVersion,
-    source: ResolvedModelRef | None,
+    source: ResolvedDeclaration | None,
 ) -> str | None:
     if source is None or not isinstance(field.mapping, DirectMapping):
         return None
@@ -832,7 +832,7 @@ def _extension_slice_element(
     projection_name: str,
     projection: ProjectionVersion,
     field: ProjectionField,
-    source: ResolvedModelRef | None,
+    source: ResolvedDeclaration | None,
     base_resource: str,
     field_type: FieldType,
 ) -> dict[str, object]:
@@ -1009,7 +1009,7 @@ def _emit_extension_sd(
     projection_name: str,
     version_num: int,
     field: ProjectionField,
-    source: ResolvedModelRef | None,
+    source: ResolvedDeclaration | None,
     out_dir: Path,
     mdl: MdlFile,
 ) -> EmittedArtifact:

@@ -36,7 +36,12 @@ from modelable.parser.ir import (
 )
 from modelable.planner.lineage import ProjectionLineage, build_projection_lineage
 from modelable.planner.protocol import PLAN_SCHEMA, PLAN_V1_SCHEMA, PlanDocument, facet_documents, serialize_plan
-from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref, resolve_ref_type, resolve_semantic_type_ref
+from modelable.registry.resolver import (
+    ResolvedDeclaration,
+    resolve_model_ref,
+    resolve_ref_type,
+    resolve_semantic_type_ref,
+)
 
 
 def build_plan(
@@ -211,7 +216,7 @@ def _version_spec(version_spec: object) -> dict[str, object]:
 
 
 def _resolved_declaration_block(
-    resolved: ResolvedModelRef,
+    resolved: ResolvedDeclaration,
     mdl: MdlFile,
     *,
     workspace: Workspace | None = None,
@@ -291,7 +296,7 @@ def _resolved_declaration_block(
     return block
 
 
-def _resolved_declaration_subject(resolved: ResolvedModelRef) -> FacetSubject:
+def _resolved_declaration_subject(resolved: ResolvedDeclaration) -> FacetSubject:
     kind: FacetSubjectKind = "declaration" if isinstance(resolved.version, ModelVersion) else "projection"
     return FacetSubject(kind, f"{resolved.domain_name}.{resolved.model_name}@{resolved.version.version}")
 
@@ -361,7 +366,7 @@ def _field_type_document(field_type: FieldType, mdl: MdlFile, current_domain: st
     return document
 
 
-def _resolve_named_model_ref(mdl: MdlFile, current_domain: str, type_name: str) -> ResolvedModelRef:
+def _resolve_named_model_ref(mdl: MdlFile, current_domain: str, type_name: str) -> ResolvedDeclaration:
     if "." in type_name:
         return resolve_model_ref(mdl, type_name, VersionMin(min_inclusive=0))
     candidates = [current_domain, *(domain.name for domain in mdl.domains if domain.name != current_domain)]

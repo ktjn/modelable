@@ -267,9 +267,6 @@ def resolve_declaration(
     )
 
 
-ResolvedModelRef = ResolvedDeclaration
-
-
 def resolve_model_ref(
     mdl: MdlFile,
     model_ref: str,
