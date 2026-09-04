@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
-from modelable.identity import DeclarationId, DeclarationVersion, declaration_id
+from modelable.identity import DeclarationId, DeclarationVersion
 from modelable.parser.ir import (
     Annotation,
     DomainDef,
@@ -172,6 +172,18 @@ class ResolvedDeclaration:
         return DeclarationVersion(DeclarationId(self.domain_name, self.name), self.version_number).identity
 
     @property
+    def model_name(self) -> str:
+        """Compatibility name for callers that resolve models or projections."""
+        return self.name
+
+    @property
+    def version(self) -> ModelVersion | ProjectionVersion:
+        """Return the resolved model/projection payload for model callers."""
+        if not isinstance(self.declaration, (ModelVersion, ProjectionVersion)):
+            raise TypeError("resolved declaration is not a model or projection")
+        return self.declaration
+
+    @property
     def members(self) -> tuple[ResolvedMember, ...]:
         if isinstance(self.declaration, ModelVersion):
             return tuple(_resolved_field_member(field) for field in self.declaration.fields)
@@ -255,40 +267,14 @@ def resolve_declaration(
     )
 
 
-@dataclass(frozen=True)
-class ResolvedModelRef:
-    """Compatibility view for model and projection references."""
-
-    domain_name: str
-    model_name: str
-    version: ModelVersion | ProjectionVersion
-
-    @property
-    def name(self) -> str:
-        return self.model_name
-
-    @property
-    def declaration(self) -> ModelVersion | ProjectionVersion:
-        return self.version
-
-    @property
-    def kind(self) -> str:
-        return "model" if isinstance(self.version, ModelVersion) else "projection"
-
-    @property
-    def version_number(self) -> int:
-        return self.version.version
-
-    @property
-    def identity(self) -> str:
-        return declaration_id(self.domain_name, self.model_name, self.version.version)
+ResolvedModelRef = ResolvedDeclaration
 
 
 def resolve_model_ref(
     mdl: MdlFile,
     model_ref: str,
     version_spec: VersionSpec | int,
-) -> ResolvedModelRef:
+) -> ResolvedDeclaration:
     """Resolve a model reference to a concrete published model version."""
     domain_name, model_name = _split_model_ref(model_ref)
     try:
@@ -321,14 +307,10 @@ def resolve_model_ref(
                         f"breaking change at version {v.version} blocks automatic resolution"
                     )
 
-    return ResolvedModelRef(
-        domain_name=domain_name,
-        model_name=model_name,
-        version=selected,
-    )
+    return resolved
 
 
-def resolve_ref_type(field_type: RefType, mdl: MdlFile) -> ResolvedModelRef:
+def resolve_ref_type(field_type: RefType, mdl: MdlFile) -> ResolvedDeclaration:
     """Resolve a ref<> field's target to a concrete model version.
 
     Unversioned ref<Domain.Model> resolves via VersionMin(1) ("latest

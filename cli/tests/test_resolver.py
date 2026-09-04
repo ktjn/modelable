@@ -8,6 +8,7 @@ from modelable.parser.ir import VersionMin
 from modelable.parser.parse import parse_text_to_ir
 from modelable.registry.index import build_registry
 from modelable.registry.resolver import (
+    ResolvedDeclaration,
     ResolvedDeclarationView,
     _iter_declaration_candidates,
     latest_enum_projection_declarations,
@@ -245,6 +246,7 @@ def test_resolve_model_ref_exact_version(tmp_path):
     assert resolved.domain_name == "customer"
     assert resolved.model_name == "Customer"
     assert resolved.version.version == 2
+    assert isinstance(resolved, ResolvedDeclaration)
     assert isinstance(resolved, ResolvedDeclarationView)
     assert (resolved.name, resolved.kind, resolved.version_number) == ("Customer", "model", 2)
 
