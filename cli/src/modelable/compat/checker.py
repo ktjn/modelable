@@ -25,7 +25,7 @@ from modelable.parser.ir import (
     ProjectionVersion,
     SemanticTypeDecl,
 )
-from modelable.registry.resolver import find_dependents, resolve_enum_type_ref
+from modelable.registry.resolver import find_dependents, resolve_named_declaration
 
 
 @dataclass(frozen=True)
@@ -152,11 +152,30 @@ def _refine_enum_version_changes(
             continue
 
         try:
-            _old_domain, old_decl = resolve_enum_type_ref(mdl, from_model_domain, old_ref[0], old_ref[1])
-            _new_domain, new_decl = resolve_enum_type_ref(mdl, from_model_domain, new_ref[0], new_ref[1])
+            old_resolved = resolve_named_declaration(
+                mdl,
+                from_model_domain,
+                old_ref[0],
+                exact_version=old_ref[1],
+                include_enum_projections=True,
+            )
+            new_resolved = resolve_named_declaration(
+                mdl,
+                from_model_domain,
+                new_ref[0],
+                exact_version=new_ref[1],
+                include_enum_projections=True,
+            )
         except LookupError:
             refined.append(change)
             continue
+
+        if not isinstance(old_resolved.declaration, (SemanticTypeDecl, EnumProjectionDecl)) or not isinstance(
+            new_resolved.declaration, (SemanticTypeDecl, EnumProjectionDecl)
+        ):
+            raise TypeError("shared named-declaration service returned an invalid enum declaration")
+        _old_domain, old_decl = old_resolved.domain_name, old_resolved.declaration
+        _new_domain, new_decl = new_resolved.domain_name, new_resolved.declaration
 
         if isinstance(old_decl, EnumProjectionDecl) and isinstance(new_decl, EnumProjectionDecl):
             if old_ref[0] != new_ref[0]:
