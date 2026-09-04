@@ -166,6 +166,12 @@ class ResolvedDeclarationView(Protocol):
     kind: str
     version_number: int
     identity: str
+    domain_owner: str | None
+    domain_contact: str | None
+    domain_description: str | None
+    annotations: tuple[Annotation, ...]
+    lineage: tuple[str, ...]
+    members: tuple[ResolvedMember, ...]
 
 
 @dataclass(frozen=True)

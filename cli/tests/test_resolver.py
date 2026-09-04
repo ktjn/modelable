@@ -155,6 +155,17 @@ def test_resolve_declaration_exposes_one_boundary_for_all_declaration_families()
     assert all(isinstance(item, ResolvedDeclarationView) for item in resolved)
 
 
+def test_resolved_declaration_view_declares_common_metadata_surface() -> None:
+    assert {
+        "domain_owner",
+        "domain_contact",
+        "domain_description",
+        "annotations",
+        "lineage",
+        "members",
+    } <= ResolvedDeclarationView.__annotations__.keys()
+
+
 def test_resolve_declaration_carries_common_domain_metadata() -> None:
     mdl = parse_text_to_ir(
         """
