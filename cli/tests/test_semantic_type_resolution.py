@@ -2,6 +2,7 @@ import pytest
 
 from modelable.parser.parse import parse_text_to_ir
 from modelable.registry.resolver import (
+    ResolvedDeclaration,
     ResolvedDeclarationView,
     resolve_enum_type_ref,
     resolve_named_declaration,
@@ -166,18 +167,20 @@ def test_named_declaration_view_unifies_semantic_and_enum_projection_identity():
     semantic = resolve_named_declaration(mdl, "orders", "OrderStatus", exact_version=1)
     projection = resolve_named_declaration(mdl, "orders", "PublicStatus", exact_version=1)
 
-    assert (semantic.domain_name, semantic.name, semantic.version, semantic.kind) == (
+    assert (semantic.domain_name, semantic.name, semantic.version_number, semantic.kind) == (
         "orders",
         "OrderStatus",
         1,
         "semantic_type",
     )
-    assert (projection.domain_name, projection.name, projection.version, projection.kind) == (
+    assert (projection.domain_name, projection.name, projection.version_number, projection.kind) == (
         "orders",
         "PublicStatus",
         1,
         "enum_projection",
     )
+    assert isinstance(semantic, ResolvedDeclaration)
+    assert isinstance(projection, ResolvedDeclaration)
     assert isinstance(semantic, ResolvedDeclarationView)
     assert isinstance(projection, ResolvedDeclarationView)
     assert semantic.version_number == projection.version_number == 1
