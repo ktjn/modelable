@@ -12,7 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from modelable.artifact_manifest import MANIFEST_NAME, build_artifact_manifest, write_artifact_manifest
 from modelable.compiler.workspace import Workspace, load_workspace
@@ -68,6 +68,7 @@ from modelable.parser.ir import (
     NamedType,
     ObjectType,
     ParseError,
+    SemanticTypeDecl,
     UnionType,
 )
 from modelable.planner.plans import write_plans
@@ -79,7 +80,7 @@ from modelable.registry.factory import get_registry
 from modelable.registry.ids import RegistryIdLock, allocate_registry_ids, read_lock_file, write_lock_file
 from modelable.registry.index import build_registry
 from modelable.registry.oci import OCIRegistryError
-from modelable.registry.resolver import resolve_enum_type_ref, resolve_model_ref, resolve_semantic_type_ref
+from modelable.registry.resolver import resolve_model_ref, resolve_named_declaration
 from modelable.registry.snapshot import load_snapshot_extension_pins, load_workspace_with_snapshot
 from modelable.registry.usage import build_usage_manifest
 from modelable.registry.usage_protocol import USAGE_MANIFEST_NAME, write_usage_manifest
@@ -1113,7 +1114,9 @@ def _semantic_refs(mdl: MdlFile, current_domain: str, names: set[str]) -> set[st
     refs: set[str] = set()
     for name in sorted(names):
         try:
-            domain_name, decl = resolve_semantic_type_ref(mdl, current_domain, name)
+            resolved = resolve_named_declaration(mdl, current_domain, name, include_enum_projections=False)
+            domain_name = resolved.domain_name
+            decl = cast(SemanticTypeDecl, resolved.declaration)
         except LookupError:
             continue
         refs.add(f"{domain_name}.{decl.name}")
@@ -1561,7 +1564,11 @@ def _reject_unsupported_enum_projection_fields(workspace: Workspace, target: str
             current_domain is not None and field_type.name in current_domain.models
         ):
             try:
-                _declaring_domain, declaration = resolve_enum_type_ref(workspace.mdl, domain_name, field_type.name)
+                resolved = resolve_named_declaration(
+                    workspace.mdl, domain_name, field_type.name, include_enum_projections=True
+                )
+                _declaring_domain = resolved.domain_name
+                declaration = cast(EnumProjectionDecl | SemanticTypeDecl, resolved.declaration)
             except LookupError:
                 return
             if isinstance(declaration, EnumProjectionDecl):
@@ -1581,9 +1588,15 @@ def _reject_unsupported_enum_projection_fields(workspace: Workspace, target: str
                 return
         elif isinstance(field_type, EnumRefType):
             try:
-                _declaring_domain, declaration = resolve_enum_type_ref(
-                    workspace.mdl, domain_name, field_type.name, exact_version=field_type.version
+                resolved = resolve_named_declaration(
+                    workspace.mdl,
+                    domain_name,
+                    field_type.name,
+                    exact_version=field_type.version,
+                    include_enum_projections=True,
                 )
+                _declaring_domain = resolved.domain_name
+                declaration = cast(EnumProjectionDecl | SemanticTypeDecl, resolved.declaration)
             except LookupError:
                 return
             if isinstance(declaration, EnumProjectionDecl):
