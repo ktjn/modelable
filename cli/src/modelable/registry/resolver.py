@@ -489,9 +489,9 @@ def _resolve_enum_type_ref(
             raise
         current = next((item for item in mdl.domains if item.name == current_domain), None)
         if "." not in name and current is not None:
-            local = _find_enum_projection_decl(current, name, exact_version)
-            if local is not None:
-                return current_domain, local
+            local = _find_named_candidate(current, name, "enum_projection", exact_version)
+            if local is not None and isinstance(local.declaration, EnumProjectionDecl):
+                return current_domain, local.declaration
         # A semantic ambiguity must not be hidden by a projection fallback.
         # A missing exact semantic version may still fall back to an exact
         # projection reference of the same name in another domain.
@@ -500,16 +500,16 @@ def _resolve_enum_type_ref(
             domain = next((item for item in mdl.domains if item.name == domain_name), None)
             if domain is None:
                 raise semantic_error
-            projection = _find_enum_projection_decl(domain, projection_name, exact_version)
-            if projection is None:
+            candidate = _find_named_candidate(domain, projection_name, "enum_projection", exact_version)
+            if candidate is None or not isinstance(candidate.declaration, EnumProjectionDecl):
                 raise semantic_error
-            return domain_name, projection
+            return domain_name, candidate.declaration
 
         matches: list[tuple[str, EnumProjectionDecl]] = []
         for domain in mdl.domains:
-            projection = _find_enum_projection_decl(domain, name, exact_version)
-            if projection is not None:
-                matches.append((domain.name, projection))
+            candidate = _find_named_candidate(domain, name, "enum_projection", exact_version)
+            if candidate is not None and isinstance(candidate.declaration, EnumProjectionDecl):
+                matches.append((domain.name, candidate.declaration))
         if not matches:
             known = sorted(
                 {item.version for domain in mdl.domains for item in domain.enum_projections if item.name == name}
@@ -582,19 +582,6 @@ def resolve_enum_type_ref(
     if not isinstance(resolved.declaration, (SemanticTypeDecl, EnumProjectionDecl)):
         raise TypeError("shared named-declaration service returned an invalid enum declaration")
     return resolved.domain_name, resolved.declaration
-
-
-def _find_enum_projection_decl(
-    domain: DomainDef,
-    name: str,
-    exact_version: int | None,
-) -> EnumProjectionDecl | None:
-    candidate = _find_named_candidate(domain, name, "enum_projection", exact_version)
-    return (
-        candidate.declaration
-        if candidate is not None and isinstance(candidate.declaration, EnumProjectionDecl)
-        else None
-    )
 
 
 def _find_named_candidate(
