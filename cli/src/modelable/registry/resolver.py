@@ -437,24 +437,24 @@ def _resolve_semantic_type_ref(
         domain = next((item for item in mdl.domains if item.name == domain_name), None)
         if domain is None:
             raise LookupError(f"unknown domain '{domain_name}' in semantic type reference '{name}'")
-        decl = _find_semantic_decl(domain, type_name, exact_version)
-        if decl is None:
+        candidate = _find_named_candidate(domain, type_name, "semantic_type", exact_version)
+        if candidate is None or not isinstance(candidate.declaration, SemanticTypeDecl):
             raise _unknown_semantic_type_error(name, domain, type_name, exact_version)
-        return domain_name, decl
+        return domain_name, candidate.declaration
 
     current = next((item for item in mdl.domains if item.name == current_domain), None)
     if current is not None:
-        local = _find_semantic_decl(current, name, exact_version)
-        if local is not None:
-            return current_domain, local
+        local = _find_named_candidate(current, name, "semantic_type", exact_version)
+        if local is not None and isinstance(local.declaration, SemanticTypeDecl):
+            return current_domain, local.declaration
 
     # Workspace-wide fallback mirrors bare-name semantics: only a unique
     # workspace match is accepted, more than one is ambiguous.
     matches: list[tuple[str, SemanticTypeDecl]] = []
     for domain in mdl.domains:
-        decl = _find_semantic_decl(domain, name, exact_version)
-        if decl is not None:
-            matches.append((domain.name, decl))
+        candidate = _find_named_candidate(domain, name, "semantic_type", exact_version)
+        if candidate is not None and isinstance(candidate.declaration, SemanticTypeDecl):
+            matches.append((domain.name, candidate.declaration))
     if not matches:
         known_domains = [domain for domain in mdl.domains if any(item.name == name for item in domain.semantic_types)]
         if known_domains and exact_version is not None:
@@ -582,17 +582,6 @@ def resolve_enum_type_ref(
     if not isinstance(resolved.declaration, (SemanticTypeDecl, EnumProjectionDecl)):
         raise TypeError("shared named-declaration service returned an invalid enum declaration")
     return resolved.domain_name, resolved.declaration
-
-
-def _find_semantic_decl(
-    domain: DomainDef,
-    name: str,
-    exact_version: int | None,
-) -> SemanticTypeDecl | None:
-    candidate = _find_named_candidate(domain, name, "semantic_type", exact_version)
-    return (
-        candidate.declaration if candidate is not None and isinstance(candidate.declaration, SemanticTypeDecl) else None
-    )
 
 
 def _find_enum_projection_decl(
