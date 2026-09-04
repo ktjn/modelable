@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import cast
 
 from modelable.emitters.naming import pascalize_plain as _pascalize
 from modelable.emitters.shapes import TypeShape
@@ -8,8 +9,7 @@ from modelable.parser.ir import EnumProjectionDecl, EnumType, MdlFile, SemanticT
 from modelable.registry.resolver import (
     AmbiguousSemanticTypeError,
     latest_semantic_type_declarations,
-    resolve_enum_type_ref,
-    resolve_semantic_type_ref,
+    resolve_named_declaration,
 )
 
 
@@ -53,10 +53,17 @@ def resolve_named_types(
             if declaration.name in names:
                 continue
             try:
-                resolved_domain, resolved = resolve_semantic_type_ref(mdl, current_domain, declaration.name)
+                resolved = resolve_named_declaration(
+                    mdl,
+                    current_domain,
+                    declaration.name,
+                    include_enum_projections=False,
+                )
             except LookupError, AmbiguousSemanticTypeError:
                 continue
-            if resolved_domain == domain.name and resolved.name == declaration.name:
+            resolved_domain = resolved.domain_name
+            resolved_declaration = cast(SemanticTypeDecl, resolved.declaration)
+            if resolved_domain == domain.name and resolved_declaration.name == declaration.name:
                 if emit_nominal_enums and isinstance(declaration.underlying, EnumType):
                     names[declaration.name] = declaration.name
                 else:
@@ -139,9 +146,17 @@ def resolve_named_ref(
     # Qualified semantic reference not visible in the per-domain dicts (or a
     # cross-domain semantic name that resolve_named_types only keyed locally).
     try:
-        resolved_domain, decl = resolve_enum_type_ref(mdl, current_domain, ref, exact_version)
+        resolved = resolve_named_declaration(
+            mdl,
+            current_domain,
+            ref,
+            exact_version=exact_version,
+            include_enum_projections=True,
+        )
     except LookupError, AmbiguousSemanticTypeError:
         return (None, None, None)
+    resolved_domain = resolved.domain_name
+    decl = cast(SemanticTypeDecl | EnumProjectionDecl, resolved.declaration)
     if resolved_domain != current_domain:
         if emit_nominal_enum_projections and isinstance(decl, EnumProjectionDecl):
             return (resolved_domain, _projection_type_name(resolved_domain, decl), None)
@@ -191,9 +206,15 @@ def resolve_named_type_domains(mdl: MdlFile, *, current_domain: str) -> dict[str
             result.setdefault(name, domain.name)
         for declaration in latest_semantic_type_declarations(domain):
             try:
-                resolved_domain, _ = resolve_semantic_type_ref(mdl, current_domain, declaration.name)
+                resolved = resolve_named_declaration(
+                    mdl,
+                    current_domain,
+                    declaration.name,
+                    include_enum_projections=False,
+                )
             except LookupError, AmbiguousSemanticTypeError:
                 continue
+            resolved_domain = resolved.domain_name
             result.setdefault(declaration.name, resolved_domain)
     return result
 
