@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from collections.abc import Mapping
+from dataclasses import replace
 from types import MappingProxyType
 
 from modelable.browser.compatibility import build_browser_compatibility
@@ -10,6 +13,7 @@ from modelable.browser.dto import (
     BrowserCompletionResult,
     BrowserDefinitionResult,
     BrowserDiagnostic,
+    BrowserFacetDocument,
     BrowserFormatResult,
     BrowserGovernanceResult,
     BrowserGraphResult,
@@ -47,6 +51,7 @@ from modelable.emitters.sql import emit_sql
 from modelable.emitters.targets import get_codegen_target
 from modelable.emitters.typescript import emit_typescript
 from modelable.extensions import ExtensionDescriptorError, validate_extension_admission
+from modelable.facets import FacetSubject, FacetSubjectKind, facets_for_subject
 from modelable.language.completion import complete
 from modelable.language.definition import definition
 from modelable.language.dto import LanguagePosition
@@ -60,12 +65,20 @@ from modelable.language.workspace import LanguageDocument, LanguageWorkspace
 from modelable.parser.ir import ParseError
 from modelable.parser.parse import parse_text_to_ir
 from modelable.planner.plans import build_plan_documents
-from modelable.planner.protocol import PLAN_V1_SCHEMA, serialize_plan
+from modelable.planner.protocol import PLAN_V1_SCHEMA, facet_documents, serialize_plan
 from modelable.validation.semantic import validate_diagnostics
 
 
 class BrowserInputError(BrowserRequestValidationError):
     """Raised when a browser compiler request has invalid source metadata."""
+
+
+_BROWSER_GRAPH_SUBJECT_KINDS: tuple[tuple[str, FacetSubjectKind], ...] = (
+    ("model_version:", "declaration"),
+    ("field:", "field"),
+    ("projection_version:", "projection"),
+    ("projection_field:", "projection_field"),
+)
 
 
 def _validate_sources(sources: tuple[BrowserSource, ...]) -> None:
@@ -96,10 +109,31 @@ def _document_sources(sources: tuple[BrowserSource, ...]) -> list[WorkspaceDocum
     return [WorkspaceDocumentSource(path=None, uri=source.uri, text=source.text) for source in sources]
 
 
-def _load_workspace(sources: tuple[BrowserSource, ...]) -> Workspace | tuple[BrowserDiagnostic, ...]:
+def _browser_facet_document(
+    facet_document: BrowserFacetDocument | None,
+) -> tuple[dict[str, object] | None, str | None]:
+    if facet_document is None:
+        return None, None
+    if not isinstance(facet_document.document, Mapping):
+        raise BrowserInputError("Facet document must be an object")
+    try:
+        serialized = json.dumps(facet_document.document, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    except (TypeError, ValueError) as error:
+        raise BrowserInputError("Facet document must be JSON") from error
+    value = json.loads(serialized)
+    if not isinstance(value, dict):
+        raise BrowserInputError("Facet document must be an object")
+    return value, serialized
+
+
+def _load_workspace(
+    sources: tuple[BrowserSource, ...],
+    *,
+    facets_document: dict[str, object] | None = None,
+) -> Workspace | tuple[BrowserDiagnostic, ...]:
     documents = _document_sources(sources)
     try:
-        return load_workspace_from_sources(documents)
+        return load_workspace_from_sources(documents, facets_document=facets_document)
     except ParseError:
         for source, document in zip(sources, documents, strict=True):
             try:
@@ -109,10 +143,30 @@ def _load_workspace(sources: tuple[BrowserSource, ...]) -> Workspace | tuple[Bro
         raise
 
 
+def _with_browser_graph_facets(result: BrowserGraphResult, workspace: Workspace) -> BrowserGraphResult:
+    nodes = []
+    for node in result.graph.nodes:
+        subject = _browser_graph_subject(node.id)
+        if subject is None:
+            nodes.append(node)
+            continue
+        facets = facet_documents(facets_for_subject(workspace, subject))
+        nodes.append(replace(node, metadata={**node.metadata, "facets": facets}))
+    return replace(result, graph=replace(result.graph, nodes=tuple(nodes)))
+
+
+def _browser_graph_subject(node_id: str) -> FacetSubject | None:
+    for prefix, kind in _BROWSER_GRAPH_SUBJECT_KINDS:
+        if node_id.startswith(prefix):
+            return FacetSubject(kind, node_id.removeprefix(prefix))
+    return None
+
+
 class BrowserCompiler:
     def __init__(self) -> None:
         self.language = LanguageWorkspace()
         self._sources: tuple[BrowserSource, ...] = ()
+        self._facet_document_fingerprint: str | None = None
         self._last_workspace_result: BrowserWorkspaceResult | None = None
 
     @property
@@ -123,20 +177,30 @@ class BrowserCompiler:
         self,
         workspace_revision: int,
         sources: tuple[BrowserSource, ...],
+        *,
+        facet_document: BrowserFacetDocument | None = None,
     ) -> BrowserWorkspaceResult:
         _validate_sources(sources)
+        facet_document_value, facet_document_fingerprint = _browser_facet_document(facet_document)
         if workspace_revision < self.language.revision:
             raise BrowserLanguageError("STALE_WORKSPACE")
         if workspace_revision == self.language.revision:
-            return self._reopen_current_workspace(sources)
+            return self._reopen_current_workspace(sources, facet_document_fingerprint)
         synchronization = self.language.synchronize(
             workspace_revision,
             tuple(LanguageDocument.from_text(source.uri, source.text, source.version) for source in sources),
         )
         self._sources = sources
+        self._facet_document_fingerprint = facet_document_fingerprint
+        diagnostics = synchronization.diagnostics
+        if facet_document_value is not None and self.language.semantic_workspace() is not None:
+            workspace = _load_workspace(sources, facets_document=facet_document_value)
+            if isinstance(workspace, Workspace):
+                self.language.workspace = workspace
+                diagnostics = (*workspace.errors, *workspace.warnings)
         result = BrowserWorkspaceResult(
             workspace_revision=synchronization.revision,
-            diagnostics=tuple(_browser_diagnostic(diagnostic) for diagnostic in synchronization.diagnostics),
+            diagnostics=tuple(_browser_diagnostic(diagnostic) for diagnostic in diagnostics),
             source_hashes=MappingProxyType(dict(synchronization.source_hashes)),
         )
         self._last_workspace_result = result
@@ -145,12 +209,16 @@ class BrowserCompiler:
     def _reopen_current_workspace(
         self,
         sources: tuple[BrowserSource, ...],
+        facet_document_fingerprint: str | None,
     ) -> BrowserWorkspaceResult:
         incoming_hashes = {
             source.uri: LanguageDocument.from_text(source.uri, source.text, source.version).content_hash
             for source in sources
         }
-        if incoming_hashes != dict(self.language.current_hashes()):
+        if (
+            incoming_hashes != dict(self.language.current_hashes())
+            or facet_document_fingerprint != self._facet_document_fingerprint
+        ):
             raise BrowserLanguageError("STALE_WORKSPACE")
         result = self._last_workspace_result
         if result is None:
@@ -263,7 +331,7 @@ class BrowserCompiler:
         semantic = self.language.semantic_workspace()
         if semantic is None:
             raise BrowserLanguageError("LANGUAGE_UNAVAILABLE")
-        return build_browser_graph(semantic, mode, workspace_revision)
+        return _with_browser_graph_facets(build_browser_graph(semantic, mode, workspace_revision), semantic)
 
     def lineage(
         self,

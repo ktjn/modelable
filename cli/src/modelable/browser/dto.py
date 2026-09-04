@@ -21,6 +21,13 @@ class BrowserSource:
 
 
 @dataclass(frozen=True)
+class BrowserFacetDocument:
+    """Explicit in-memory facet sidecar for one browser workspace."""
+
+    document: Mapping[str, object]
+
+
+@dataclass(frozen=True)
 class BrowserDiagnostic:
     code: str
     severity: str

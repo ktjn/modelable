@@ -9,8 +9,11 @@ from modelable.browser import (
     dispatch_browser_request,
 )
 from modelable.browser.conversation import BrowserConversationReply
+from modelable.browser.dto import BrowserFacetDocument
+from modelable.compiler.workspace import WorkspaceDocumentSource, load_workspace_from_sources
 from modelable.llm.conversation_backend import ConversationReply, ConversationRetrievalMetadata
 from modelable.llm.workspace_editor import ChangedDefinition
+from modelable.query_service import WorkspaceQueryProtocolService
 from modelable.rag.generation import RagCitation
 
 VALID = 'domain customer {\n  owner: "team"\n  entity Customer @ 1 (additive) {\n    @key id: uuid\n  }\n}\n'
@@ -26,6 +29,57 @@ SOURCE_TEXT = (
 )
 SOURCES = [{"uri": URI, "text": SOURCE_TEXT, "version": 1}]
 CRLF_SOURCE_TEXT = SOURCE_TEXT.replace("\n", "\r\n")
+FACET_SOURCE_TEXT = (
+    "domain customer {\n"
+    '  owner: "team"\n'
+    "  entity Customer @ 1 (additive) {\n"
+    "    @key customer_id: uuid\n"
+    "    customer_name: string\n"
+    "  }\n"
+    "  projection CustomerView @ 1 from customer.Customer @ 1 as c {\n"
+    "    customer_id <- c.customer_id\n"
+    "    customer_name <- c.customer_name\n"
+    "  }\n"
+    "}\n"
+)
+
+FACET_DOCUMENT = {
+    "$schema": "modelable.facets/v1",
+    "schemas": [
+        {
+            "identity": "org.example/retention-class@1",
+            "value_schema": {"type": "string"},
+            "allowed_subjects": ["field", "projection_field"],
+            "propagation": "project",
+        },
+        {
+            "identity": "org.example/jurisdiction@1",
+            "value_schema": {"type": "string"},
+            "allowed_subjects": ["declaration", "field"],
+            "propagation": "inherit",
+        },
+    ],
+    "facets": [
+        {
+            "identity": "org.example/retention-class@1",
+            "value": "regulated",
+            "subject": "field:customer.Customer@1#customer_name",
+            "propagation": "project",
+        },
+        {
+            "identity": "org.example/future-fact@1",
+            "value": {"rank": 2},
+            "subject": "field:customer.Customer@1#customer_name",
+            "propagation": "none",
+        },
+        {
+            "identity": "org.example/jurisdiction@1",
+            "value": "SE",
+            "subject": "declaration:customer.Customer@1",
+            "propagation": "inherit",
+        },
+    ],
+}
 
 
 @pytest.fixture(autouse=True)
@@ -61,6 +115,70 @@ def test_open_workspace_source_hashes_are_deeply_immutable():
 
     with pytest.raises(TypeError):
         result.source_hashes["inmemory:///customer.mdl"] = "mutated"
+
+
+def test_browser_facet_query_matches_native_json_and_projects_graph_metadata() -> None:
+    source = BrowserSource(uri=URI, text=FACET_SOURCE_TEXT, version=1)
+    facet_document = BrowserFacetDocument(document=FACET_DOCUMENT)
+    browser = BrowserCompiler()
+    browser.open_workspace(1, (source,), facet_document=facet_document)
+    request = {
+        "$schema": "modelable.query/v1",
+        "kind": "query",
+        "query": "facets",
+        "id": "customer.Customer@1#customer_name",
+    }
+    native_workspace = load_workspace_from_sources(
+        [WorkspaceDocumentSource(path=None, uri=URI, text=FACET_SOURCE_TEXT)],
+        facets_document=FACET_DOCUMENT,
+    )
+
+    assert browser.query(1, request) == WorkspaceQueryProtocolService(native_workspace).execute(request)
+    graph = browser.graph(1, "entity")
+    source_field = next(node for node in graph.graph.nodes if node.id == "field:customer.Customer@1#customer_name")
+    assert [facet["identity"] for facet in source_field.metadata["facets"]] == [
+        "org.example/future-fact@1",
+        "org.example/jurisdiction@1",
+        "org.example/retention-class@1",
+    ]
+    projected_request = {**request, "id": "customer.CustomerView@1#customer_name"}
+    assert browser.query(1, projected_request) == WorkspaceQueryProtocolService(native_workspace).execute(
+        projected_request
+    )
+    projected_field = next(
+        node for node in graph.graph.nodes if node.id == "projection_field:customer.CustomerView@1#customer_name"
+    )
+    assert [facet["identity"] for facet in projected_field.metadata["facets"]] == ["org.example/retention-class@1"]
+
+
+def test_browser_dispatch_accepts_an_in_memory_facet_document_for_querying() -> None:
+    opened = dispatch(
+        "workspace.open",
+        {
+            "workspaceRevision": 1,
+            "sources": [{"uri": URI, "text": SOURCE_TEXT, "version": 1}],
+            "facetsDocument": FACET_DOCUMENT,
+        },
+    )
+    result = dispatch(
+        "workspace.query",
+        {
+            "workspaceRevision": 1,
+            "request": {
+                "$schema": "modelable.query/v1",
+                "kind": "query",
+                "query": "facets",
+                "id": "customer.Customer@1#customer_name",
+            },
+        },
+    )
+
+    assert opened["ok"] is True
+    assert [facet["identity"] for facet in result["result"]["data"]["facets"]] == [
+        "org.example/future-fact@1",
+        "org.example/jurisdiction@1",
+        "org.example/retention-class@1",
+    ]
 
 
 def test_open_workspace_rejects_duplicate_uris():

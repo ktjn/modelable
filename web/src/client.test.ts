@@ -8,6 +8,8 @@ import {
 import type {
   BrowserCompilerRequest,
   BrowserCompilerResponse,
+  BrowserFacetDocument,
+  BrowserQueryRequest,
   BrowserSource,
 } from './protocol';
 import { validateRuntimeManifest } from './worker-support';
@@ -580,6 +582,87 @@ describe('BrowserCompilerClient', () => {
       }),
     );
     await plans;
+  });
+
+  test('workspace.open sends an explicit typed facet document', async () => {
+    const worker = new FakeWorker();
+    const client = new BrowserCompilerClient(worker);
+    await initialize(client, worker);
+    const source: BrowserSource = {
+      uri: 'memory://demo.mdl',
+      text: 'domain Demo',
+      version: 1,
+    };
+    const facetsDocument: BrowserFacetDocument = {
+      $schema: 'modelable.facets/v1',
+      schemas: [],
+      facets: [],
+    };
+
+    const opened = client.openWorkspace(8, [source], facetsDocument);
+    await Promise.resolve();
+
+    expect(worker.posted[1]).toMatchObject({
+      method: 'workspace.open',
+      payload: {
+        workspaceRevision: 8,
+        sources: [source],
+        facetsDocument,
+      },
+    });
+    worker.respond(success(worker.posted[1]!, workspaceResult(8)));
+    await expect(opened).resolves.toEqual(workspaceResult(8));
+  });
+
+  test('workspace.query sends a typed facet request and returns its response', async () => {
+    const worker = new FakeWorker();
+    const client = new BrowserCompilerClient(worker);
+    await initialize(client, worker);
+    const request: BrowserQueryRequest = {
+      $schema: 'modelable.query/v1',
+      kind: 'query',
+      query: 'facets',
+      id: 'customer.Customer@1#name',
+    };
+    const response = {
+      $schema: 'modelable.query/v1',
+      kind: 'query_result' as const,
+      query: 'facets' as const,
+      data: { facets: [] },
+    };
+
+    const queried = client.query(8, request);
+    await Promise.resolve();
+
+    expect(worker.posted[1]).toMatchObject({
+      method: 'workspace.query',
+      payload: { workspaceRevision: 8, request },
+    });
+    worker.respond(success(worker.posted[1]!, response));
+    await expect(queried).resolves.toEqual(response);
+  });
+
+  test('workspace.query rejects a malformed result from the compiler', async () => {
+    const worker = new FakeWorker();
+    const client = new BrowserCompilerClient(worker);
+    await initialize(client, worker);
+    const queried = client.query(8, {
+      $schema: 'modelable.query/v1',
+      kind: 'query',
+      query: 'facets',
+      id: 'customer.Customer@1#name',
+    });
+    await Promise.resolve();
+
+    worker.respond(
+      success(worker.posted[1]!, {
+        $schema: 'modelable.query/v1',
+        kind: 'query_result',
+        query: 'facets',
+      }),
+    );
+
+    await expect(queried).rejects.toMatchObject({ code: 'COMPILER_FAILED' });
   });
 
   test('opens a numbered workspace and sends typed language positions', async () => {

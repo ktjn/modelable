@@ -11,10 +11,12 @@ from typing import Any, cast
 from modelable.compat.checker import check_model_version_compatibility
 from modelable.compiler.workspace import Workspace
 from modelable.consequence import build_model_consequences
+from modelable.facets import FacetSubject, FacetSubjectKind, facets_for_subject, normalize_workspace_facets
 from modelable.graph.export import build_graph_export
 from modelable.lifecycle import parse_lifecycle_document
 from modelable.llm.context import parse_model_ref
 from modelable.migration import migration_edges, parse_migration_document
+from modelable.planner.protocol import facet_documents
 from modelable.query_protocol import QUERY_SCHEMA, validate_query_request
 from modelable.registry.usage_protocol import validate_usage_manifest
 
@@ -45,11 +47,22 @@ class WorkspaceQueryProtocolService:
             data = self._compatibility_query(normalized, include_consequences=query == "consequences")
         elif query == "lifecycle":
             data = self._lifecycle_query(ref)
+        elif query == "facets":
+            data = self._facet_query(
+                ref,
+                limit=int(normalized["limit"]),
+                cursor=normalized.get("cursor"),
+            )
         else:
             graph = self._graph_with_migrations()
             data = self._graph_query(graph, query, ref)
         response: dict[str, Any] = {"$schema": QUERY_SCHEMA, "kind": "query_result", "query": query}
-        if query not in {"changes", "consequences", "lifecycle"}:
+        if query == "facets":
+            next_cursor = data.pop("next_cursor", None)
+            response["data"] = data
+            if next_cursor is not None:
+                response["next_cursor"] = next_cursor
+        elif query not in {"changes", "consequences", "lifecycle"}:
             data, next_cursor = self._paginate_graph(
                 data,
                 query=query,
@@ -66,6 +79,7 @@ class WorkspaceQueryProtocolService:
 
     def _graph_with_migrations(self) -> dict[str, Any]:
         graph = build_graph_export(self.workspace)
+        graph = {**graph, "nodes": _facet_graph_nodes(self.workspace, graph["nodes"])}
         if self.migration is None:
             return graph
         nodes = list(graph["nodes"])
@@ -92,6 +106,19 @@ class WorkspaceQueryProtocolService:
                 }
             )
         return {**graph, "nodes": nodes, "edges": edges}
+
+    def _facet_query(self, ref: str, *, limit: int, cursor: object) -> dict[str, object]:
+        facets = facet_documents(
+            facet for facet in normalize_workspace_facets(self.workspace) if facet.subject.reference == ref
+        )
+        fingerprint = _graph_fingerprint("facets", ref, facets, [])
+        offset = _decode_cursor(cursor, query="facets", ref=ref, fingerprint=fingerprint)
+        page = facets[offset : offset + limit]
+        next_offset = offset + len(page)
+        result: dict[str, object] = {"facets": page}
+        if next_offset < len(facets):
+            result["next_cursor"] = _encode_cursor("facets", ref, fingerprint, next_offset)
+        return result
 
     def _lifecycle_query(self, ref: str | None) -> dict[str, Any]:
         if ref is None:
@@ -277,6 +304,36 @@ def _graph_fingerprint(query: str, ref: str, nodes: list[Any], edges: list[Any])
         separators=(",", ":"),
     ).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
+
+
+def _facet_graph_nodes(workspace: Workspace, nodes: object) -> list[dict[str, Any]]:
+    if not isinstance(nodes, list):
+        return []
+    projected: list[dict[str, Any]] = []
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        result = dict(node)
+        subject = _facet_subject_for_graph_node(result)
+        if subject is not None:
+            result["facets"] = facet_documents(facets_for_subject(workspace, subject))
+        projected.append(result)
+    return projected
+
+
+def _facet_subject_for_graph_node(node: Mapping[str, Any]) -> FacetSubject | None:
+    node_kind = node.get("kind")
+    target_ref = node.get("target_ref")
+    if not isinstance(node_kind, str) or not isinstance(target_ref, str):
+        return None
+    subject_kinds: dict[str, FacetSubjectKind] = {
+        "model_version": "declaration",
+        "field": "field",
+        "projection_version": "projection",
+        "projection_field": "projection_field",
+    }
+    kind = subject_kinds.get(node_kind)
+    return FacetSubject(kind, target_ref) if kind is not None else None
 
 
 def _encode_cursor(query: str, ref: str, fingerprint: str, edge_offset: int) -> str:

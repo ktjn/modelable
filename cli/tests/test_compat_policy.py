@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from modelable.compat.policy import FacetRequirement, evaluate_facets, load_policy
+import pytest
+
+from modelable.compat.policy import FacetRequirement, _canonical_json, _copy_json_value, evaluate_facets, load_policy
 from modelable.facets import Facet, FacetIdentity, FacetSubject
 
 
@@ -49,3 +51,32 @@ def test_unknown_facet_never_satisfies_a_typed_requirement() -> None:
             "value": "regulated",
         }
     ]
+
+
+@pytest.mark.parametrize(
+    ("facets", "message"),
+    [
+        ("wrong", "must be an array of requirements"),
+        (["wrong"], "must be a mapping"),
+        ([{1: "wrong"}], "keys must be strings"),
+        ([{"identity": "org.example/x@1"}], "missing key"),
+        ([{"identity": "org.example/x@1", "value": 1, "extra": True}], "unsupported key"),
+        ([{"identity": 1, "value": 1}], "identity must be a string"),
+        ([{"identity": "org.example/x@1", "subject_kind": 1, "value": 1}], "subject_kind must be"),
+        ([{"identity": "invalid", "value": 1}], "invalid canonical facet identity"),
+        ([{"identity": "org.example/x@1", "subject_kind": "invalid", "value": 1}], "subject_kind must be one"),
+    ],
+)
+def test_loaded_facet_requirements_reject_invalid_shapes(facets: object, message: str, tmp_path: Path) -> None:
+    policy_path = tmp_path / "policy.yml"
+    policy_path.write_text("facets: " + repr(facets), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        load_policy(policy_path)
+
+
+def test_facet_json_helpers_reject_non_json_values() -> None:
+    with pytest.raises(ValueError, match="must be JSON-compatible"):
+        _copy_json_value(object(), "value")
+    with pytest.raises(ValueError, match="must be JSON-compatible"):
+        _canonical_json(object())

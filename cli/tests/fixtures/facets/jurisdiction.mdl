@@ -1,0 +1,7 @@
+domain jurisdiction {
+  owner: "governance-examples"
+
+  entity RegionalRecord @ 1 (additive) {
+    @key recordId: uuid
+  }
+}

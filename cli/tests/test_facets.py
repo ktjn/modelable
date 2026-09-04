@@ -12,7 +12,8 @@ import pytest
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError
 
-from modelable.compiler.workspace import Workspace, WorkspaceDocumentSource, load_workspace_from_sources
+from modelable.compat.policy import FacetRequirement, evaluate_facets
+from modelable.compiler.workspace import Workspace, WorkspaceDocumentSource, load_workspace, load_workspace_from_sources
 from modelable.facets import (
     Facet,
     FacetError,
@@ -662,3 +663,95 @@ domain orders {
         diagnostic.code == "FACET" and "facet subject does not exist" in diagnostic.message
         for diagnostic in workspace.errors
     )
+
+
+def test_facet_examples_compile_and_cover_governance_contracts() -> None:
+    """The checked-in examples stay parser-independent and executable."""
+    fixture_dir = Path(__file__).parent / "fixtures" / "facets"
+
+    workspace = load_workspace(fixture_dir)
+
+    assert workspace.errors == []
+    assert workspace.facet_registry is not None
+    assert [facet.identity.canonical for facet in workspace.facets] == [
+        "org.example/confidentiality@1",
+        "org.example/data-subject@1",
+        "org.example/jurisdiction@1",
+        "org.example/retention-class@1",
+    ]
+
+    retention = facets_for_subject(
+        workspace,
+        FacetSubject.parse("field:retention.Record@1#recordId"),
+    )
+    assert [(facet.identity.canonical, facet.value) for facet in retention] == [
+        ("org.example/retention-class@1", "regulated"),
+    ]
+
+    jurisdiction_schema = workspace.facet_registry.schema_for(
+        FacetIdentity.from_canonical("org.example/jurisdiction@1")
+    )
+    confidentiality_schema = workspace.facet_registry.schema_for(
+        FacetIdentity.from_canonical("org.example/confidentiality@1")
+    )
+    assert jurisdiction_schema is not None
+    assert jurisdiction_schema.value_schema == {
+        "type": "object",
+        "properties": {
+            "lawful_basis": {"type": "string", "enum": ["contract", "consent"]},
+            "region": {"type": "string", "pattern": "^[A-Z]{2}$"},
+        },
+        "required": ["lawful_basis", "region"],
+        "additionalProperties": False,
+    }
+    assert confidentiality_schema is not None
+    assert confidentiality_schema.allowed_subjects == ("declaration",)
+
+    projected = facets_for_subject(
+        workspace,
+        FacetSubject.parse("projection_field:analytics.SubjectEmail@1#email"),
+    )
+    assert [(facet.identity.canonical, facet.value) for facet in projected] == [
+        ("org.example/data-subject@1", "customer"),
+    ]
+
+    assert (
+        evaluate_facets(
+            (
+                FacetRequirement("org.example/retention-class@1", "field", "regulated"),
+                FacetRequirement("org.example/confidentiality@1", "declaration", "restricted"),
+            ),
+            workspace.facets,
+        )
+        == ()
+    )
+
+
+def test_facet_examples_publish_a_complete_showcase_conformance_manifest() -> None:
+    """The showcase handoff names every sidecar-backed source explicitly."""
+    fixture_dir = Path(__file__).parent / "fixtures" / "facets"
+    manifest = json.loads((fixture_dir / "showcase-conformance.json").read_text(encoding="utf-8"))
+
+    assert manifest == {
+        "$schema": "modelable-showcase/facet-conformance/v1",
+        "fixture_root": "cli/tests/fixtures/facets",
+        "facet_document": "modelable.facets.json",
+        "sources": [
+            "confidentiality.mdl",
+            "data-subject.mdl",
+            "jurisdiction.mdl",
+            "retention-class.mdl",
+        ],
+        "expectations": {
+            "known_identities": [
+                "org.example/confidentiality@1",
+                "org.example/data-subject@1",
+                "org.example/jurisdiction@1",
+                "org.example/retention-class@1",
+            ],
+            "projected_subject": "projection_field:analytics.SubjectEmail@1#email",
+            "projected_identity": "org.example/data-subject@1",
+        },
+    }
+    assert all((fixture_dir / source).is_file() for source in manifest["sources"])
+    assert (fixture_dir / manifest["facet_document"]).is_file()

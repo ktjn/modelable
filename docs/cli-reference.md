@@ -2011,7 +2011,12 @@ modelable query SOURCE --request FILE|-
 `modelable.query/v1` envelope. Pass `--request -` to read the request from
 stdin and write exactly one canonical JSON response to stdout; diagnostics go
 to stderr. The service supports `declaration`, `referencesTo`, `lineage`,
-`consumersOf`, `dependencies`, `dependents`, `changes`, and `consequences`.
+`consumersOf`, `dependencies`, `dependents`, `changes`, `consequences`, and
+`facets`. `facets` requires an `id` reference and returns the normalized,
+deterministically ordered facets for that declaration or field reference.
+When SOURCE is a directory (or an `.mdl` file with a sibling), an optional
+local `modelable.facets.json` sidecar supplies the schemas and values; loading
+it never changes `.mdl` syntax or performs network access.
 `consumersOf` accepts exact compiled-consumer evidence through one or more
 `--usage-manifest` files. Graph responses are deterministically ordered and
 support `limit` plus opaque cursors; the limit counts edges and each page

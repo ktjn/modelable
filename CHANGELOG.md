@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Add executable typed-facet examples for retention class, jurisdiction, data
+  subject, and confidentiality, including browser query conformance coverage.
+
 - Expose normalized typed facets in `modelable.plan/v1` declaration, relation,
   and field blocks, and allow external compatibility policies to require known
   typed facet values without treating unknown schemas as matches.

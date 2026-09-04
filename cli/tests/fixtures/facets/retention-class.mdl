@@ -1,0 +1,7 @@
+domain retention {
+  owner: "governance-examples"
+
+  entity Record @ 1 (additive) {
+    @key recordId: uuid
+  }
+}

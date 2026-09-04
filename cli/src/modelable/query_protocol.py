@@ -17,6 +17,7 @@ QUERY_KINDS = frozenset(
         "dependents",
         "changes",
         "consequences",
+        "facets",
         "lifecycle",
     }
 )
@@ -79,7 +80,16 @@ def serialize_query_response(document: object) -> str:
 
 
 def _require_request_value(value: Mapping[str, Any], query: object) -> None:
-    if query in {"declaration", "referencesTo", "lineage", "consumersOf", "dependencies", "dependents", "lifecycle"}:
+    if query in {
+        "declaration",
+        "referencesTo",
+        "lineage",
+        "consumersOf",
+        "dependencies",
+        "dependents",
+        "facets",
+        "lifecycle",
+    }:
         field = "id"
     elif query in {"changes", "consequences"}:
         for field in ("from", "to"):

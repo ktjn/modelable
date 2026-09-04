@@ -60,6 +60,23 @@ def test_lifecycle_query_family_requires_an_identity() -> None:
     assert request["query"] == "lifecycle"
 
 
+def test_facet_query_family_requires_an_identity_and_validates_against_v1_schema() -> None:
+    request = {
+        "$schema": QUERY_SCHEMA,
+        "kind": "query",
+        "query": "facets",
+        "id": "customer.Customer@1#name",
+        "limit": 2,
+    }
+
+    assert validate_query_request(request) == request
+
+    schema_path = Path(__file__).parents[1] / "src" / "modelable" / "data" / "modelable.query.v1.schema.json"
+    Draft202012Validator(json.loads(schema_path.read_text(encoding="utf-8"))).validate(request)
+    with pytest.raises(QueryProtocolError, match="requires a non-empty 'id'"):
+        validate_query_request({"$schema": QUERY_SCHEMA, "kind": "query", "query": "facets"})
+
+
 def test_checked_in_query_schema_is_valid() -> None:
     schema_path = Path(__file__).parents[1] / "src" / "modelable" / "data" / "modelable.query.v1.schema.json"
 

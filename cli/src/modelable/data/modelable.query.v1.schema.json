@@ -12,7 +12,7 @@
         "$schema": {"const": "modelable.query/v1"},
         "kind": {"const": "query"},
         "query": {
-          "enum": ["declaration", "referencesTo", "lineage", "consumersOf", "dependencies", "dependents", "changes", "consequences", "lifecycle"]
+          "enum": ["declaration", "referencesTo", "lineage", "consumersOf", "dependencies", "dependents", "changes", "consequences", "facets", "lifecycle"]
         },
         "id": {"type": "string", "minLength": 1},
         "from": {"type": "string", "minLength": 1},
@@ -30,7 +30,7 @@
         "$schema": {"const": "modelable.query/v1"},
         "kind": {"const": "query_result"},
         "query": {
-          "enum": ["declaration", "referencesTo", "lineage", "consumersOf", "dependencies", "dependents", "changes", "consequences", "lifecycle"]
+          "enum": ["declaration", "referencesTo", "lineage", "consumersOf", "dependencies", "dependents", "changes", "consequences", "facets", "lifecycle"]
         },
         "data": {},
         "next_cursor": {"type": "string", "minLength": 1}

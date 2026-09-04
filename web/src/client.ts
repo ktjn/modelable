@@ -10,6 +10,7 @@ import {
   type BrowserCompilerMethod,
   type BrowserCompilerRequest,
   type BrowserDefinitionResult,
+  type BrowserFacetDocument,
   type BrowserFormatResult,
   type BrowserGovernanceResult,
   type BrowserGraphMode,
@@ -19,6 +20,8 @@ import {
   type BrowserLineageResult,
   type BrowserPlanResult,
   type BrowserPreparedRenameResult,
+  type BrowserQueryRequest,
+  type BrowserQueryResult,
   type BrowserReferencesResult,
   type BrowserRenameResult,
   type BrowserResultGuard,
@@ -39,6 +42,7 @@ import {
   isBrowserLineageResult,
   isBrowserPlanResult,
   isBrowserPreparedRenameResult,
+  isBrowserQueryResult,
   isBrowserReferencesResult,
   isBrowserRenameResult,
   isBrowserWorkspaceResult,
@@ -213,11 +217,27 @@ export class BrowserCompilerClient {
   async openWorkspace(
     workspaceRevision: number,
     sources: BrowserSource[],
+    facetsDocument?: BrowserFacetDocument,
   ): Promise<BrowserWorkspaceResult> {
     return this.initializedRequest(
       'workspace.open',
-      { workspaceRevision, sources },
+      {
+        workspaceRevision,
+        sources,
+        ...(facetsDocument === undefined ? {} : { facetsDocument }),
+      },
       isBrowserWorkspaceResult,
+    );
+  }
+
+  query(
+    workspaceRevision: number,
+    request: BrowserQueryRequest,
+  ): Promise<BrowserQueryResult> {
+    return this.initializedRequest(
+      'workspace.query',
+      { workspaceRevision, request },
+      isBrowserQueryResult,
     );
   }
 
@@ -543,6 +563,7 @@ export type BrowserCompilerClientLike = Pick<
   | 'dispose'
 > & Partial<Pick<
   BrowserCompilerClient,
+  | 'query'
   | 'conversationTurn'
   | 'conversationApply'
   | 'conversationDiscard'

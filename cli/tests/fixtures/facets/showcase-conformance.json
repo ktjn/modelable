@@ -1,0 +1,21 @@
+{
+  "$schema": "modelable-showcase/facet-conformance/v1",
+  "fixture_root": "cli/tests/fixtures/facets",
+  "facet_document": "modelable.facets.json",
+  "sources": [
+    "confidentiality.mdl",
+    "data-subject.mdl",
+    "jurisdiction.mdl",
+    "retention-class.mdl"
+  ],
+  "expectations": {
+    "known_identities": [
+      "org.example/confidentiality@1",
+      "org.example/data-subject@1",
+      "org.example/jurisdiction@1",
+      "org.example/retention-class@1"
+    ],
+    "projected_subject": "projection_field:analytics.SubjectEmail@1#email",
+    "projected_identity": "org.example/data-subject@1"
+  }
+}
