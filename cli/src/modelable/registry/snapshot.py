@@ -9,7 +9,7 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePath
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from modelable.compat.checker import (
     CompatibilityReport,
@@ -103,7 +103,7 @@ from modelable.parser.ir import (
 from modelable.registry.enum_numbers import EnumNumberAllocation
 from modelable.registry.enum_numbers import read_lock_file as read_enum_numbers_lock_file
 from modelable.registry.ids import read_lock_file as read_registry_ids_lock_file
-from modelable.registry.resolver import resolve_enum_type_ref
+from modelable.registry.resolver import resolve_named_declaration
 from modelable.registry.signature import (
     compute_enum_projection_signature,
     compute_semantic_signature,
@@ -2287,12 +2287,18 @@ def _collect_type_dependencies(
         # declaring semantic type (evolution plan E4).
         if mdl is not None and domain_name is not None:
             try:
-                resolved_domain, declaration = resolve_enum_type_ref(
-                    mdl, domain_name, field_type.name, exact_version=field_type.version
+                resolved = resolve_named_declaration(
+                    mdl,
+                    domain_name,
+                    field_type.name,
+                    exact_version=field_type.version,
+                    include_enum_projections=True,
                 )
             except LookupError:
                 pass
             else:
+                resolved_domain = resolved.domain_name
+                declaration = cast(SemanticTypeDecl | EnumProjectionDecl, resolved.declaration)
                 if isinstance(declaration, EnumProjectionDecl):
                     dependencies.add(f"{resolved_domain}.{declaration.name}@{declaration.version}")
                 else:
@@ -2301,10 +2307,17 @@ def _collect_type_dependencies(
             dependencies.add(f"{field_type.name}@{field_type.version}")
     elif isinstance(field_type, NamedType) and mdl is not None and domain_name is not None:
         try:
-            resolved_domain, declaration = resolve_enum_type_ref(mdl, domain_name, field_type.name)
+            resolved = resolve_named_declaration(
+                mdl,
+                domain_name,
+                field_type.name,
+                include_enum_projections=True,
+            )
         except LookupError:
             pass
         else:
+            resolved_domain = resolved.domain_name
+            declaration = cast(SemanticTypeDecl | EnumProjectionDecl, resolved.declaration)
             if isinstance(declaration, EnumProjectionDecl):
                 dependencies.add(f"{resolved_domain}.{declaration.name}@{declaration.version}")
     elif isinstance(field_type, ArrayType):
