@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 import re
 from dataclasses import dataclass, field
+from typing import cast
 
 from modelable.compat.diff import (
     FieldChange,
@@ -170,12 +171,10 @@ def _refine_enum_version_changes(
             refined.append(change)
             continue
 
-        if not isinstance(old_resolved.declaration, (SemanticTypeDecl, EnumProjectionDecl)) or not isinstance(
-            new_resolved.declaration, (SemanticTypeDecl, EnumProjectionDecl)
-        ):
-            raise TypeError("shared named-declaration service returned an invalid enum declaration")
-        _old_domain, old_decl = old_resolved.domain_name, old_resolved.declaration
-        _new_domain, new_decl = new_resolved.domain_name, new_resolved.declaration
+        _old_domain = old_resolved.domain_name
+        old_decl = cast(SemanticTypeDecl | EnumProjectionDecl, old_resolved.declaration)
+        _new_domain = new_resolved.domain_name
+        new_decl = cast(SemanticTypeDecl | EnumProjectionDecl, new_resolved.declaration)
 
         if isinstance(old_decl, EnumProjectionDecl) and isinstance(new_decl, EnumProjectionDecl):
             if old_ref[0] != new_ref[0]:
