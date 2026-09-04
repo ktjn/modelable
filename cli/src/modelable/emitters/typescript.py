@@ -42,7 +42,7 @@ from modelable.parser.ir import (
 from modelable.planner.plans import build_plan_documents
 from modelable.planner.protocol import PLAN_V1_SCHEMA
 from modelable.registry.resolver import (
-    ResolvedModelRef,
+    ResolvedDeclaration,
     latest_semantic_type_declarations,
     resolve_enum_type_ref,
     resolve_model_ref,
@@ -156,7 +156,7 @@ def _collect_ref_imports(field_type: FieldType, mdl: MdlFile, resolved_refs: dic
         key = _ref_cache_key(field_type)
         if key not in resolved_refs:
             try:
-                resolved: ResolvedModelRef = resolve_ref_type(field_type, mdl)
+                resolved: ResolvedDeclaration = resolve_ref_type(field_type, mdl)
                 iface = _stable_interface_name(resolved.domain_name, resolved.model_name, resolved.version.version)
                 resolved_refs[key] = iface
             except LookupError, ValueError:

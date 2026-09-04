@@ -5,7 +5,7 @@ from typing import Literal
 
 from modelable.expressions.cel import extract_field_refs, parse_cel
 from modelable.parser.ir import ComputedMapping, DirectMapping, MdlFile, ProjectionVersion
-from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref
+from modelable.registry.resolver import ResolvedDeclaration, resolve_model_ref
 
 UsageKind = Literal["direct", "computed", "join", "filter", "group"]
 
@@ -19,14 +19,14 @@ class PropertyDependency:
     source_property: str
 
 
-def resolve_projection_aliases(pv: ProjectionVersion, mdl: MdlFile) -> dict[str, ResolvedModelRef]:
+def resolve_projection_aliases(pv: ProjectionVersion, mdl: MdlFile) -> dict[str, ResolvedDeclaration]:
     """Resolve every source/join alias on a projection version to its concrete source.
 
     This is the one canonical alias-resolution walk; every subsystem that needs
     "what does alias X refer to" for a projection should call this instead of
     re-walking `pv.source`/`pv.joins` itself.
     """
-    aliases: dict[str, ResolvedModelRef] = {}
+    aliases: dict[str, ResolvedDeclaration] = {}
     sources = [(pv.source.model, pv.source.version, pv.source.alias)]
     sources.extend((join.model, join.version, join.alias) for join in pv.joins)
 
@@ -88,7 +88,7 @@ def build_projection_dependencies(
 
 def _refs_from_expression(
     expression: str,
-    aliases: dict[str, ResolvedModelRef],
+    aliases: dict[str, ResolvedDeclaration],
     consumer_ref: str,
     target_property: str | None,
     usage_kind: UsageKind,
@@ -114,5 +114,5 @@ def _refs_from_expression(
     return dependencies
 
 
-def _source_ref(resolved: ResolvedModelRef) -> str:
+def _source_ref(resolved: ResolvedDeclaration) -> str:
     return resolved.identity
