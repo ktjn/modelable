@@ -50,9 +50,8 @@ from modelable.registry.resolver import (
     AmbiguousSemanticTypeError,
     latest_enum_projection_declarations,
     latest_semantic_type_declarations,
-    resolve_enum_type_ref,
     resolve_model_ref,
-    resolve_semantic_type_ref,
+    resolve_named_declaration,
 )
 from modelable.registry.signature import compute_version_signature
 
@@ -174,9 +173,15 @@ def _validate_rust_enum_projection_versions(workspace: Workspace) -> None:
     def visit(field_type: FieldType, domain_name: str, owner: str) -> None:
         if isinstance(field_type, EnumRefType):
             try:
-                declaring_domain, declaration = resolve_enum_type_ref(
-                    workspace.mdl, domain_name, field_type.name, exact_version=field_type.version
+                resolved = resolve_named_declaration(
+                    workspace.mdl,
+                    domain_name,
+                    field_type.name,
+                    exact_version=field_type.version,
+                    include_enum_projections=True,
                 )
+                declaring_domain = resolved.domain_name
+                declaration = cast(SemanticTypeDecl | EnumProjectionDecl, resolved.declaration)
             except LookupError, AmbiguousSemanticTypeError:
                 return
             if isinstance(declaration, EnumProjectionDecl):
@@ -225,9 +230,15 @@ def _emit_rust_single_crate(
             allocated_id = (registry_ids or {}).get(qualified_name) if decl.registry else None
             artifacts.append(_emit_semantic_type(domain, decl, out_dir, allocated_id=allocated_id))
         for projection in latest_enum_projection_declarations(domain):
-            source_domain, source_decl = resolve_semantic_type_ref(
-                workspace.mdl, domain.name, projection.source_name, projection.source_version
+            resolved = resolve_named_declaration(
+                workspace.mdl,
+                domain.name,
+                projection.source_name,
+                projection.source_version,
+                include_enum_projections=False,
             )
+            source_domain = resolved.domain_name
+            source_decl = cast(SemanticTypeDecl, resolved.declaration)
             artifacts.append(_emit_enum_projection(domain, projection, source_domain, source_decl, out_dir))
         for model_name, versions in domain.models.items():
             for version in versions:
@@ -301,9 +312,15 @@ def _emit_rust_packages(
                 artifacts.append(artifact)
                 modules.append(artifact.path.stem)
             for projection in latest_enum_projection_declarations(domain):
-                source_domain, source_decl = resolve_semantic_type_ref(
-                    mdl, domain.name, projection.source_name, projection.source_version
+                resolved = resolve_named_declaration(
+                    mdl,
+                    domain.name,
+                    projection.source_name,
+                    projection.source_version,
+                    include_enum_projections=False,
                 )
+                source_domain = resolved.domain_name
+                source_decl = cast(SemanticTypeDecl, resolved.declaration)
                 artifact = _emit_enum_projection(
                     domain,
                     projection,
@@ -550,7 +567,8 @@ def _domain_for_named_type(name: str, current_domain: str | None, mdl: MdlFile) 
         if name in domain.models:
             return domain.name
     try:
-        resolved_domain, _decl = resolve_enum_type_ref(mdl, current_domain or "", name)
+        resolved = resolve_named_declaration(mdl, current_domain or "", name, include_enum_projections=True)
+        resolved_domain = resolved.domain_name
     except AmbiguousSemanticTypeError, LookupError:
         return None
     return resolved_domain
@@ -608,7 +626,9 @@ def _resolve_named_type_map(
         if resolved:
             continue
         try:
-            domain_name, semantic_decl = resolve_enum_type_ref(mdl, current_domain or "", name)
+            resolved_decl = resolve_named_declaration(mdl, current_domain or "", name, include_enum_projections=True)
+            domain_name = resolved_decl.domain_name
+            semantic_decl = cast(SemanticTypeDecl | EnumProjectionDecl, resolved_decl.declaration)
         except AmbiguousSemanticTypeError:
             raise
         except LookupError:
@@ -636,7 +656,8 @@ def _resolve_enum_backed_named(
     if mdl is None:
         return None
     try:
-        _, decl = resolve_enum_type_ref(mdl, current_domain, ref)
+        resolved = resolve_named_declaration(mdl, current_domain, ref, include_enum_projections=True)
+        decl = cast(SemanticTypeDecl | EnumProjectionDecl, resolved.declaration)
     except LookupError, AmbiguousSemanticTypeError:
         return None
     if isinstance(decl, EnumProjectionDecl):
