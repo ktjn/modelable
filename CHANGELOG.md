@@ -8,6 +8,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Expose normalized typed facets in `modelable.plan/v1` declaration, relation,
+  and field blocks, and allow external compatibility policies to require known
+  typed facet values without treating unknown schemas as matches.
+
 - Load typed semantic facets from an optional local `modelable.facets.json` sidecar without changing Modelable syntax.
 
 - Accept ordered multiple `@key` fields on entities and aggregates, with

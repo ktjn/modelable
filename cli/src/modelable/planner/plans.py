@@ -7,6 +7,7 @@ from pathlib import Path
 from modelable.compat.projection_fields import resolve_projection_field_type_and_optionality
 from modelable.compiler.workspace import Workspace
 from modelable.dependency_graph import resolve_projection_aliases
+from modelable.facets import FacetSubject, FacetSubjectKind, facets_for_subject
 from modelable.governance.checker import build_projection_governance_findings
 from modelable.parser.ir import (
     ArrayType,
@@ -34,7 +35,7 @@ from modelable.parser.ir import (
     VersionSpec,
 )
 from modelable.planner.lineage import ProjectionLineage, build_projection_lineage
-from modelable.planner.protocol import PLAN_SCHEMA, PLAN_V1_SCHEMA, PlanDocument, serialize_plan
+from modelable.planner.protocol import PLAN_SCHEMA, PLAN_V1_SCHEMA, PlanDocument, facet_documents, serialize_plan
 from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref, resolve_ref_type, resolve_semantic_type_ref
 
 
@@ -46,11 +47,20 @@ def build_plan(
     mdl: MdlFile,
     *,
     schema: str = PLAN_V1_SCHEMA,
+    workspace: Workspace | None = None,
 ) -> PlanDocument:
     """Return the plan document dict for a single projection version."""
     if schema not in {PLAN_SCHEMA, PLAN_V1_SCHEMA}:
         raise ValueError(f"unsupported plan schema {schema!r}")
-    source_block = _resolve_source_block(pv.source.model, pv.source.version, pv.source.alias, mdl)
+    include_facets = schema == PLAN_V1_SCHEMA
+    source_block = _resolve_source_block(
+        pv.source.model,
+        pv.source.version,
+        pv.source.alias,
+        mdl,
+        workspace=workspace,
+        include_facets=include_facets,
+    )
 
     joins_block = [
         _resolve_source_block(
@@ -61,6 +71,8 @@ def build_plan(
             on=join.on,
             join_kind=join.join_kind,
             cardinality=join.cardinality,
+            workspace=workspace,
+            include_facets=include_facets,
         )
         for join in pv.joins
     ]
@@ -90,6 +102,11 @@ def build_plan(
         entry.update(_projection_governance_facts(proj_field, pv, mdl))
         fl = lineage_by_field.get(proj_field.name)
         entry["lineage"] = fl.lineage if fl else []
+        if include_facets:
+            subject = FacetSubject(
+                "projection_field", f"{domain_name}.{projection_name}@{pv.version}#{proj_field.name}"
+            )
+            entry["facets"] = _facet_documents_for_subject(workspace, subject)
         if proj_field.annotations:
             entry["annotations"] = [
                 annotation.model_dump(mode="json", exclude_none=True) for annotation in proj_field.annotations
@@ -142,6 +159,8 @@ def _resolve_source_block(
     on: str | None = None,
     join_kind: str | None = None,
     cardinality: str | None = None,
+    workspace: Workspace | None = None,
+    include_facets: bool = False,
 ) -> dict[str, object]:
     try:
         resolved = resolve_model_ref(mdl, model_ref, version_spec)
@@ -152,7 +171,7 @@ def _resolve_source_block(
         change_kind = None
         resolved_block = None
     else:
-        resolved_block = _resolved_declaration_block(resolved, mdl)
+        resolved_block = _resolved_declaration_block(resolved, mdl, workspace=workspace, include_facets=include_facets)
 
     block: dict[str, object] = {
         "model": model_ref,
@@ -166,6 +185,12 @@ def _resolve_source_block(
         block["on"] = on
         block["kind"] = join_kind
         block["cardinality"] = cardinality
+    if include_facets:
+        block["facets"] = (
+            _facet_documents_for_subject(workspace, _resolved_declaration_subject(resolved))
+            if resolved_block is not None
+            else []
+        )
     return block
 
 
@@ -185,8 +210,15 @@ def _version_spec(version_spec: object) -> dict[str, object]:
     raise TypeError(f"unsupported version specification: {type(version_spec).__name__}")
 
 
-def _resolved_declaration_block(resolved: ResolvedModelRef, mdl: MdlFile) -> dict[str, object]:
+def _resolved_declaration_block(
+    resolved: ResolvedModelRef,
+    mdl: MdlFile,
+    *,
+    workspace: Workspace | None = None,
+    include_facets: bool = False,
+) -> dict[str, object]:
     version = resolved.version
+    declaration_subject = _resolved_declaration_subject(resolved)
     if isinstance(version, ModelVersion):
         fields = [
             {
@@ -200,6 +232,15 @@ def _resolved_declaration_block(resolved: ResolvedModelRef, mdl: MdlFile) -> dic
                     annotation.model_dump(mode="json", exclude_none=True) for annotation in field.annotations
                 ],
                 **_field_governance_facts(field, owner=_field_owner(field)),
+                **(
+                    {
+                        "facets": _facet_documents_for_subject(
+                            workspace, FacetSubject("field", f"{declaration_subject.reference}#{field.name}")
+                        )
+                    }
+                    if include_facets
+                    else {}
+                ),
             }
             for field in version.fields
         ]
@@ -222,12 +263,22 @@ def _resolved_declaration_block(resolved: ResolvedModelRef, mdl: MdlFile) -> dic
                         annotation.model_dump(mode="json", exclude_none=True) for annotation in field.annotations
                     ],
                     **_projection_governance_facts(field, version, mdl),
+                    **(
+                        {
+                            "facets": _facet_documents_for_subject(
+                                workspace,
+                                FacetSubject("projection_field", f"{declaration_subject.reference}#{field.name}"),
+                            )
+                        }
+                        if include_facets
+                        else {}
+                    ),
                 }
             )
         model_kind = None
         kind = "projection"
 
-    return {
+    block: dict[str, object] = {
         "domain": resolved.domain_name,
         "name": resolved.model_name,
         "version": version.version,
@@ -235,6 +286,20 @@ def _resolved_declaration_block(resolved: ResolvedModelRef, mdl: MdlFile) -> dic
         "model_kind": model_kind,
         "fields": fields,
     }
+    if include_facets:
+        block["facets"] = _facet_documents_for_subject(workspace, declaration_subject)
+    return block
+
+
+def _resolved_declaration_subject(resolved: ResolvedModelRef) -> FacetSubject:
+    kind: FacetSubjectKind = "declaration" if isinstance(resolved.version, ModelVersion) else "projection"
+    return FacetSubject(kind, f"{resolved.domain_name}.{resolved.model_name}@{resolved.version.version}")
+
+
+def _facet_documents_for_subject(workspace: Workspace | None, subject: FacetSubject) -> list[dict[str, object]]:
+    if workspace is None:
+        return []
+    return facet_documents(facets_for_subject(workspace, subject))
 
 
 def _field_type_document(field_type: FieldType, mdl: MdlFile, current_domain: str) -> dict[str, object]:
@@ -396,5 +461,9 @@ def build_plan_documents(workspace: Workspace, *, schema: str = PLAN_V1_SCHEMA) 
         for projection_name in sorted(domain.projections):
             for pv in sorted(domain.projections[projection_name], key=lambda item: item.version):
                 lineage = build_projection_lineage(domain.name, projection_name, pv, workspace.mdl)
-                documents.append(build_plan(domain.name, projection_name, pv, lineage, workspace.mdl, schema=schema))
+                documents.append(
+                    build_plan(
+                        domain.name, projection_name, pv, lineage, workspace.mdl, schema=schema, workspace=workspace
+                    )
+                )
     return documents

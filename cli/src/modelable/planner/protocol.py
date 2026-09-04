@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterable
 from copy import deepcopy
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
-from modelable.identity import parse_semantic_path, semantic_path
+from modelable.identity import parse_declaration_id, parse_semantic_path, semantic_path
+
+if TYPE_CHECKING:
+    from modelable.facets import Facet
 
 PLAN_SCHEMA = "modelable.plan/v0"
 PLAN_V1_SCHEMA = "modelable.plan/v1"
@@ -19,6 +23,21 @@ type PlanDocument = dict[str, object]
 
 class PlanProtocolError(ValueError):
     """Raised when a plan does not satisfy a supported plan protocol."""
+
+
+def facet_documents(facets: Iterable[Facet]) -> list[dict[str, object]]:
+    """Project normalized facets into deterministic plan protocol documents."""
+    return [
+        facet.as_dict()
+        for facet in sorted(
+            facets,
+            key=lambda facet: (
+                facet.subject.canonical,
+                facet.identity.canonical,
+                facet.source.subject.canonical if facet.source is not None else "",
+            ),
+        )
+    ]
 
 
 def validate_plan(document: object) -> PlanDocument:
@@ -61,13 +80,13 @@ def _validate_plan_shape(document: dict[str, object], schema: str) -> PlanDocume
     _require_boolean(document, "requires_revalidation")
     revalidation_reasons = _require_string_list(document, "revalidation_reasons")
     source = _require_mapping(document, "source")
-    _validate_relation(source, "source", on_required=False)
+    _validate_relation(source, "source", on_required=False, schema=schema)
     where = document.get("where")
     if where is not None and (not isinstance(where, str) or not where):
         raise PlanProtocolError("where must be a non-empty string or null")
     joins = _require_list(document, "joins")
     for index, join in enumerate(joins):
-        _validate_relation(join, f"joins[{index}]", on_required=True)
+        _validate_relation(join, f"joins[{index}]", on_required=True, schema=schema)
     relations = [source, *[cast(dict[str, object], join) for join in joins]]
     _require_string_list(document, "group_by")
 
@@ -194,7 +213,7 @@ def _require_string_list(mapping: dict[str, object], name: str) -> list[object]:
     return values
 
 
-def _validate_relation(value: object, name: str, *, on_required: bool) -> None:
+def _validate_relation(value: object, name: str, *, on_required: bool, schema: str) -> None:
     if not isinstance(value, dict):
         raise PlanProtocolError(f"{name} must be a JSON object")
     relation = cast(dict[str, object], value)
@@ -217,11 +236,10 @@ def _validate_relation(value: object, name: str, *, on_required: bool) -> None:
             raise PlanProtocolError(f"{name}.cardinality must be a non-empty string or null")
     resolved = relation.get("resolved")
     if resolved is not None:
-        _validate_resolved_declaration(resolved, f"{name}.resolved")
+        _validate_resolved_declaration(resolved, f"{name}.resolved", schema=schema)
     elif resolved_version is not None:
         raise PlanProtocolError(f"{name}.resolved_version requires a resolved declaration")
-    _require_exact_keys(
-        relation,
+    expected_keys = (
         {
             "model",
             "version",
@@ -234,9 +252,12 @@ def _validate_relation(value: object, name: str, *, on_required: bool) -> None:
             "cardinality",
         }
         if on_required
-        else {"model", "version", "resolved_version", "alias", "change_kind", "resolved"},
-        name,
+        else {"model", "version", "resolved_version", "alias", "change_kind", "resolved"}
     )
+    if schema == PLAN_V1_SCHEMA and "facets" in relation:
+        _validate_facets(relation["facets"], f"{name}.facets")
+        expected_keys.add("facets")
+    _require_exact_keys(relation, expected_keys, name)
     if resolved is not None:
         declaration = cast(dict[str, object], resolved)
         expected_ref = f"{declaration['domain']}.{declaration['name']}"
@@ -315,7 +336,7 @@ def _validate_field_sources(fields: list[object], relations: list[dict[str, obje
             raise PlanProtocolError(f"fields[{index}].source_field is not present in its resolved relation")
 
 
-def _validate_resolved_declaration(value: object, name: str) -> None:
+def _validate_resolved_declaration(value: object, name: str, *, schema: str) -> None:
     if not isinstance(value, dict):
         raise PlanProtocolError(f"{name} must be a JSON object or null")
     declaration = cast(dict[str, object], value)
@@ -335,15 +356,19 @@ def _validate_resolved_declaration(value: object, name: str) -> None:
     fields = _require_list(declaration, "fields")
     field_names: set[str] = set()
     for index, field in enumerate(fields):
-        _validate_declaration_field(field, f"{name}.fields[{index}]")
+        _validate_declaration_field(field, f"{name}.fields[{index}]", schema=schema)
         field_name = cast(dict[str, object], field)["name"]
         if field_name in field_names:
             raise PlanProtocolError(f"{name}.fields contains duplicate name {field_name!r}")
         field_names.add(cast(str, field_name))
-    _require_exact_keys(declaration, {"domain", "name", "version", "kind", "model_kind", "fields"}, name)
+    expected_keys = {"domain", "name", "version", "kind", "model_kind", "fields"}
+    if schema == PLAN_V1_SCHEMA and "facets" in declaration:
+        _validate_facets(declaration["facets"], f"{name}.facets")
+        expected_keys.add("facets")
+    _require_exact_keys(declaration, expected_keys, name)
 
 
-def _validate_declaration_field(value: object, name: str) -> None:
+def _validate_declaration_field(value: object, name: str, *, schema: str) -> None:
     if not isinstance(value, dict):
         raise PlanProtocolError(f"{name} must be a JSON object")
     field = cast(dict[str, object], value)
@@ -367,6 +392,9 @@ def _validate_declaration_field(value: object, name: str) -> None:
     for optional_key in ("default", "constraints", "annotations"):
         if optional_key in field:
             expected_keys.add(optional_key)
+    if schema == PLAN_V1_SCHEMA and "facets" in field:
+        _validate_facets(field["facets"], f"{name}.facets")
+        expected_keys.add("facets")
     _require_exact_keys(field, expected_keys, name)
 
 
@@ -395,6 +423,8 @@ def _validate_field(value: object, name: str, *, schema: str) -> str:
                 raise PlanProtocolError(f"{name}.lineage[{index}] must be a canonical semantic path") from error
     _require_governance_facts(field, name)
     _validate_annotations(field.get("annotations"), f"{name}.annotations")
+    if schema == PLAN_V1_SCHEMA and "facets" in field:
+        _validate_facets(field["facets"], f"{name}.facets")
     if kind == "direct":
         _require_string(field, "source_alias")
         _require_string(field, "source_field")
@@ -413,6 +443,8 @@ def _validate_field(value: object, name: str, *, schema: str) -> str:
         for optional_key in ("nullable", "constraints", "annotations"):
             if optional_key in field:
                 expected_keys.add(optional_key)
+        if schema == PLAN_V1_SCHEMA and "facets" in field:
+            expected_keys.add("facets")
         _require_exact_keys(
             field,
             expected_keys,
@@ -424,6 +456,8 @@ def _validate_field(value: object, name: str, *, schema: str) -> str:
         for optional_key in ("nullable", "constraints", "annotations"):
             if optional_key in field:
                 expected_keys.add(optional_key)
+        if schema == PLAN_V1_SCHEMA and "facets" in field:
+            expected_keys.add("facets")
         _require_exact_keys(
             field,
             expected_keys,
@@ -456,6 +490,61 @@ def _validate_governance_finding(value: object, name: str) -> None:
     for key in ("code", "subject", "message"):
         _require_string(finding, key)
     _require_exact_keys(finding, {"code", "subject", "message"}, name)
+
+
+def _validate_facets(value: object, name: str) -> None:
+    if not isinstance(value, list):
+        raise PlanProtocolError(f"{name} must be a JSON array")
+    for index, raw_facet in enumerate(value):
+        facet_name = f"{name}[{index}]"
+        if not isinstance(raw_facet, dict):
+            raise PlanProtocolError(f"{facet_name} must be a JSON object")
+        facet = cast(dict[str, object], raw_facet)
+        _require_string(facet, "identity")
+        _validate_facet_subject(_require_string(facet, "subject"), f"{facet_name}.subject")
+        propagation = _require_string(facet, "propagation")
+        if propagation not in {"none", "inherit", "project"}:
+            raise PlanProtocolError(f"{facet_name}.propagation must be 'none', 'inherit', or 'project'")
+        interpretation = _require_string(facet, "interpretation")
+        if interpretation not in {"known", "unknown"}:
+            raise PlanProtocolError(f"{facet_name}.interpretation must be 'known' or 'unknown'")
+        if "value" not in facet:
+            raise PlanProtocolError(f"{facet_name} is missing value")
+        source = facet.get("source")
+        if source is not None:
+            _validate_facet_source(source, f"{facet_name}.source")
+        _require_exact_keys(
+            facet,
+            {"identity", "value", "subject", "propagation", "interpretation"}
+            | ({"source"} if "source" in facet else set()),
+            facet_name,
+        )
+
+
+def _validate_facet_source(value: object, name: str) -> None:
+    if not isinstance(value, dict):
+        raise PlanProtocolError(f"{name} must be a JSON object")
+    source = cast(dict[str, object], value)
+    _validate_facet_subject(_require_string(source, "subject"), f"{name}.subject")
+    for key in ("location", "lineage"):
+        if key in source and (not isinstance(source[key], str) or not source[key]):
+            raise PlanProtocolError(f"{name}.{key} must be a non-empty string")
+    _require_exact_keys(source, {"subject", "location", "lineage"} & set(source), name)
+
+
+def _validate_facet_subject(value: str, name: str) -> None:
+    kind, separator, reference = value.partition(":")
+    if not separator or not reference:
+        raise PlanProtocolError(f"{name} must be a canonical facet subject")
+    try:
+        if kind in {"declaration", "projection"}:
+            parse_declaration_id(reference)
+        elif kind in {"field", "projection_field"}:
+            parse_semantic_path(reference)
+        else:
+            raise ValueError("unsupported subject kind")
+    except ValueError as error:
+        raise PlanProtocolError(f"{name} must be a canonical facet subject") from error
 
 
 def _validate_constraints(value: object, name: str) -> None:
