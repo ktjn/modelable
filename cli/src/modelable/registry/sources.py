@@ -10,8 +10,8 @@ from modelable.compiler.workspace import (
     discover_mdl_files,
     load_workspace_from_sources,
 )
-from modelable.parser.ir import ModelVersion, ProjectionVersion
 from modelable.parser.parse import parse_text_to_ir
+from modelable.registry.resolver import resolve_declaration
 from modelable.registry.signature import compute_version_signature
 
 
@@ -78,17 +78,18 @@ def _verify_pinned_imports(workspace: Workspace) -> None:
         domain = domains.get(domain_name)
         if domain is None:
             raise ValueError(f"pinned import references missing domain {domain_name!r}")
-        candidates: list[ModelVersion | ProjectionVersion] = [
-            *domain.models.get(name, []),
-            *domain.projections.get(name, []),
-        ]
-        selected = next(
-            (version for version in candidates if version.version == imported.pinned_version),
-            None,
-        )
-        if selected is None:
-            raise ValueError(f"pinned import references missing contract {qualified_name}@{imported.pinned_version}")
-        actual_signature = compute_version_signature(domain_name, name, selected)
+        try:
+            resolved = resolve_declaration(
+                workspace.mdl,
+                qualified_name,
+                imported.pinned_version,
+                allowed_kinds=frozenset({"model", "projection"}),
+            )
+        except LookupError:
+            raise ValueError(
+                f"pinned import references missing contract {qualified_name}@{imported.pinned_version}"
+            ) from None
+        actual_signature = compute_version_signature(domain_name, name, resolved.version)
         if actual_signature != imported.pinned_signature:
             raise ValueError(
                 f"pinned import signature mismatch for {qualified_name}@{imported.pinned_version}: "
