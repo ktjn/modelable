@@ -284,34 +284,6 @@ class ResolvedModelRef:
         return declaration_id(self.domain_name, self.model_name, self.version.version)
 
 
-@dataclass(frozen=True)
-class ResolvedNamedDeclaration:
-    """Compatibility view for semantic types and enum projections."""
-
-    domain_name: str
-    declaration: SemanticTypeDecl | EnumProjectionDecl
-
-    @property
-    def name(self) -> str:
-        return self.declaration.name
-
-    @property
-    def kind(self) -> str:
-        return "semantic_type" if isinstance(self.declaration, SemanticTypeDecl) else "enum_projection"
-
-    @property
-    def version(self) -> int:
-        return self.declaration.version
-
-    @property
-    def version_number(self) -> int:
-        return self.version
-
-    @property
-    def identity(self) -> str:
-        return declaration_id(self.domain_name, self.name, self.version)
-
-
 def resolve_model_ref(
     mdl: MdlFile,
     model_ref: str,
@@ -563,13 +535,22 @@ def resolve_named_declaration(
     exact_version: int | None = None,
     *,
     include_enum_projections: bool = True,
-) -> ResolvedNamedDeclaration:
+) -> ResolvedDeclaration:
     """Resolve one named declaration through the shared identity service."""
     if include_enum_projections:
         domain_name, declaration = _resolve_enum_type_ref(mdl, current_domain, name, exact_version)
     else:
         domain_name, declaration = _resolve_semantic_type_ref(mdl, current_domain, name, exact_version)
-    return ResolvedNamedDeclaration(domain_name, declaration)
+    return resolve_declaration(
+        mdl,
+        f"{domain_name}.{declaration.name}",
+        declaration.version,
+        allowed_kinds=frozenset(
+            {
+                "semantic_type" if isinstance(declaration, SemanticTypeDecl) else "enum_projection",
+            }
+        ),
+    )
 
 
 def resolve_semantic_type_ref(
@@ -599,6 +580,8 @@ def resolve_enum_type_ref(
 ) -> tuple[str, SemanticTypeDecl | EnumProjectionDecl]:
     """Resolve an enum type or projection using the shared identity service."""
     resolved = resolve_named_declaration(mdl, current_domain, name, exact_version)
+    if not isinstance(resolved.declaration, (SemanticTypeDecl, EnumProjectionDecl)):
+        raise TypeError("shared named-declaration service returned an invalid enum declaration")
     return resolved.domain_name, resolved.declaration
 
 
