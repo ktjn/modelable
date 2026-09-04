@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -55,6 +56,156 @@ def test_load_workspace_parses_all_discovered_files(tmp_path):
     ]
     assert [domain.name for domain in workspace.mdl.domains] == ["customer", "orders"]
     assert workspace.errors == []
+
+
+def test_load_workspace_reads_fixed_sibling_facet_sidecar_in_canonical_order(tmp_path: Path) -> None:
+    """Removing sidecar discovery must leave the workspace without these normalized facts."""
+    _write_model(tmp_path / "orders.mdl", "orders", "Order")
+    (tmp_path / "modelable.facets.json").write_text(
+        json.dumps(
+            {
+                "$schema": "modelable.facets/v1",
+                "schemas": [
+                    {
+                        "identity": "org.example/retention-class@1",
+                        "value_schema": {"type": "string", "enum": ["regulated"]},
+                        "allowed_subjects": ["field"],
+                        "propagation": "project",
+                    },
+                    {
+                        "identity": "org.example/confidentiality@1",
+                        "value_schema": {"type": "string"},
+                        "allowed_subjects": ["declaration"],
+                        "propagation": "inherit",
+                    },
+                ],
+                "facets": [
+                    {
+                        "identity": "org.example/retention-class@1",
+                        "value": "regulated",
+                        "subject": "field:orders.Order@1#id",
+                        "propagation": "project",
+                    },
+                    {
+                        "identity": "org.example/confidentiality@1",
+                        "value": "restricted",
+                        "subject": "declaration:orders.Order@1",
+                        "propagation": "inherit",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+
+    assert workspace.errors == []
+    assert [facet.identity.canonical for facet in workspace.facets] == [
+        "org.example/confidentiality@1",
+        "org.example/retention-class@1",
+    ]
+    assert [facet.interpretation for facet in workspace.facets] == ["known", "known"]
+
+
+def test_load_workspace_preserves_missing_sidecar_compatibility(tmp_path: Path) -> None:
+    """Adding sidecar support must not make an ordinary workspace require one."""
+    _write_model(tmp_path / "orders.mdl", "orders", "Order")
+
+    workspace = load_workspace(tmp_path)
+
+    assert workspace.errors == []
+    assert workspace.facets == ()
+    assert workspace.facet_registry is None
+
+
+@pytest.mark.parametrize(
+    ("sidecar_text", "expected_message"),
+    [
+        ("{not valid JSON", "invalid JSON"),
+        (
+            json.dumps(
+                {
+                    "$schema": "modelable.facets/v1",
+                    "schemas": [
+                        {
+                            "identity": "org.example/retention-class@1",
+                            "value_schema": {"type": "string"},
+                            "allowed_subjects": ["field"],
+                            "propagation": "none",
+                        }
+                    ],
+                    "facets": [
+                        {
+                            "identity": "org.example/retention-class@1",
+                            "value": 42,
+                            "subject": "field:orders.Order@1#id",
+                            "propagation": "none",
+                        }
+                    ],
+                }
+            ),
+            "facet value",
+        ),
+    ],
+)
+def test_load_workspace_reports_invalid_facet_sidecars_as_diagnostics(
+    tmp_path: Path, sidecar_text: str, expected_message: str
+) -> None:
+    """Swallowing malformed sidecars or known invalid values would hide semantic errors."""
+    _write_model(tmp_path / "orders.mdl", "orders", "Order")
+    (tmp_path / "modelable.facets.json").write_text(sidecar_text, encoding="utf-8")
+
+    workspace = load_workspace(tmp_path)
+
+    diagnostics = [diagnostic for diagnostic in workspace.errors if diagnostic.code == "FACET"]
+    assert len(diagnostics) == 1
+    assert expected_message in diagnostics[0].message
+    assert diagnostics[0].path == str(tmp_path / "modelable.facets.json")
+
+
+def test_load_workspace_from_sources_normalizes_explicit_in_memory_facet_document() -> None:
+    """Removing the in-memory document argument would disconnect browser callers from facets."""
+    workspace = load_workspace_from_sources(
+        [
+            WorkspaceDocumentSource(
+                path=None,
+                uri="inmemory:///orders.mdl",
+                text="""
+domain orders {
+  owner: \"test-team\"
+  entity Order @ 1 (additive) {
+    @key id: uuid
+  }
+}
+""",
+            )
+        ],
+        facets_document={
+            "$schema": "modelable.facets/v1",
+            "schemas": [],
+            "facets": [
+                {
+                    "identity": "org.example/future-fact@1",
+                    "value": True,
+                    "subject": "field:orders.Order@1#id",
+                    "propagation": "none",
+                }
+            ],
+        },
+    )
+
+    assert workspace.errors == []
+    assert workspace.facet_registry is not None
+    assert [facet.as_dict() for facet in workspace.facets] == [
+        {
+            "identity": "org.example/future-fact@1",
+            "value": True,
+            "subject": "field:orders.Order@1#id",
+            "propagation": "none",
+            "interpretation": "unknown",
+        }
+    ]
 
 
 def test_discover_mdl_files_rejects_path_without_mdl_files(tmp_path):

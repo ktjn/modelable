@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import math
+from importlib.resources import files
+from pathlib import Path
 
 import pytest
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import ValidationError
 
 from modelable.facets import (
     Facet,
@@ -14,6 +19,7 @@ from modelable.facets import (
     FacetSchema,
     FacetSource,
     FacetSubject,
+    load_facet_document,
 )
 
 
@@ -253,3 +259,147 @@ def test_registry_marks_missing_schema_unknown_without_dropping_value() -> None:
         "propagation": "none",
         "interpretation": "unknown",
     }
+
+
+def test_load_facet_document_orders_validated_facts_and_preserves_explicit_source_uri(tmp_path: Path) -> None:
+    """Removing local schema validation or canonical sorting must break this contract."""
+    sidecar = tmp_path / "modelable.facets.json"
+    sidecar.write_text(
+        json.dumps(
+            {
+                "$schema": "modelable.facets/v1",
+                "schemas": [
+                    {
+                        "identity": "org.example/retention-class@1",
+                        "value_schema": {"type": "string", "enum": ["regulated", "transient"]},
+                        "allowed_subjects": ["field"],
+                        "propagation": "project",
+                    },
+                    {
+                        "identity": "org.example/confidentiality@1",
+                        "value_schema": {"type": "string"},
+                        "allowed_subjects": ["declaration"],
+                        "propagation": "inherit",
+                    },
+                ],
+                "facets": [
+                    {
+                        "identity": "org.example/retention-class@1",
+                        "value": "regulated",
+                        "subject": "field:orders.Order@1#customer_id",
+                        "propagation": "project",
+                    },
+                    {
+                        "identity": "org.example/unregistered@1",
+                        "value": {"classification": "future"},
+                        "subject": "field:orders.Order@1#customer_id",
+                        "propagation": "none",
+                        "source": {
+                            "subject": "field:orders.Order@1#customer_id",
+                            "location": "file:///governance/modelable.facets.json",
+                        },
+                    },
+                    {
+                        "identity": "org.example/confidentiality@1",
+                        "value": "restricted",
+                        "subject": "declaration:orders.Order@1",
+                        "propagation": "inherit",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    registry, facets = load_facet_document(sidecar)
+
+    assert [identity.canonical for identity in registry.schemas] == [
+        "org.example/confidentiality@1",
+        "org.example/retention-class@1",
+    ]
+    assert [facet.identity.canonical for facet in facets] == [
+        "org.example/confidentiality@1",
+        "org.example/retention-class@1",
+        "org.example/unregistered@1",
+    ]
+    assert [facet.interpretation for facet in facets] == ["known", "known", "unknown"]
+    assert facets[2].source is not None
+    assert facets[2].source.location == "file:///governance/modelable.facets.json"
+
+
+def test_load_facet_document_rejects_duplicate_schema_identities(tmp_path: Path) -> None:
+    """Removing duplicate rejection would make schema resolution ambiguous."""
+    sidecar = tmp_path / "modelable.facets.json"
+    sidecar.write_text(
+        json.dumps(
+            {
+                "$schema": "modelable.facets/v1",
+                "schemas": [
+                    {
+                        "identity": "org.example/retention-class@1",
+                        "value_schema": {"type": "string"},
+                        "allowed_subjects": ["field"],
+                        "propagation": "none",
+                    },
+                    {
+                        "identity": "org.example/retention-class@1",
+                        "value_schema": {"type": "string"},
+                        "allowed_subjects": ["field"],
+                        "propagation": "none",
+                    },
+                ],
+                "facets": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(FacetError, match="duplicate facet schema identity"):
+        load_facet_document(sidecar)
+
+
+def test_load_facet_document_rejects_in_memory_interpretation_field(tmp_path: Path) -> None:
+    """Allowing a caller-supplied interpretation would bypass local schema validation."""
+    sidecar = tmp_path / "modelable.facets.json"
+    sidecar.write_text(
+        json.dumps(
+            {
+                "$schema": "modelable.facets/v1",
+                "schemas": [],
+                "facets": [
+                    {
+                        "identity": "org.example/future-fact@1",
+                        "value": True,
+                        "subject": "field:orders.Order@1#customer_id",
+                        "propagation": "none",
+                        "interpretation": "known",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(FacetError, match=r"unknown key.*interpretation"):
+        load_facet_document(sidecar)
+
+
+def test_checked_in_facet_sidecar_schema_rejects_unsupported_value_schema_keywords() -> None:
+    """Permitting arbitrary JSON-Schema keywords would diverge from the local facet validator."""
+    schema = json.loads(files("modelable.data").joinpath("modelable.facets.v1.schema.json").read_text(encoding="utf-8"))
+    validator = Draft202012Validator(schema)
+    document = {
+        "$schema": "modelable.facets/v1",
+        "schemas": [
+            {
+                "identity": "org.example/retention-class@1",
+                "value_schema": {"format": "uri"},
+                "allowed_subjects": ["field"],
+                "propagation": "none",
+            }
+        ],
+        "facets": [],
+    }
+
+    with pytest.raises(ValidationError, match="Additional properties are not allowed"):
+        validator.validate(document)

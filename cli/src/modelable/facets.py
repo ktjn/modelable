@@ -7,6 +7,7 @@ import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
+from pathlib import Path
 from types import MappingProxyType
 from typing import Literal, TypeGuard, cast
 
@@ -15,6 +16,8 @@ from modelable.identity import parse_declaration_id, parse_semantic_path
 type FacetSubjectKind = Literal["declaration", "field", "projection", "projection_field"]
 type PropagationMode = Literal["none", "inherit", "project"]
 type FacetInterpretation = Literal["known", "unknown"]
+
+FACET_SCHEMA = "modelable.facets/v1"
 
 _SUBJECT_KINDS = frozenset({"declaration", "field", "projection", "projection_field"})
 _PROPAGATION_MODES = frozenset({"none", "inherit", "project"})
@@ -288,12 +291,79 @@ class FacetRegistry:
         return replace(facet, interpretation="known")
 
 
+def load_facet_document(path: Path) -> tuple[FacetRegistry, tuple[Facet, ...]]:
+    """Load one explicit local facet sidecar without resolving any network resource."""
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as error:
+        raise FacetError(f"unable to read facet document: {error}") from error
+    except json.JSONDecodeError as error:
+        raise FacetError(f"invalid JSON in facet document: {error.msg}") from error
+    return load_facet_document_from_mapping(document)
+
+
+def load_facet_document_from_mapping(document: Mapping[str, object]) -> tuple[FacetRegistry, tuple[Facet, ...]]:
+    """Normalize a caller-supplied facet document using only its local schemas."""
+    document_mapping = _mapping(document, "facet document")
+    _require_exact_keys(
+        document_mapping,
+        {"$schema", "schemas", "facets"},
+        {"$schema", "schemas", "facets"},
+        "facet document",
+    )
+    if _string(document_mapping, "$schema", "facet document") != FACET_SCHEMA:
+        raise FacetError(f"facet document $schema must be {FACET_SCHEMA!r}")
+
+    schemas_value = document_mapping["schemas"]
+    if not isinstance(schemas_value, list):
+        raise FacetError("facet document schemas must be an array")
+    schemas: dict[FacetIdentity, FacetSchema] = {}
+    for index, value in enumerate(schemas_value):
+        schema_document = _mapping(value, f"facet schema at index {index}")
+        _require_exact_keys(
+            schema_document,
+            {"identity", "value_schema", "allowed_subjects", "propagation"},
+            {"identity", "value_schema", "allowed_subjects", "propagation"},
+            f"facet schema at index {index}",
+        )
+        allowed_subjects = schema_document["allowed_subjects"]
+        if not isinstance(allowed_subjects, list) or any(not isinstance(subject, str) for subject in allowed_subjects):
+            raise FacetError(f"facet schema at index {index} allowed_subjects must be an array of strings")
+        identity = FacetIdentity.from_canonical(_string(schema_document, "identity", f"facet schema at index {index}"))
+        if identity in schemas:
+            raise FacetError(f"duplicate facet schema identity: {identity.canonical}")
+        schemas[identity] = FacetSchema(
+            identity=identity,
+            value_schema=_mapping(schema_document["value_schema"], f"facet schema {identity.canonical} value_schema"),
+            allowed_subjects=cast(tuple[FacetSubjectKind, ...], tuple(allowed_subjects)),
+            propagation=cast(
+                PropagationMode, _string(schema_document, "propagation", f"facet schema {identity.canonical}")
+            ),
+        )
+
+    registry = FacetRegistry(schemas)
+    facets_value = document_mapping["facets"]
+    if not isinstance(facets_value, list):
+        raise FacetError("facet document facets must be an array")
+    facets: list[Facet] = []
+    for index, value in enumerate(facets_value):
+        facet_document = _mapping(value, f"facet at index {index}")
+        _require_exact_keys(
+            facet_document,
+            {"identity", "value", "subject", "propagation", "source"},
+            {"identity", "value", "subject", "propagation"},
+            f"facet at index {index}",
+        )
+        facets.append(registry.validate(Facet.from_document(facet_document)))
+    return registry, tuple(sorted(facets, key=lambda facet: (facet.identity.canonical, facet.subject.canonical)))
+
+
 def _mapping(value: object, label: str) -> dict[str, object]:
-    if not isinstance(value, dict):
+    if not isinstance(value, Mapping):
         raise FacetError(f"{label} must be an object")
     if any(not isinstance(key, str) for key in value):
         raise FacetError(f"{label} keys must be strings")
-    return cast(dict[str, object], value)
+    return dict(value)
 
 
 def _require_exact_keys(document: Mapping[str, object], allowed: set[str], required: set[str], label: str) -> None:

@@ -26,6 +26,7 @@ _BROWSER_PACKAGE_FILES = {
     "dependency_graph.py",
     "consequence.py",
     "consequence_protocol.py",
+    "facets.py",
     "identity.py",
     "emitters/__init__.py",
     "emitters/base.py",

@@ -3,12 +3,14 @@ from __future__ import annotations
 import copy
 import hashlib
 import re
-from dataclasses import dataclass, field
+from collections.abc import Mapping
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from modelable.config import ModelableConfig, apply_config_defaults, load_config
 from modelable.diagnostics.model import Diagnostic
 from modelable.expressions.cel import CelContext, FieldRef, looks_boolean, parse_cel, validate_cel_expr
+from modelable.facets import Facet, FacetError, FacetRegistry, load_facet_document, load_facet_document_from_mapping
 from modelable.parser.ir import (
     AddFieldOp,
     ArrayType,
@@ -65,6 +67,8 @@ class Workspace:
     mdl: MdlFile
     errors: list[Diagnostic]
     warnings: list[Diagnostic] = field(default_factory=list)
+    facets: tuple[Facet, ...] = ()
+    facet_registry: FacetRegistry | None = None
 
 
 @dataclass(frozen=True)
@@ -98,16 +102,42 @@ def load_workspace(path: str | Path) -> Workspace:
         )
         for mdl_path in discover_mdl_files(path)
     ]
-    return load_workspace_from_sources(sources, config=load_config(path))
+    workspace = load_workspace_from_sources(sources, config=load_config(path))
+    root = Path(path)
+    sidecar_path = (root if root.is_dir() else root.parent) / "modelable.facets.json"
+    if not sidecar_path.is_file():
+        return workspace
+    try:
+        facet_registry, facets = load_facet_document(sidecar_path)
+    except FacetError as error:
+        return replace(
+            workspace,
+            errors=[
+                *workspace.errors,
+                Diagnostic(code="FACET", message=str(error), severity="error", path=str(sidecar_path)),
+            ],
+        )
+    return replace(workspace, facets=facets, facet_registry=facet_registry)
 
 
 def load_workspace_from_sources(
-    sources: list[WorkspaceDocumentSource], *, config: ModelableConfig | None = None
+    sources: list[WorkspaceDocumentSource],
+    *,
+    config: ModelableConfig | None = None,
+    facets_document: Mapping[str, object] | None = None,
 ) -> Workspace:
     workspace_sources: list[WorkspaceSource] = []
     errors: list[Diagnostic] = []
     warnings: list[Diagnostic] = []
     merged = MdlFile()
+    facets: tuple[Facet, ...] = ()
+    facet_registry: FacetRegistry | None = None
+
+    if facets_document is not None:
+        try:
+            facet_registry, facets = load_facet_document_from_mapping(facets_document)
+        except FacetError as error:
+            errors.append(Diagnostic(code="FACET", message=str(error), severity="error", path="<facets>"))
 
     for source in sources:
         source_location = str(source.path) if source.path is not None else source.uri
@@ -181,7 +211,14 @@ def load_workspace_from_sources(
     warnings.extend(_validate_postcard_bindings(merged))
     warnings.extend(_find_repeated_anonymous_enum_shapes(merged))
     errors.extend(_validate_cel(merged))
-    return Workspace(sources=workspace_sources, mdl=merged, errors=errors, warnings=warnings)
+    return Workspace(
+        sources=workspace_sources,
+        mdl=merged,
+        errors=errors,
+        warnings=warnings,
+        facets=facets,
+        facet_registry=facet_registry,
+    )
 
 
 def _validate_api_bindings(mdl: MdlFile) -> list[Diagnostic]:

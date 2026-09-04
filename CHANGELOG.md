@@ -8,6 +8,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Load typed semantic facets from an optional local `modelable.facets.json` sidecar without changing Modelable syntax.
+
 - Accept ordered multiple `@key` fields on entities and aggregates, with
   explicit primary-index order validation; target-specific composite-key
   conformance remains in progress.

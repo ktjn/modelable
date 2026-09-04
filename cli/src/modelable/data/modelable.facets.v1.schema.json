@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "modelable.facets/v1",
+  "title": "Modelable typed semantic facets v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemas", "facets"],
+  "properties": {
+    "$schema": {"const": "modelable.facets/v1"},
+    "schemas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["identity", "value_schema", "allowed_subjects", "propagation"],
+        "properties": {
+          "identity": {"type": "string", "minLength": 1},
+          "value_schema": {"$ref": "#/$defs/facetValueSchema"},
+          "allowed_subjects": {
+            "type": "array",
+            "items": {"enum": ["declaration", "field", "projection", "projection_field"]},
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "propagation": {"enum": ["none", "inherit", "project"]}
+        }
+      }
+    },
+    "facets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["identity", "value", "subject", "propagation"],
+        "properties": {
+          "identity": {"type": "string", "minLength": 1},
+          "value": {"type": ["null", "boolean", "number", "string", "array", "object"]},
+          "subject": {"type": "string", "minLength": 1},
+          "propagation": {"enum": ["none", "inherit", "project"]},
+          "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["subject"],
+            "properties": {
+              "subject": {"type": "string", "minLength": 1},
+              "location": {"type": "string", "minLength": 1},
+              "lineage": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "jsonValue": {
+      "anyOf": [
+        {"type": "null"},
+        {"type": "boolean"},
+        {"type": "number"},
+        {"type": "string"},
+        {"type": "array", "items": {"$ref": "#/$defs/jsonValue"}},
+        {"type": "object", "additionalProperties": {"$ref": "#/$defs/jsonValue"}}
+      ]
+    },
+    "facetValueSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "oneOf": [
+            {"enum": ["null", "boolean", "integer", "number", "string", "array", "object"]},
+            {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {"enum": ["null", "boolean", "integer", "number", "string", "array", "object"]}
+            }
+          ]
+        },
+        "const": {"$ref": "#/$defs/jsonValue"},
+        "enum": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/jsonValue"}},
+        "properties": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/facetValueSchema"}
+        },
+        "required": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "items": {"$ref": "#/$defs/facetValueSchema"},
+        "minItems": {"type": "integer", "minimum": 0},
+        "maxItems": {"type": "integer", "minimum": 0},
+        "minimum": {"type": "number"},
+        "maximum": {"type": "number"},
+        "pattern": {"type": "string"},
+        "additionalProperties": {"type": "boolean"}
+      }
+    }
+  }
+}

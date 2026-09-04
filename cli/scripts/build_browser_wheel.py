@@ -39,6 +39,7 @@ INCLUDE_FILES = (
     "consequence.py",
     "consequence_protocol.py",
     "extensions.py",
+    "facets.py",
     "identity.py",
     "emitters/__init__.py",
     "emitters/base.py",
