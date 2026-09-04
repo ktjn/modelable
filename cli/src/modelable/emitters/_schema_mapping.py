@@ -34,7 +34,6 @@ from modelable.registry.resolver import (
     resolve_model_ref,
     resolve_named_declaration,
     resolve_ref_type,
-    resolve_semantic_type_ref,
 )
 
 _INTEGER_BOUNDS: dict[str, tuple[int, int]] = {
@@ -281,11 +280,23 @@ def _type_to_json_schema(
     if isinstance(field_type, NamedType):
         if mdl is not None:
             try:
-                declaring_domain, semantic = resolve_semantic_type_ref(mdl, "", field_type.name)
+                resolved = resolve_named_declaration(
+                    mdl,
+                    "",
+                    field_type.name,
+                    include_enum_projections=False,
+                )
             except LookupError, TypeError:
-                semantic = None
-            if semantic is not None and isinstance(semantic.underlying, EnumType):
-                return _enum_semantic_to_json_schema(declaring_domain, semantic, defs=defs, ref_base=ref_base)
+                resolved = None
+            if resolved is not None and isinstance(resolved.declaration, SemanticTypeDecl):
+                semantic = resolved.declaration
+                if isinstance(semantic.underlying, EnumType):
+                    return _enum_semantic_to_json_schema(
+                        resolved.domain_name,
+                        semantic,
+                        defs=defs,
+                        ref_base=ref_base,
+                    )
         def_name = _definition_name([field_type.name])
         if defs is not None:
             defs.setdefault(
