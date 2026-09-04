@@ -30,7 +30,12 @@ from modelable.parser.ir import (
     UnionType,
     ValueConstraint,
 )
-from modelable.registry.resolver import resolve_model_ref, resolve_ref_type, resolve_semantic_type_ref
+from modelable.registry.resolver import (
+    resolve_model_ref,
+    resolve_named_declaration,
+    resolve_ref_type,
+    resolve_semantic_type_ref,
+)
 
 _INTEGER_BOUNDS: dict[str, tuple[int, int]] = {
     "u8": (0, 2**8 - 1),
@@ -255,11 +260,23 @@ def _type_to_json_schema(
     if isinstance(field_type, EnumRefType):
         if mdl is not None:
             try:
-                declaring_domain, decl = resolve_semantic_type_ref(mdl, "", field_type.name, field_type.version)
+                resolved = resolve_named_declaration(
+                    mdl,
+                    "",
+                    field_type.name,
+                    exact_version=field_type.version,
+                    include_enum_projections=False,
+                )
             except LookupError:
                 pass
             else:
-                return _enum_semantic_to_json_schema(declaring_domain, decl, defs=defs, ref_base=ref_base)
+                if isinstance(resolved.declaration, SemanticTypeDecl):
+                    return _enum_semantic_to_json_schema(
+                        resolved.domain_name,
+                        resolved.declaration,
+                        defs=defs,
+                        ref_base=ref_base,
+                    )
         return {"type": "string"}
     if isinstance(field_type, NamedType):
         if mdl is not None:
