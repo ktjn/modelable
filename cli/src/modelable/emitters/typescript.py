@@ -44,8 +44,8 @@ from modelable.planner.protocol import PLAN_V1_SCHEMA
 from modelable.registry.resolver import (
     ResolvedDeclaration,
     latest_semantic_type_declarations,
-    resolve_enum_type_ref,
     resolve_model_ref,
+    resolve_named_declaration,
     resolve_ref_type,
 )
 
@@ -185,9 +185,18 @@ def _collect_named_imports(
         key = (name, field_type.version)
         if named_enum_imports is not None and key not in named_enum_imports and mdl is not None:
             try:
-                decl_domain, decl = resolve_enum_type_ref(mdl, current_domain, name, field_type.version)
+                resolved = resolve_named_declaration(
+                    mdl,
+                    current_domain,
+                    name,
+                    exact_version=field_type.version,
+                    include_enum_projections=True,
+                )
             except LookupError:
                 return
+            decl_domain, decl = resolved.domain_name, resolved.declaration
+            if not isinstance(decl, (SemanticTypeDecl, EnumProjectionDecl)):
+                raise TypeError("shared named-declaration service returned an invalid enum declaration")
             artifact_id = (
                 f"{decl_domain}.{decl.name}.v{decl.version}"
                 if isinstance(decl, EnumProjectionDecl)
@@ -208,17 +217,23 @@ def _collect_named_imports(
                         return
             if named_types is not None:
                 try:
-                    _domain_name, decl = resolve_enum_type_ref(mdl, current_domain, name)
+                    resolved = resolve_named_declaration(
+                        mdl,
+                        current_domain,
+                        name,
+                        include_enum_projections=True,
+                    )
                 except LookupError:
                     pass
                 else:
+                    _domain_name, decl = resolved.domain_name, resolved.declaration
                     if isinstance(decl, EnumProjectionDecl):
                         if named_enum_imports is not None:
                             named_enum_imports[(name, None)] = (
                                 decl.name,
                                 f"{_domain_name}.{decl.name}.v{decl.version}",
                             )
-                    else:
+                    elif isinstance(decl, SemanticTypeDecl):
                         named_types[name] = decl.underlying
                         _collect_named_imports(
                             decl.underlying,
@@ -228,6 +243,8 @@ def _collect_named_imports(
                             current_domain,
                             named_enum_imports,
                         )
+                    else:
+                        raise TypeError("shared named-declaration service returned an invalid enum declaration")
     elif isinstance(field_type, ArrayType):
         _collect_named_imports(field_type.item, mdl, named_imports, named_types, current_domain, named_enum_imports)
     elif isinstance(field_type, MapType):
