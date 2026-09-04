@@ -25,12 +25,18 @@ from modelable.parser.ir import (
     ObjectType,
     PrimitiveType,
     RefType,
+    SemanticTypeDecl,
     UnionType,
     VersionMin,
 )
 from modelable.planner.plans import build_plan_documents
 from modelable.planner.protocol import PLAN_V1_SCHEMA
-from modelable.registry.resolver import resolve_model_ref, resolve_ref_type, resolve_semantic_type_ref
+from modelable.registry.resolver import (
+    resolve_model_ref,
+    resolve_named_declaration,
+    resolve_ref_type,
+    resolve_semantic_type_ref,
+)
 
 
 @dataclass
@@ -147,7 +153,13 @@ def _type_schema(field_type: FieldType, context: _AvroContext, path: list[str]) 
         return _type_schema(key.type, context, [*path, "Ref"])
     if isinstance(field_type, NamedType):
         try:
-            semantic = resolve_semantic_type_ref(context.workspace, context.namespace, field_type.name)[1]
+            resolved = resolve_named_declaration(
+                context.workspace,
+                context.namespace,
+                field_type.name,
+                include_enum_projections=False,
+            )
+            semantic = resolved.declaration if isinstance(resolved.declaration, SemanticTypeDecl) else None
         except LookupError, TypeError:
             semantic = None
         if semantic is not None:
