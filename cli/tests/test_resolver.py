@@ -212,6 +212,25 @@ def test_resolved_declaration_exposes_normalized_members() -> None:
     assert [member.name for member in resolved[3].members] == ["active"]
 
 
+def test_resolved_members_expose_common_governance_metadata() -> None:
+    mdl = parse_text_to_ir(
+        """
+        domain catalog {
+          entity Product @ 1 (additive) {
+            @owner("catalog-team")
+            @deprecated(replacedBy: "displayName")
+            legacyName?: string
+          }
+        }
+        """
+    )
+
+    member = resolve_declaration(mdl, "catalog.Product", 1).members[0]
+
+    assert member.owner == "catalog-team"
+    assert member.deprecated_replaced_by == "displayName"
+
+
 def test_resolved_declaration_exposes_lineage_and_annotations() -> None:
     mdl = parse_text_to_ir(
         """

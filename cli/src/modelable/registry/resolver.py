@@ -6,7 +6,9 @@ from typing import Protocol, runtime_checkable
 
 from modelable.identity import DeclarationId, DeclarationVersion
 from modelable.parser.ir import (
+    AnnDeprecated,
     Annotation,
+    AnnOwner,
     DomainDef,
     EnumProjectionDecl,
     FieldDef,
@@ -63,6 +65,18 @@ class ResolvedMember:
     constraints: tuple[ValueConstraint, ...] = ()
     optional: bool | None = None
     nullable: bool | None = None
+
+    @property
+    def owner(self) -> str | None:
+        """Return the owning team declared for this member, when present."""
+        annotation = next((item for item in self.annotations if isinstance(item, AnnOwner)), None)
+        return annotation.team if annotation is not None else None
+
+    @property
+    def deprecated_replaced_by(self) -> str | None:
+        """Return the replacement member named by a deprecation annotation."""
+        annotation = next((item for item in self.annotations if isinstance(item, AnnDeprecated)), None)
+        return annotation.replaced_by if annotation is not None else None
 
 
 def _iter_declaration_candidates(mdl: MdlFile) -> Iterator[_DeclarationCandidate]:
