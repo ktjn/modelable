@@ -35,7 +35,6 @@ from modelable.registry.resolver import (
     resolve_model_ref,
     resolve_named_declaration,
     resolve_ref_type,
-    resolve_semantic_type_ref,
 )
 
 
@@ -189,12 +188,21 @@ def _enum_ref_schema(field_type: EnumRefType, context: _AvroContext, path: list[
     fresh field-local enum per occurrence.
     """
     try:
-        declaring_domain, decl = resolve_semantic_type_ref(
-            context.workspace, context.namespace, field_type.name, field_type.version
+        resolved = resolve_named_declaration(
+            context.workspace,
+            context.namespace,
+            field_type.name,
+            exact_version=field_type.version,
+            include_enum_projections=False,
         )
     except LookupError:
         context.warnings.append(type_loss(f"unresolved Avro enum reference {field_type.name}"))
         return "string"
+    if not isinstance(resolved.declaration, SemanticTypeDecl):
+        context.warnings.append(type_loss(f"unresolved Avro enum reference {field_type.name}"))
+        return "string"
+    declaring_domain = resolved.domain_name
+    decl = resolved.declaration
     if not isinstance(decl.underlying, EnumType):
         context.warnings.append(type_loss(f"Avro enum reference target is not enum-backed {field_type.name}"))
         return "string"
