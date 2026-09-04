@@ -26,11 +26,12 @@ from modelable.parser.ir import (
     ProjectionField,
     ProjectionVersion,
     RefType,
+    SemanticTypeDecl,
     VersionMin,
 )
 from modelable.planner.plans import build_plan_documents
 from modelable.planner.protocol import PLAN_V1_SCHEMA, PlanDocument
-from modelable.registry.resolver import ResolvedDeclaration, resolve_model_ref, resolve_semantic_type_ref
+from modelable.registry.resolver import ResolvedDeclaration, resolve_model_ref, resolve_named_declaration
 
 FHIR_R4_VERSION = "4.0.1"
 FHIR_STRUCTURE_DEFINITION_BASE = "http://hl7.org/fhir/StructureDefinition"
@@ -753,9 +754,19 @@ def _binding(
 ) -> dict[str, str] | None:
     if isinstance(field_type, EnumRefType) and mdl is not None:
         try:
-            declaring_domain, decl = resolve_semantic_type_ref(mdl, domain_name, field_type.name, field_type.version)
+            resolved = resolve_named_declaration(
+                mdl,
+                domain_name,
+                field_type.name,
+                exact_version=field_type.version,
+                include_enum_projections=False,
+            )
         except LookupError:
             return None
+        if not isinstance(resolved.declaration, SemanticTypeDecl):
+            return None
+        declaring_domain = resolved.domain_name
+        decl = resolved.declaration
         if not isinstance(decl.underlying, EnumType):
             return None
         # Declaration-scoped, not field-scoped: every field referencing the
