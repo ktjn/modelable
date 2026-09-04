@@ -6,6 +6,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import cast
 
 from modelable.config import ModelableConfig, apply_config_defaults, load_config
 from modelable.diagnostics.model import Diagnostic
@@ -38,14 +39,14 @@ from modelable.parser.ir import (
     RemoveFieldOp,
     RenameFieldOp,
     ReplaceFieldOp,
+    SemanticTypeDecl,
     UnionType,
 )
 from modelable.parser.parse import parse_text_to_ir_with_tree
 from modelable.planner.planner import expand_auto_projections, expand_projection_selections
 from modelable.registry.resolver import (
-    resolve_enum_type_ref,
     resolve_model_ref,
-    resolve_semantic_type_ref,
+    resolve_named_declaration,
     validate_references,
 )
 from modelable.validation.deferred_syntax import find_deferred_syntax_diagnostics
@@ -561,7 +562,11 @@ def _validate_named_field_types(merged: MdlFile) -> tuple[list[Diagnostic], list
             if is_model_reference or field_type.name in opaque_names:
                 return
             try:
-                _declaring_domain, decl = resolve_enum_type_ref(merged, domain_name, field_type.name)
+                resolved = resolve_named_declaration(
+                    merged, domain_name, field_type.name, include_enum_projections=True
+                )
+                _declaring_domain = resolved.domain_name
+                decl = cast(SemanticTypeDecl | EnumProjectionDecl, resolved.declaration)
             except LookupError as exc:
                 message = str(exc).replace("ambiguous semantic type", "ambiguous type", 1)
                 errors.append(
@@ -584,9 +589,15 @@ def _validate_named_field_types(merged: MdlFile) -> tuple[list[Diagnostic], list
                 )
         elif isinstance(field_type, EnumRefType):
             try:
-                _declaring_domain, decl = resolve_enum_type_ref(
-                    merged, domain_name, field_type.name, exact_version=field_type.version
+                resolved = resolve_named_declaration(
+                    merged,
+                    domain_name,
+                    field_type.name,
+                    exact_version=field_type.version,
+                    include_enum_projections=True,
                 )
+                _declaring_domain = resolved.domain_name
+                decl = cast(SemanticTypeDecl | EnumProjectionDecl, resolved.declaration)
             except LookupError as exc:
                 message = str(exc).replace("ambiguous semantic type", "ambiguous enum type", 1)
                 errors.append(
@@ -888,9 +899,15 @@ def _expand_enum_projections(merged: MdlFile) -> tuple[list[Diagnostic], list[Di
                 )
 
             try:
-                _declaring_domain, source = resolve_semantic_type_ref(
-                    merged, domain.name, projection.source_name, exact_version=projection.source_version
+                resolved = resolve_named_declaration(
+                    merged,
+                    domain.name,
+                    projection.source_name,
+                    exact_version=projection.source_version,
+                    include_enum_projections=False,
                 )
+                _declaring_domain = resolved.domain_name
+                source = cast(SemanticTypeDecl, resolved.declaration)
             except LookupError as exc:
                 message = str(exc).replace("ambiguous semantic type", "ambiguous enum type", 1)
                 errors.append(
