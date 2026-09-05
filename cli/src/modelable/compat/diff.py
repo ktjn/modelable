@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from modelable.compat.projection_fields import resolve_projection_field_type_and_optionality
 from modelable.parser.ir import (
     AccessBlock,
-    AnnDeprecated,
     ClassificationLevel,
     ComputedMapping,
     DirectMapping,
@@ -21,6 +20,7 @@ from modelable.parser.ir import (
     RefType,
     UnionType,
 )
+from modelable.registry.resolver import annotation_deprecated_replaced_by
 
 
 @dataclass(frozen=True)
@@ -394,10 +394,7 @@ def _sorted_common_field_names(
 
 
 def _deprecated_replacement(field: FieldDef) -> str | None:
-    for annotation in field.annotations:
-        if isinstance(annotation, AnnDeprecated):
-            return annotation.replaced_by
-    return None
+    return annotation_deprecated_replaced_by(field.annotations)
 
 
 def _ref_aware_type_dump(field_type: FieldType) -> object:

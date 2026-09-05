@@ -6,7 +6,6 @@ from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.openlineage_plan import emit_openlineage_plan
 from modelable.parser.ir import (
-    AnnOwner,
     ArrayType,
     DecimalType,
     DomainDef,
@@ -23,6 +22,7 @@ from modelable.parser.ir import (
 )
 from modelable.planner.plans import build_plan_documents
 from modelable.planner.protocol import PLAN_V1_SCHEMA
+from modelable.registry.resolver import annotation_owner
 
 PRODUCER = "https://github.com/ktjn/modelable"
 RUN_EVENT_SCHEMA_URL = "https://openlineage.io/spec/1-0-5/OpenLineage.json#/definitions/RunEvent"
@@ -140,10 +140,7 @@ def _schema_field(
 def _owner(field: FieldDef | None) -> str | None:
     if field is None:
         return None
-    for annotation in field.annotations:
-        if isinstance(annotation, AnnOwner):
-            return annotation.team
-    return None
+    return annotation_owner(field.annotations)
 
 
 def _artifact(ref: str, artifact_id: str, out_dir: Path, event: dict[str, object]) -> EmittedArtifact:

@@ -9,7 +9,6 @@ from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.odcs_plan import emit_odcs_projection_plan
 from modelable.parser.ir import (
-    AnnOwner,
     ArrayType,
     DecimalType,
     DomainDef,
@@ -28,7 +27,7 @@ from modelable.parser.ir import (
 )
 from modelable.planner.plans import build_plan_documents
 from modelable.planner.protocol import PLAN_V1_SCHEMA
-from modelable.registry.resolver import resolve_named_declaration
+from modelable.registry.resolver import annotation_owner, resolve_named_declaration
 
 ODCS_VERSION = "v3.1.0"
 
@@ -258,10 +257,7 @@ def _artifact(target: str, ref: str, artifact_id: str, path: Path, doc: dict[str
 
 
 def _owner(field: FieldDef) -> str | None:
-    for annotation in field.annotations:
-        if isinstance(annotation, AnnOwner):
-            return annotation.team
-    return None
+    return annotation_owner(field.annotations)
 
 
 def _artifact_id(domain: str, name: str, version: int) -> str:
