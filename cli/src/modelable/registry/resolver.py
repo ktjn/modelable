@@ -410,6 +410,22 @@ class AmbiguousSemanticTypeError(LookupError):
     """
 
 
+def _workspace_named_matches[T: (SemanticTypeDecl, EnumProjectionDecl)](
+    mdl: MdlFile,
+    name: str,
+    kind: str,
+    exact_version: int | None,
+    declaration_type: type[T],
+) -> list[tuple[str, T]]:
+    """Return every workspace-wide (domain_name, declaration) match for a bare name."""
+    matches: list[tuple[str, T]] = []
+    for domain in mdl.domains:
+        candidate = _find_named_candidate(domain, name, kind, exact_version)
+        if candidate is not None and isinstance(candidate.declaration, declaration_type):
+            matches.append((domain.name, candidate.declaration))
+    return matches
+
+
 def _resolve_semantic_type_ref(
     mdl: MdlFile,
     current_domain: str,
@@ -460,11 +476,7 @@ def _resolve_semantic_type_ref(
 
     # Workspace-wide fallback mirrors bare-name semantics: only a unique
     # workspace match is accepted, more than one is ambiguous.
-    matches: list[tuple[str, SemanticTypeDecl]] = []
-    for domain in mdl.domains:
-        candidate = _find_named_candidate(domain, name, "semantic_type", exact_version)
-        if candidate is not None and isinstance(candidate.declaration, SemanticTypeDecl):
-            matches.append((domain.name, candidate.declaration))
+    matches = _workspace_named_matches(mdl, name, "semantic_type", exact_version, SemanticTypeDecl)
     if not matches:
         known_domains = [domain for domain in mdl.domains if any(item.name == name for item in domain.semantic_types)]
         if known_domains and exact_version is not None:
@@ -515,11 +527,7 @@ def _resolve_enum_type_ref(
                 raise semantic_error
             return domain_name, candidate.declaration
 
-        matches: list[tuple[str, EnumProjectionDecl]] = []
-        for domain in mdl.domains:
-            candidate = _find_named_candidate(domain, name, "enum_projection", exact_version)
-            if candidate is not None and isinstance(candidate.declaration, EnumProjectionDecl):
-                matches.append((domain.name, candidate.declaration))
+        matches = _workspace_named_matches(mdl, name, "enum_projection", exact_version, EnumProjectionDecl)
         if not matches:
             known = sorted(
                 {item.version for domain in mdl.domains for item in domain.enum_projections if item.name == name}
