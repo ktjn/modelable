@@ -405,7 +405,7 @@ modelable compile ./models --target grpc --out ./dist/grpc
 
 ---
 
-### `docs` — Generate Markdown documentation
+### 5.6 `docs` — Generate Markdown documentation
 
 ```text
 modelable docs SOURCE [--out DIR]
@@ -425,7 +425,7 @@ Generates Markdown documentation for all definitions in a `.mdl` file or directo
 modelable docs ./models --out ./dist/docs
 ```
 
-### `docs-index` — Build a lexical documentation index
+### 5.6.1 `docs-index` — Build a lexical documentation index
 
 ```text
 modelable docs-index SOURCE [--out DIR] [--base-url URL]
@@ -452,7 +452,7 @@ The command reports source document count, chunk count, languages, output path,
 and validation errors. Each stored Searchable document retains the complete
 chunk content, source path, heading hierarchy, and stable external ID.
 
-### `docs-eval` — Evaluate lexical documentation retrieval
+### 5.6.2 `docs-eval` — Evaluate lexical documentation retrieval
 
 ```text
 modelable docs-eval INDEX CORPUS [--limit N] [--json]
@@ -496,7 +496,7 @@ modelable docs-eval ./dist/search-index/manifest.json ./rag-evaluation.yaml
 modelable docs-eval ./dist/search-index/manifest.json ./rag-evaluation.yaml --json
 ```
 
-### `docs-ask` — Answer from documentation evidence
+### 5.6.3 `docs-ask` — Answer from documentation evidence
 
 ```text
 modelable docs-ask QUESTION [--docs-index PATH] [--limit N] [--max-context-words N]
