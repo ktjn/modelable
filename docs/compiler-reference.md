@@ -3,9 +3,9 @@
 > **Scope:** Compiler outputs, emitters, compatibility metadata, lineage, and
 > generated-artifact guarantees.
 
-> **Status:** Approved for Phase 1 targets, selected local integration
-> emitters, and Apicurio JSON Schema artifact publish/pull. Catalog and runtime
-> integrations remain deferred by phase.
+> **Status:** Current implementation reference. Target and integration support
+> is compiler-owned; catalog/runtime boundaries and deferred work are called
+> out below and in [the roadmap](https://github.com/ktjn/modelable/blob/main/ROADMAP.md).
 >
 > **Scope:** Output target generation from the normalized Modelable model graph.
 
@@ -191,7 +191,7 @@ reference (`domain.Name@version`) from the Apicurio version content endpoint
 and writes it under the requested output directory as
 `domain/Name.vVersion.json`.
 
-## 10. Deferred Target Notes
+## 10. Target Notes and Deferred Boundaries
 
 Deferred and integration emitters must preserve Modelable semantics when
 implemented:

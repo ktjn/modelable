@@ -8,7 +8,8 @@ small; each document has one role.
 ## Use Modelable
 
 - [Getting started and migration](getting-started.md): installation, editor
-  setup, generated artifacts, and migration from existing schema formats.
+  setup, generated artifacts, typed semantic facets, and migration from
+  existing schema formats.
 - [Language reference](language-reference.md): `.mdl` syntax, types,
   projections, CEL, ownership, classification, and access metadata.
 - [Tooling reference](cli-reference.md): CLI commands, LSP behavior,

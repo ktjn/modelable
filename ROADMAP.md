@@ -29,6 +29,7 @@ Completed programmes retained as implementation history:
 
 - [Offline registry and consequence delivery](docs/superpowers/plans/archived/2026-08-21-offline-registry-dx-delivery.md)
 - [Model evolution slices](docs/superpowers/plans/archived/2026-08-22-model-evolution-slices-roadmap.md)
+- [Typed semantic facets](docs/superpowers/plans/archived/2026-09-04-typed-semantic-facets.md), with its [implemented design](docs/superpowers/specs/archived/2026-09-04-typed-semantic-facets-design.md)
 
 The active post-stabilization implementation plan is:
 
@@ -79,7 +80,7 @@ This programme is dependency-ordered, not a strict serial queue. Detailed tasks 
 
 - [x] Define one common internal declaration identity/version/reference surface for entity, aggregate, event, value, enum, semantic type, and projection.
 - [ ] Move shared version resolution, lineage, ownership, documentation, and deprecation behavior behind it.
-- [ ] Replace remaining declaration-kind-specific resolution paths where semantics are equivalent.
+- [x] Replace remaining declaration-kind-specific resolution paths where semantics are equivalent.
 - [ ] Remove legacy wrappers after all consumers migrate.
 - [x] Add cross-declaration conformance fixtures.
 
@@ -268,7 +269,7 @@ Keep universal built-ins small: identity, ownership, classification, PII, deprec
 - [ ] H — `modelable.query/v1` complete.
 - [ ] I — declaration-level evolution mappings complete.
 - [ ] J — compatibility profiles complete.
-- [ ] K — typed semantic facets complete.
+- [x] K — typed semantic facets complete.
 
 Recommended implementation order:
 

@@ -73,6 +73,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Clarify the current documentation surface, typed-facet onboarding, command
+  reference structure, and archived implementation-plan status.
+
 - Formalize the one-way `modelable.plan/v0` to `modelable.plan/v1` migration
   boundary, including compatibility for already-canonical lineage references.
 

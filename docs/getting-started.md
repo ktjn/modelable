@@ -52,6 +52,39 @@ record of which small integer id was allocated to each `semantic ...
 { registry: true }` declaration, and ids are never reassigned or reused —
 treat it like a database migration history, not a build artifact.
 
+## Typed semantic facets
+
+Governance facts such as jurisdiction, retention class, or confidentiality are
+kept in an optional `modelable.facets.json` sidecar rather than added to `.mdl`
+syntax. Place the sidecar inside the workspace directory (or beside a single
+`.mdl` file) and validate or compile as usual; loading is local and offline.
+
+For example, a schema and declaration facet can look like this:
+
+```json
+{
+  "$schema": "modelable.facets/v1",
+  "schemas": [{
+    "identity": "org.example/confidentiality@1",
+    "value_schema": {"type": "string", "enum": ["internal", "restricted"]},
+    "allowed_subjects": ["declaration"],
+    "propagation": "inherit"
+  }],
+  "facets": [{
+    "identity": "org.example/confidentiality@1",
+    "value": "restricted",
+    "subject": "declaration:customer.Customer@1",
+    "propagation": "inherit"
+  }]
+}
+```
+
+Use `modelable query` to inspect normalized facets, or `modelable compile` to
+carry them through supported plan and artifact workflows. Unknown facet schemas
+are preserved but not interpreted or used to satisfy typed policy requirements.
+See the [language reference](language-reference.md#231-typed-semantic-facets-are-sidecar-data)
+for subject and propagation rules.
+
 Before upgrading, read the root
 [changelog](https://github.com/ktjn/modelable/blob/main/CHANGELOG.md) for
 language or artifact compatibility notes.

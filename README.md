@@ -183,9 +183,11 @@ Beyond the editor, the playground provides:
 Diagnostics, completion results, hover content, and other derived state remain
 in-memory only and are never persisted.
 
-## 1.0 stable surface
+## Stable compatibility surface
 
-Modelable 1.0 stabilizes the local compiler and language-server toolchain.
+Modelable 1.0 established the local compiler and language-server compatibility
+surface, which remains supported throughout the 1.x releases. The current
+release is listed in [the roadmap](ROADMAP.md).
 
 **In scope for 1.0:**
 
@@ -209,6 +211,10 @@ Modelable 1.0 stabilizes the local compiler and language-server toolchain.
 - Runtime subscriptions, adapters, replay, and materialization.
 - Distributed registry synchronization beyond the current file-first model.
 
+Current 1.x additions include optional typed semantic facets from a local
+`modelable.facets.json` sidecar; see the
+[getting-started guide](docs/getting-started.md#typed-semantic-facets).
+
 ## Development
 
 ```bash
@@ -227,6 +233,9 @@ Hosted: **https://ktjn.github.io/modelable/**
 - [Documentation index](docs/README.md)
 - [Language reference](docs/language-reference.md)
 - [Tooling reference](docs/cli-reference.md)
+- [Compiler reference](docs/compiler-reference.md)
+- [External integrations](docs/integrations.md)
+- [Maintainer guide](docs/maintainers.md)
 - [Architecture and system specification](docs/architecture.md)
 - [Getting started and migration](docs/getting-started.md)
 - [Sample models](samples/README.md)

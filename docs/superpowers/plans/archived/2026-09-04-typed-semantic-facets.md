@@ -1,5 +1,9 @@
 # Typed Semantic Facets Implementation Plan
 
+> **Status:** Implemented and archived after the typed semantic facets slice
+> shipped. The checklist below is retained as the historical delivery plan;
+> current behavior is documented in the language and tooling references.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add parser-independent, typed, namespaced semantic facets that are validated, propagated, preserved, and exposed consistently to policy, plan, query, browser, and native consumers.
@@ -8,7 +12,7 @@
 
 **Tech Stack:** Python 3.14, Pydantic IR models, deterministic JSON serialization, Click CLI, JSON Schema protocol fixtures, TypeScript browser protocol, pytest/xdist, and existing showcase conformance scripts.
 
-**Spec:** `docs/superpowers/specs/2026-09-04-typed-semantic-facets-design.md`
+**Spec:** `docs/superpowers/specs/archived/2026-09-04-typed-semantic-facets-design.md`
 
 ## Global Constraints
 
