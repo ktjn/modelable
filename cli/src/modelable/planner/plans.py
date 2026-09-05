@@ -39,6 +39,7 @@ from modelable.planner.lineage import ProjectionLineage, build_projection_lineag
 from modelable.planner.protocol import PLAN_SCHEMA, PLAN_V1_SCHEMA, PlanDocument, facet_documents, serialize_plan
 from modelable.registry.resolver import (
     ResolvedDeclaration,
+    annotation_owner,
     resolve_model_ref,
     resolve_named_declaration,
     resolve_ref_type,
@@ -452,14 +453,9 @@ def _field_governance_facts(
 
 
 def _field_owner(field: FieldDef | ProjectionField | None) -> str | None:
-    if field is None:
-        return None
     if not isinstance(field, FieldDef):
         return None
-    for annotation in field.annotations:
-        if annotation.kind == "owner":
-            return annotation.team
-    return None
+    return annotation_owner(field.annotations)
 
 
 def _collect_revalidation_reasons(source_block: dict[str, object], joins_block: list[dict[str, object]]) -> list[str]:
