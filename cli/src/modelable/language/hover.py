@@ -28,7 +28,7 @@ from modelable.parser.ir import (
     ProjectionVersion,
     VersionSpec,
 )
-from modelable.registry.resolver import resolve_declaration
+from modelable.registry.resolver import annotation_deprecated_replaced_by, resolve_declaration
 
 _QUALIFIED_REF_PATTERN = re.compile(
     r"(?P<domain>[A-Za-z_][A-Za-z0-9_]*)\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
@@ -494,9 +494,9 @@ def _model_field_summary(
         flags.append("pii")
     if field.classification:
         flags.append(f"classification={field.classification.value}")
-    for annotation in field.annotations:
-        if annotation.kind == "deprecated":
-            flags.append(f"deprecated replacedBy={annotation.replaced_by}")
+    replaced_by = annotation_deprecated_replaced_by(field.annotations)
+    if replaced_by is not None:
+        flags.append(f"deprecated replacedBy={replaced_by}")
     suffix = f" [{', '.join(flags)}]" if flags else ""
     return (
         f"{domain_name}.{model_name}@{version}.{field.name}\n"
