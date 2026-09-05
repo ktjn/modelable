@@ -2,7 +2,9 @@
 
 ## Status
 
-Proposed design for roadmap slice K. This slice adds extensible, typed governance facts without adding organization-specific annotations to the `.mdl` grammar.
+Implemented design for roadmap slice K. The shipped facet model adds extensible,
+typed governance facts without adding organization-specific annotations to the
+`.mdl` grammar.
 
 ## Problem and outcome
 

@@ -450,7 +450,10 @@ must not add long-lived package-index credentials to repository secrets.
 ## 7. Open Decisions
 
 - Whether governance findings become blocking CI failures is an open policy decision. Phase 1 treats them as visibility and process-support findings unless a policy wrapper promotes them to failures.
-- The PR template location and required status checks are open until repository hosting configuration is added.
+- The pull-request template is maintained at
+  [`.github/pull_request_template.md`](https://github.com/ktjn/modelable/blob/main/.github/pull_request_template.md).
+  Required status-check and branch-protection settings remain repository-hosting
+  configuration concerns.
 
 ## 8. Release Process
 

@@ -9,14 +9,17 @@ The Modelable CLI (`modelable`) is the primary developer interface for working w
 
 The CLI is designed as a phased tool: early phases focus on local authoring and compilation; later phases integrate with external registries and governance catalogs.
 
-## 2. Delivery Phases
+## 2. Current Surface and Delivery History
 
-| Phase | Scope | Status |
+| Surface | Status |
 |:------|:------|:-------|
-| 1 | Local modelling compiler (validate, resolve, lineage, diff, compile, docs, local artifact targets) | MVP |
-| 2 | Artifact registry integration (Apicurio Registry) | Implemented JSON Schema artifact publish/pull |
-| 3 | Catalog / governance integration (OpenMetadata / OpenLineage) | Local export targets implemented; live publish and runtime collection deferred |
-| 4 | Contract interchange and external spec tracking | Tracked dbt/FHIR/ODCS drift workflow implemented; local dbt/FHIR/ODCS bootstrapping and ODCS compile target implemented |
+| Local compiler, language server, and artifact targets | Supported stable surface |
+| Registry, package, query, lifecycle, migration, facet, and extension workflows | Implemented local/offline surfaces; see `modelable capabilities` and [the roadmap](https://github.com/ktjn/modelable/blob/main/ROADMAP.md) for boundaries |
+| Live catalogs, runtime collection, OCI transport, and hosted execution | Deferred or explicitly opt-in; see [the compiler reference](compiler-reference.md) |
+
+The table describes the current product surface. Historical delivery phases are
+retained in [the roadmap](https://github.com/ktjn/modelable/blob/main/ROADMAP.md)
+and its [archived roadmap](roadmap-archive-2026-08.md).
 
 ## 3. Installation and Runtime
 

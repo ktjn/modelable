@@ -666,7 +666,7 @@ auto projections Customer @ 2 {
 
 The compiler generates `CustomerDb @ 2`, `CustomerRequest @ 2`, `CustomerReply @ 2`, and `CustomerEvent @ 2` — each a distinct immutable projection version, separately tracked in lineage records.
 
-#### Constraints
+#### Auto-projection constraints
 
 - `auto projections` may only target `entity` or `aggregate` models.
 - The generated names (`CustomerDb`, `CustomerRequest`, `CustomerReply`, `CustomerEvent`) are reserved for the entity in that domain. Defining an explicit projection with one of those names for the same entity version is a compile error.
@@ -679,7 +679,7 @@ The compiler generates `CustomerDb @ 2`, `CustomerRequest @ 2`, `CustomerReply @
 
 A `semantic` declaration gives a domain-meaningful name to a primitive, `decimal(p,s)`, `binary(N)`, enum, or another semantic type. It does not introduce a new representation — the underlying type is unchanged for parsing, validation, and (where an emitter doesn't yet support semantic types) serialization. Its purpose is to let field declarations reference `ModuleId` instead of `string`, everywhere the same domain concept is used. Enum declarations may be versioned with the same `@ version (additive|breaking)` header used by models.
 
-#### Syntax
+#### Semantic-type syntax
 
 ```mdl
 domain catalog {
@@ -729,13 +729,13 @@ semantic ProductSku: RawSku
 
 Chains must be acyclic and are limited to 32 levels. Referencing an undeclared semantic type, or a self-referential/mutually-referential chain, is a compile error.
 
-#### Constraints
+#### Semantic-type constraints
 
 - The underlying type must be a primitive, `decimal(p,s)`, `binary(N)`, enum, or another semantic type — not an `array`, `map`, `object`, or model reference.
 - Versioned semantic declarations for one name must have strictly increasing versions. An additive enum version may add values but may not remove one; removing a value requires `(breaking)`. Additive versions may not change a non-enum underlying type.
 - A semantic type's name must not collide with a model name in its domain.
 
-#### Emitter support (this slice)
+#### Semantic-type emitter support (this slice)
 
 The Rust emitter generates a newtype wrapper for each `semantic` declaration,
 while the Protobuf and gRPC targets generate nominal declaring-domain wrapper
@@ -805,7 +805,7 @@ projection's last version, without the projection's own clause changing) —
 distinct from the source semantic enum's own
 `enum_member_added`/`enum_member_removed` findings.
 
-#### Emitter support (this slice)
+#### Enum-projection emitter support (this slice)
 
 The Rust emitter generates the `From`/`TryFrom` conversions described above.
 No other target currently emits a dedicated artifact for an enum projection
@@ -860,7 +860,7 @@ Each `secondary` block names a lookup index:
 
 `key` and `sort` field names reference fields on the indexed *model* — not a projection. Both `primary` and every `secondary`'s `key`/`sort` list are validated against the model version's own fields at compile time.
 
-#### Constraints
+#### Index constraints
 
 - `index` may only target `entity` or `aggregate` models (the only kinds that carry `@key`).
 - One `index` declaration per model version — declaring it twice for the same `(model, version)` is a compile error.
