@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
@@ -69,14 +69,24 @@ class ResolvedMember:
     @property
     def owner(self) -> str | None:
         """Return the owning team declared for this member, when present."""
-        annotation = next((item for item in self.annotations if isinstance(item, AnnOwner)), None)
-        return annotation.team if annotation is not None else None
+        return annotation_owner(self.annotations)
 
     @property
     def deprecated_replaced_by(self) -> str | None:
         """Return the replacement member named by a deprecation annotation."""
-        annotation = next((item for item in self.annotations if isinstance(item, AnnDeprecated)), None)
-        return annotation.replaced_by if annotation is not None else None
+        return annotation_deprecated_replaced_by(self.annotations)
+
+
+def annotation_owner(annotations: Iterable[Annotation]) -> str | None:
+    """Return the owning team declared among the given annotations, when present."""
+    annotation = next((item for item in annotations if isinstance(item, AnnOwner)), None)
+    return annotation.team if annotation is not None else None
+
+
+def annotation_deprecated_replaced_by(annotations: Iterable[Annotation]) -> str | None:
+    """Return the replacement named by a deprecation annotation among the given annotations."""
+    annotation = next((item for item in annotations if isinstance(item, AnnDeprecated)), None)
+    return annotation.replaced_by if annotation is not None else None
 
 
 def _iter_declaration_candidates(mdl: MdlFile) -> Iterator[_DeclarationCandidate]:

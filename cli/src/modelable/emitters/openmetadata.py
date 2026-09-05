@@ -6,7 +6,6 @@ from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.openmetadata_plan import emit_openmetadata_projection_plan
 from modelable.parser.ir import (
-    AnnOwner,
     ArrayType,
     DecimalType,
     DomainDef,
@@ -23,6 +22,7 @@ from modelable.parser.ir import (
 )
 from modelable.planner.plans import build_plan_documents
 from modelable.planner.protocol import PLAN_V1_SCHEMA
+from modelable.registry.resolver import annotation_owner
 
 
 def emit_openmetadata(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
@@ -100,10 +100,7 @@ def _asset_fqn(domain: str, name: str, version: int) -> str:
 
 
 def _owner(field: FieldDef) -> str | None:
-    for annotation in field.annotations:
-        if isinstance(annotation, AnnOwner):
-            return annotation.team
-    return None
+    return annotation_owner(field.annotations)
 
 
 def _type_name(field_type: FieldType) -> str:
