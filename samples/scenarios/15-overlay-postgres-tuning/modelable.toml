@@ -1,0 +1,3 @@
+[[target]]
+name = "sql-postgres"
+overlay = "modelable.extensions/postgres.toml"
