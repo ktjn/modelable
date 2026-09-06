@@ -1,0 +1,13 @@
+domain warehouse {
+  owner: "scenario-team"
+
+  entity StockItem @ 1 (additive) {
+    @key itemId: uuid
+    sku: string
+    quantityOnHand: int
+  }
+
+  auto projections StockItem @ 1 {
+    db
+  }
+}

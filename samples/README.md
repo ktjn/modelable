@@ -33,6 +33,7 @@ contributors can run without access to private downstream projects. See
 | 12 | `12-loyalty-tier-evolution` | Loyalty Program Membership Evolution | Core Language | Medium | [Language reference](../docs/language-reference.md) §2.7, §3.8, §3.8.1 |
 | 13 | `13-composite-key-order-lines` | Composite Identity Order Lines | Core Language | Low | [Language reference](../docs/language-reference.md) §3.9 |
 | 14 | `14-regulated-customer-facets` | Regulated Customer Governance Facets | Core Language | Low | [Language reference](../docs/language-reference.md) §2.3.1 |
+| 15 | `15-overlay-postgres-tuning` | PostgreSQL Target Overlay | Core Language | Low | [Emitter extension overlays](../docs/emitter-extension-overlays.md) |
 
 ---
 
@@ -295,6 +296,18 @@ Key techniques demonstrated:
 - Two `declaration`-subject facets (`confidentiality`, `jurisdiction`) with `propagation: inherit` attach to `customer.CustomerRecord@1` as a whole and flow down to every field queried on it
 - Two `field`-subject facets (`data-subject`, `retention-class`) with `propagation: project` attach to individual fields and flow forward into `customer.CustomerEmail@1`'s corresponding projection field
 - `modelable query scenarios/14-regulated-customer-facets --request REQUEST.json` with a `facets` request against `customer.CustomerRecord@1#email` returns all three facets that reach that field (its own `data-subject` facet plus the two inherited declaration-level facets, each reporting its originating `source.subject`); the same query against `customer.CustomerEmail@1#email` returns only the `project`-propagated `data-subject` facet, tracing back to its source field
+
+---
+
+### 15. PostgreSQL Target Overlay (`scenarios/15-overlay-postgres-tuning/`)
+
+A `warehouse` domain's `StockItem` entity gets a compiler-generated `db` projection with default snake_case naming, then a non-executable overlay renames its table and one column without touching `.mdl` at all — target representation stays entirely outside the semantic language, per [Emitter extension overlays](../docs/emitter-extension-overlays.md) §1.
+
+Key techniques demonstrated:
+- Without an overlay, `auto projections StockItem @ 1 { db }` compiles to `CREATE TABLE stock_item_db (item_id ..., sku ..., quantity_on_hand ...)` — the default snake_case derivation
+- `modelable.extensions/postgres.toml` (validated against the real, checked-in `sql-postgres-v1.schema.json`) renames the table to `warehouse_stock` and the `quantityOnHand` column to `qty_on_hand`, keyed by the **source entity's** canonical identity (`warehouse.StockItem@1`, `warehouse.StockItem@1#quantityOnHand`) — overlay selectors for a `db` projection target the entity it was generated from, not the generated projection's own identity
+- `modelable.toml`'s `[[target]] name = "sql-postgres"\noverlay = "modelable.extensions/postgres.toml"` selects the overlay automatically; `modelable compile scenarios/15-overlay-postgres-tuning --target sql-postgres --out ...` picks it up with no `--overlay` flag needed, and an explicit `--overlay modelable.extensions/postgres.toml` produces byte-identical output
+- The `#:schema` comment at the top of the overlay file is editor/tooling metadata (TOML syntax highlighting, completion, validation), not something the compiler requires
 
 ---
 
