@@ -1,6 +1,7 @@
 import type { Node, Edge } from '@xyflow/react';
 
 import type {
+  BrowserFacetRecord,
   BrowserGraphEdge,
   BrowserGraphMode,
   BrowserGraphNode,
@@ -20,6 +21,14 @@ export interface GraphNodeData {
 }
 
 export type GraphNode = Node<GraphNodeData>;
+
+/** Reads `metadata.facets` from a graph node, which `_with_browser_graph_facets` in
+ * `browser/api.py` populates for `model_version`/`field`/`projection_version`/`projection_field`
+ * subjects only; other node kinds never carry this key. */
+export function facetsFromMetadata(metadata: Record<string, unknown>): BrowserFacetRecord[] {
+  const facets = metadata.facets;
+  return Array.isArray(facets) ? (facets as BrowserFacetRecord[]) : [];
+}
 
 export interface GraphEdgeData {
   kind: string;

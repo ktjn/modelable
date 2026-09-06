@@ -249,6 +249,24 @@ export interface BrowserSourceRange {
   end_character: number;
 }
 
+export interface BrowserFacetRecordSource {
+  subject: string;
+  location?: string;
+  lineage?: string;
+}
+
+/** A single resolved facet, as `_with_browser_graph_facets` in `browser/api.py` attaches to
+ * `metadata.facets` on graph nodes. Distinct from `BrowserFacetDocument`, which is the whole
+ * `modelable.facets/v1` sidecar file. */
+export interface BrowserFacetRecord {
+  identity: string;
+  value: unknown;
+  subject: string;
+  propagation: 'none' | 'inherit' | 'project';
+  interpretation: 'known' | 'unknown';
+  source?: BrowserFacetRecordSource;
+}
+
 export interface BrowserGraphNode {
   id: string;
   kind: string;
