@@ -273,8 +273,8 @@ Keep universal built-ins small: identity, ownership, classification, PII, deprec
 - [x] F — lifecycle metadata complete.
 - [ ] G — WASM extension ABI complete.
 - [x] H — `modelable.query/v1` complete.
-- [ ] I — declaration-level evolution mappings complete.
-- [ ] J — compatibility profiles complete.
+- [x] I — declaration-level evolution mappings complete.
+- [x] J — compatibility profiles complete.
 - [x] K — typed semantic facets complete.
 
 Recommended implementation order:
