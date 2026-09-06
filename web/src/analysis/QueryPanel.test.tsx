@@ -75,6 +75,23 @@ describe('QueryPanel', () => {
     });
   });
 
+  test('clears entered field values when the query family changes', () => {
+    const query = vi.fn();
+    renderPanel(query);
+
+    fireEvent.change(screen.getByLabelText('Id'), { target: { value: 'a.A@1' } });
+    fireEvent.change(screen.getByLabelText('Query'), { target: { value: 'changes' } });
+
+    expect((screen.getByLabelText('From') as HTMLInputElement).value).toBe('');
+    expect((screen.getByLabelText('To') as HTMLInputElement).value).toBe('');
+
+    fireEvent.change(screen.getByLabelText('From'), { target: { value: 'a.A@1' } });
+    fireEvent.change(screen.getByLabelText('To'), { target: { value: 'a.A@2' } });
+    fireEvent.change(screen.getByLabelText('Query'), { target: { value: 'declaration' } });
+
+    expect((screen.getByLabelText('Id') as HTMLInputElement).value).toBe('');
+  });
+
   test('shows an error message when the query rejects', async () => {
     const query = vi.fn().mockRejectedValue(new Error('boom'));
     renderPanel(query);

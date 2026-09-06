@@ -84,6 +84,9 @@ export function QueryPanel({ clientRef, runtimeReady, workspaceRevisionRef }: Qu
               setKind(event.target.value as BrowserQueryKind);
               setResult(null);
               setError(null);
+              setId('');
+              setFrom('');
+              setTo('');
             }}
           >
             {QUERY_KINDS.map((value) => (
