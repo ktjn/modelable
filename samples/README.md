@@ -281,7 +281,7 @@ Key techniques demonstrated:
 - `auto projections OrderLine @ 1 { db }` compiles to a real composite `PRIMARY KEY (order_id, line_number)` on `sql-postgres`
 - Composite-key support is admitted per target through capability negotiation rather than universally: `json-schema`, `sql-postgres`, `sql-clickhouse`, `protobuf`, `grpc`, and `openapi` currently emit it correctly; other targets (e.g. `rust`) explicitly refuse to compile with `target 'modelable.target.rust' does not support required capability 'composite-keys'` rather than silently dropping a key field — try `modelable compile scenarios/13-composite-key-order-lines --target rust --out /tmp/out` to see the explicit rejection yourself
 
-Domains: `orders`
+See the [language reference](../docs/language-reference.md) §3.9 (index declarations) for the ordered `@key`/`primary` rules.
 
 ---
 
