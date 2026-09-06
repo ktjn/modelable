@@ -35,6 +35,7 @@ contributors can run without access to private downstream projects. See
 | 14 | `14-regulated-customer-facets` | Regulated Customer Governance Facets | Core Language | Low | [Language reference](../docs/language-reference.md) §2.3.1 |
 | 15 | `15-overlay-postgres-tuning` | PostgreSQL Target Overlay | Core Language | Low | [Emitter extension overlays](../docs/emitter-extension-overlays.md) |
 | 16 | `16-model-package-release` | Semantic Package Release | Core Language | Low | [CLI reference](../docs/cli-reference.md) §10.7.1 |
+| 17 | `17-declaration-rename-migration` | Declaration Rename Migration Lineage | Core Language | Low | [CLI reference](../docs/cli-reference.md) §10.7.3 |
 
 ---
 
@@ -333,6 +334,18 @@ Key techniques demonstrated:
 - `modelable registry update . --package-manifest modelable.package.toml --out .modelable` snapshots the workspace and persists the package identity/exports into `.modelable/registry.lock` — the local input `package pack` verifies against
 - `modelable package pack modelable.package.toml --snapshot .modelable --out catalog.modelable-package` produces a single deterministic, content-hashed artifact from that verified snapshot
 - `modelable package verify catalog.modelable-package` and `modelable package unpack catalog.modelable-package --out unpacked/` both work from the artifact alone — verification re-derives the content hash rather than trusting the file name or a side channel
+
+---
+
+### 17. Declaration Rename Migration Lineage (`scenarios/17-declaration-rename-migration/`)
+
+An `accounts` domain declares only the *current* name of a renamed entity; an external `modelable.migration/v1` document records that it used to be called something else entirely, in a different domain, per [CLI reference](../docs/cli-reference.md) §10.7.3.
+
+Key techniques demonstrated:
+- `accounts.Account@1` is the only declaration that actually exists in `.mdl` source — `legacy.LegacyAccount@2`, its pre-rename identity, is never compiled anywhere; migration mappings can reference retired identities that no longer exist in current source
+- `modelable.migration.json`'s one `rename` mapping (`sources: ["legacy.LegacyAccount@2"]`, `targets: ["accounts.Account@1"]`) is a genuine relocation across both name and domain — the case migration mappings exist for, distinct from scenario 10's plain field *removal* (no target, nothing to relocate to)
+- `modelable migration validate modelable.migration.json` and `modelable migration inspect modelable.migration.json` check and print the canonical mapping entirely offline, independent of any workspace
+- `modelable query . --request REQUEST.json --migration modelable.migration.json` with a `lineage` request for `accounts.Account@1` returns a `migrates_to` edge whose source is `legacy.LegacyAccount@2` and target is `accounts.Account@1`, with both endpoints represented as explicit `migration_reference` graph nodes rather than silently omitted because the source no longer compiles
 
 ---
 

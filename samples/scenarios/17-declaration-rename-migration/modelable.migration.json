@@ -1,0 +1,6 @@
+{
+  "$schema": "modelable.migration/v1",
+  "mappings": [
+    {"kind": "rename", "sources": ["legacy.LegacyAccount@2"], "targets": ["accounts.Account@1"]}
+  ]
+}
