@@ -1,0 +1,8 @@
+domain accounts {
+  owner: "scenario-team"
+
+  entity Account @ 1 (additive) {
+    @key accountId: uuid
+    displayName: string
+  }
+}
