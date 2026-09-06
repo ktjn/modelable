@@ -32,6 +32,7 @@ contributors can run without access to private downstream projects. See
 | 11 | `11-fleet-telemetry-type-system` | IoT Fleet Telemetry | Core Language | Medium | [Language reference](../docs/language-reference.md) §2.1, §3.8, §3.9 |
 | 12 | `12-loyalty-tier-evolution` | Loyalty Program Membership Evolution | Core Language | Medium | [Language reference](../docs/language-reference.md) §2.7, §3.8, §3.8.1 |
 | 13 | `13-composite-key-order-lines` | Composite Identity Order Lines | Core Language | Low | [Language reference](../docs/language-reference.md) §3.9 |
+| 14 | `14-regulated-customer-facets` | Regulated Customer Governance Facets | Core Language | Low | [Language reference](../docs/language-reference.md) §2.3.1 |
 
 ---
 
@@ -282,6 +283,18 @@ Key techniques demonstrated:
 - Composite-key support is admitted per target through capability negotiation rather than universally: `json-schema`, `sql-postgres`, `sql-clickhouse`, `protobuf`, `grpc`, and `openapi` currently emit it correctly; other targets (e.g. `rust`) explicitly refuse to compile with `target 'modelable.target.rust' does not support required capability 'composite-keys'` rather than silently dropping a key field — try `modelable compile scenarios/13-composite-key-order-lines --target rust --out /tmp/out` to see the explicit rejection yourself
 
 See the [language reference](../docs/language-reference.md) §3.9 (index declarations) for the ordered `@key`/`primary` rules.
+
+---
+
+### 14. Regulated Customer Governance Facets (`scenarios/14-regulated-customer-facets/`)
+
+A single `customer` domain with one entity and one projection carries four independent governance facts through an optional `modelable.facets.json` sidecar — none of them are `.mdl` annotations or grammar.
+
+Key techniques demonstrated:
+- `modelable.facets.json` declares four namespaced, versioned facet schemas (`confidentiality`, `jurisdiction`, `data-subject`, `retention-class`), each with its own finite value schema, allowed subject kinds, and propagation mode, per [Language reference](../docs/language-reference.md) §2.3.1
+- Two `declaration`-subject facets (`confidentiality`, `jurisdiction`) with `propagation: inherit` attach to `customer.CustomerRecord@1` as a whole and flow down to every field queried on it
+- Two `field`-subject facets (`data-subject`, `retention-class`) with `propagation: project` attach to individual fields and flow forward into `customer.CustomerEmail@1`'s corresponding projection field
+- `modelable query scenarios/14-regulated-customer-facets --request REQUEST.json` with a `facets` request against `customer.CustomerRecord@1#email` returns all three facets that reach that field (its own `data-subject` facet plus the two inherited declaration-level facets, each reporting its originating `source.subject`); the same query against `customer.CustomerEmail@1#email` returns only the `project`-propagated `data-subject` facet, tracing back to its source field
 
 ---
 

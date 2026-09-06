@@ -1,0 +1,14 @@
+domain customer {
+  owner: "scenario-team"
+
+  entity CustomerRecord @ 1 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+
+  projection CustomerEmail @ 1
+    from customer.CustomerRecord @ 1 as c
+  {
+    email <- c.email
+  }
+}
