@@ -491,3 +491,76 @@ domain platform {
     assert "No artifacts generated." in result.output
     assert out.is_dir()
     assert (out / "modelable-artifact-manifest.json").exists()
+
+
+_WAREHOUSE_OVERLAY_MDL = """
+domain warehouse {
+  owner: "scenario-team"
+
+  entity StockItem @ 1 (additive) {
+    @key itemId: uuid
+    sku: string
+    quantityOnHand: int
+  }
+
+  auto projections StockItem @ 1 {
+    db
+  }
+}
+"""
+
+_WAREHOUSE_OVERLAY_TOML = """
+target = "sql-postgres"
+version = 1
+
+[models."warehouse.StockItem@*"]
+table = "warehouse_stock"
+
+[fields."warehouse.StockItem@1#quantityOnHand"]
+column = "qty_on_hand"
+"""
+
+
+def test_cli_and_browser_compile_apply_the_same_overlay_resolution(tmp_path: Path) -> None:
+    """The browser worker resolves overlays via the same `overlays.parse_overlay` +
+    `emit_sql` code path as the CLI's `--overlay` flag; this proves they stay equivalent."""
+    mdl = tmp_path / "warehouse.mdl"
+    mdl.write_text(_WAREHOUSE_OVERLAY_MDL, encoding="utf-8")
+    overlay = tmp_path / "postgres.toml"
+    overlay.write_text(_WAREHOUSE_OVERLAY_TOML, encoding="utf-8")
+    out = tmp_path / "dist" / "sql"
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "compile",
+            str(mdl),
+            "--target",
+            "sql-postgres",
+            "--overlay",
+            str(overlay),
+            "--out",
+            str(out),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+
+    generated = list(out.rglob("*.sql"))
+    assert len(generated) == 1
+    cli_output = generated[0].read_text(encoding="utf-8")
+
+    from modelable.browser import BrowserCompiler, BrowserSource
+
+    browser_result = BrowserCompiler().compile(
+        (BrowserSource(uri="inmemory:///warehouse.mdl", text=_WAREHOUSE_OVERLAY_MDL, version=1),),
+        "sql-postgres",
+        _WAREHOUSE_OVERLAY_TOML,
+    )
+    assert browser_result.diagnostics == ()
+    assert len(browser_result.artifacts) == 1
+    browser_output = browser_result.artifacts[0].content
+    assert isinstance(browser_output, str)
+
+    assert "warehouse_stock" in cli_output
+    assert "qty_on_hand" in cli_output
+    assert cli_output == browser_output

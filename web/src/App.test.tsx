@@ -499,7 +499,80 @@ describe('App', () => {
     expect(client.compile).toHaveBeenLastCalledWith(
       client.openWorkspace.mock.calls.at(-1)?.[1],
       'jsonSchema',
+      undefined,
     );
+  });
+
+  test('threads a loaded overlay file into compile and clears it on request', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Target language' }), {
+      target: { value: 'sql-postgres' },
+    });
+
+    const overlayFile = new File(['target = "sql-postgres"\nversion = 1\n'], 'postgres.toml', {
+      type: 'application/toml',
+    });
+    fireEvent.change(screen.getByLabelText<HTMLInputElement>('Overlay file'), {
+      target: { files: [overlayFile] },
+    });
+    await waitFor(() => {
+      expect(screen.getByText('postgres.toml')).toBeTruthy();
+    });
+
+    fireEvent.click(generateButton());
+    expect(client.compile).toHaveBeenLastCalledWith(
+      client.openWorkspace.mock.calls.at(-1)?.[1],
+      'sql-postgres',
+      'target = "sql-postgres"\nversion = 1\n',
+    );
+    await act(async () => {
+      const request = latestRequest(client.compileRequests);
+      request.resolve({ diagnostics: [], artifacts: [] });
+      await request.promise;
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear overlay' }));
+    expect(screen.queryByText('postgres.toml')).toBeNull();
+
+    fireEvent.click(generateButton());
+    expect(client.compile).toHaveBeenLastCalledWith(
+      client.openWorkspace.mock.calls.at(-1)?.[1],
+      'sql-postgres',
+      undefined,
+    );
+  });
+
+  test('clears a loaded overlay when switching to a target without overlay support', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Target language' }), {
+      target: { value: 'sql-postgres' },
+    });
+    const overlayFile = new File(['target = "sql-postgres"\nversion = 1\n'], 'postgres.toml', {
+      type: 'application/toml',
+    });
+    fireEvent.change(screen.getByLabelText<HTMLInputElement>('Overlay file'), {
+      target: { files: [overlayFile] },
+    });
+    await waitFor(() => {
+      expect(screen.getByText('postgres.toml')).toBeTruthy();
+    });
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Target language' }), {
+      target: { value: 'jsonSchema' },
+    });
+
+    expect(screen.queryByLabelText('Overlay file')).toBeNull();
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Target language' }), {
+      target: { value: 'sql-postgres' },
+    });
+    expect(screen.queryByText('postgres.toml')).toBeNull();
   });
 
   test('shows an error toast when listing WebLLM models fails', async () => {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import tomllib
 from collections.abc import Mapping
 from dataclasses import replace
 from types import MappingProxyType
@@ -62,6 +63,7 @@ from modelable.language.rename import InvalidRenameError
 from modelable.language.rename import prepare_rename as language_prepare_rename
 from modelable.language.rename import rename as language_rename
 from modelable.language.workspace import LanguageDocument, LanguageWorkspace
+from modelable.overlays import OverlayDocument, OverlayError, parse_overlay
 from modelable.parser.ir import ParseError
 from modelable.parser.parse import parse_text_to_ir
 from modelable.planner.plans import build_plan_documents
@@ -102,6 +104,19 @@ def _browser_diagnostic(diagnostic: Diagnostic) -> BrowserDiagnostic:
         column=diagnostic.column,
         end_line=diagnostic.end_line,
         end_column=diagnostic.end_column,
+    )
+
+
+def _overlay_diagnostic(message: str, uri: str) -> BrowserDiagnostic:
+    return BrowserDiagnostic(
+        code="OVERLAY",
+        severity="error",
+        message=message,
+        uri=uri,
+        line=None,
+        column=None,
+        end_line=None,
+        end_column=None,
     )
 
 
@@ -438,6 +453,7 @@ class BrowserCompiler:
         self,
         sources: tuple[BrowserSource, ...],
         target: str,
+        overlay: str | None = None,
     ) -> BrowserCompileResult:
         _validate_sources(sources)
         workspace = _load_workspace(sources)
@@ -481,6 +497,28 @@ class BrowserCompiler:
                 artifacts=(),
             )
 
+        overlay_document: OverlayDocument | None = None
+        if overlay is not None:
+            if target not in ("sql-postgres", "sql-clickhouse"):
+                return BrowserCompileResult(
+                    diagnostics=(
+                        _overlay_diagnostic("Overlays are currently supported only for SQL targets.", sources[0].uri),
+                    ),
+                    artifacts=(),
+                )
+            try:
+                overlay_document = parse_overlay(tomllib.loads(overlay))
+            except tomllib.TOMLDecodeError as error:
+                return BrowserCompileResult(
+                    diagnostics=(_overlay_diagnostic(f"cannot parse overlay: {error}", sources[0].uri),),
+                    artifacts=(),
+                )
+            except OverlayError as error:
+                return BrowserCompileResult(
+                    diagnostics=(_overlay_diagnostic(str(error), sources[0].uri),),
+                    artifacts=(),
+                )
+
         if target == "jsonSchema":
             emitted = emit_json_schema_artifacts(workspace)
             media_type = "application/schema+json"
@@ -488,10 +526,22 @@ class BrowserCompiler:
             emitted = emit_typescript(workspace, out)
             media_type = "application/typescript"
         elif target == "sql-postgres":
-            emitted = emit_sql(workspace, out, "postgres")
+            try:
+                emitted = emit_sql(workspace, out, "postgres", overlay_document)
+            except OverlayError as error:
+                return BrowserCompileResult(
+                    diagnostics=(_overlay_diagnostic(str(error), sources[0].uri),),
+                    artifacts=(),
+                )
             media_type = "application/sql"
         elif target == "sql-clickhouse":
-            emitted = emit_sql(workspace, out, "clickhouse")
+            try:
+                emitted = emit_sql(workspace, out, "clickhouse", overlay_document)
+            except OverlayError as error:
+                return BrowserCompileResult(
+                    diagnostics=(_overlay_diagnostic(str(error), sources[0].uri),),
+                    artifacts=(),
+                )
             media_type = "application/sql"
         elif target == "protobuf":
             emitted = emit_protobuf(workspace, out)

@@ -36,6 +36,16 @@ export async function readWorkspaceFiles(
   return imported.sort((left, right) => left.path.localeCompare(right.path));
 }
 
+export async function readOverlayFile(file: File): Promise<string> {
+  if (!/\.toml$/i.test(file.name)) {
+    throw new Error('Choose a .toml overlay file');
+  }
+  if (file.size > MAX_IMPORT_BYTES) {
+    throw new Error('Overlay files must be 1 MiB or smaller');
+  }
+  return file.text();
+}
+
 export function sanitizeDownloadName(
   name: string,
   extension: string,

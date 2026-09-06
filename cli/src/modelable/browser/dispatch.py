@@ -190,11 +190,16 @@ def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
         _require_exact_fields(payload, {"source"})
         return _compiler.format_source(_source(payload["source"]))
     if method == "compile":
-        _require_exact_fields(payload, {"sources", "target"})
+        allowed = {"sources", "target", "overlay"}
+        if not {"sources", "target"}.issubset(payload) or set(payload) - allowed:
+            raise BrowserRequestValidationError("Payload does not match method schema")
         target = payload["target"]
         if not isinstance(target, str):
             raise BrowserRequestValidationError("target must be a string")
-        return _compiler.compile(_sources(payload["sources"]), target)
+        overlay = payload.get("overlay")
+        if overlay is not None and not isinstance(overlay, str):
+            raise BrowserRequestValidationError("overlay must be a string")
+        return _compiler.compile(_sources(payload["sources"]), target, overlay)
     if method == "compile.jsonSchema":
         _require_exact_fields(payload, {"sources"})
         return _compiler.compile_json_schema(_sources(payload["sources"]))

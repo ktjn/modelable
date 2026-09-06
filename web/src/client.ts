@@ -258,10 +258,11 @@ export class BrowserCompilerClient {
   async compile(
     sources: BrowserSource[],
     target: CompileTarget,
+    overlay?: string,
   ): Promise<BrowserCompileResult> {
     return this.initializedRequest(
       'compile',
-      { sources, target },
+      overlay === undefined ? { sources, target } : { sources, target, overlay },
       isBrowserCompileResult,
     );
   }

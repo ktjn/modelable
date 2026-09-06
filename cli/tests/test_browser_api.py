@@ -371,6 +371,124 @@ def test_compile_json_schema_blocks_duplicate_definitions_across_uris():
     )
 
 
+WAREHOUSE_SOURCE_TEXT = (
+    "domain warehouse {\n"
+    '  owner: "scenario-team"\n'
+    "  entity StockItem @ 1 (additive) {\n"
+    "    @key itemId: uuid\n"
+    "    sku: string\n"
+    "    quantityOnHand: int\n"
+    "  }\n"
+    "  auto projections StockItem @ 1 {\n"
+    "    db\n"
+    "  }\n"
+    "}\n"
+)
+WAREHOUSE_OVERLAY_TOML = (
+    'target = "sql-postgres"\n'
+    "version = 1\n"
+    '[models."warehouse.StockItem@*"]\n'
+    'table = "warehouse_stock"\n'
+    '[fields."warehouse.StockItem@1#quantityOnHand"]\n'
+    'column = "qty_on_hand"\n'
+)
+
+
+def test_compile_applies_overlay_to_sql_postgres_output():
+    source = BrowserSource(uri="inmemory:///warehouse.mdl", text=WAREHOUSE_SOURCE_TEXT, version=1)
+
+    result = BrowserCompiler().compile((source,), "sql-postgres", WAREHOUSE_OVERLAY_TOML)
+
+    assert result.diagnostics == ()
+    assert len(result.artifacts) == 1
+    content = result.artifacts[0].content
+    assert isinstance(content, str)
+    assert "warehouse_stock" in content
+    assert "qty_on_hand" in content
+    assert "quantity_on_hand" not in content
+
+
+def test_compile_rejects_overlay_for_non_sql_target():
+    source = BrowserSource(uri="inmemory:///warehouse.mdl", text=WAREHOUSE_SOURCE_TEXT, version=1)
+
+    result = BrowserCompiler().compile((source,), "jsonSchema", WAREHOUSE_OVERLAY_TOML)
+
+    assert result.artifacts == ()
+    assert len(result.diagnostics) == 1
+    assert result.diagnostics[0].code == "OVERLAY"
+    assert "SQL targets" in result.diagnostics[0].message
+
+
+def test_compile_rejects_overlay_target_mismatch():
+    source = BrowserSource(uri="inmemory:///warehouse.mdl", text=WAREHOUSE_SOURCE_TEXT, version=1)
+    mismatched_overlay = WAREHOUSE_OVERLAY_TOML.replace("sql-postgres", "sql-clickhouse")
+
+    result = BrowserCompiler().compile((source,), "sql-postgres", mismatched_overlay)
+
+    assert result.artifacts == ()
+    assert len(result.diagnostics) == 1
+    assert result.diagnostics[0].code == "OVERLAY"
+
+
+def test_compile_rejects_malformed_overlay_toml():
+    source = BrowserSource(uri="inmemory:///warehouse.mdl", text=WAREHOUSE_SOURCE_TEXT, version=1)
+
+    result = BrowserCompiler().compile((source,), "sql-postgres", "not valid toml {{{")
+
+    assert result.artifacts == ()
+    assert len(result.diagnostics) == 1
+    assert result.diagnostics[0].code == "OVERLAY"
+
+
+def test_compile_without_overlay_argument_is_unaffected():
+    source = BrowserSource(uri="inmemory:///warehouse.mdl", text=WAREHOUSE_SOURCE_TEXT, version=1)
+
+    result = BrowserCompiler().compile((source,), "sql-postgres")
+
+    assert result.diagnostics == ()
+    assert len(result.artifacts) == 1
+    content = result.artifacts[0].content
+    assert isinstance(content, str)
+    assert "warehouse_stock" not in content
+    assert "qty_on_hand" not in content
+
+
+def test_dispatch_compile_threads_overlay_field():
+    response = json.loads(
+        dispatch_browser_request(
+            "compile",
+            json.dumps(
+                {
+                    "sources": [{"uri": "inmemory:///warehouse.mdl", "text": WAREHOUSE_SOURCE_TEXT, "version": 1}],
+                    "target": "sql-postgres",
+                    "overlay": WAREHOUSE_OVERLAY_TOML,
+                }
+            ),
+        )
+    )
+
+    assert response["result"]["diagnostics"] == []
+    content = response["result"]["artifacts"][0]["content"]
+    assert "warehouse_stock" in content
+
+
+def test_dispatch_compile_rejects_non_string_overlay():
+    response = json.loads(
+        dispatch_browser_request(
+            "compile",
+            json.dumps(
+                {
+                    "sources": [{"uri": "inmemory:///warehouse.mdl", "text": WAREHOUSE_SOURCE_TEXT, "version": 1}],
+                    "target": "sql-postgres",
+                    "overlay": 42,
+                }
+            ),
+        )
+    )
+
+    assert response["error"]["code"] == "INVALID_REQUEST"
+
+
 def test_dispatch_opens_workspace_from_json():
     response = json.loads(
         dispatch_browser_request(
