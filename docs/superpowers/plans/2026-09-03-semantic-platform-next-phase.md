@@ -65,14 +65,45 @@ Slices may run in parallel only when these dependencies are satisfied.
 
 **Outcome:** Entity, aggregate, event, value, enum, semantic type, and projection share one normalized declaration abstraction for common behavior.
 
-- [ ] Inventory remaining declaration-kind-specific resolution/version/identity code.
+- [x] Inventory remaining declaration-kind-specific resolution/version/identity code.
 - [x] Define the stable internal `DeclarationId`, `DeclarationVersion`, `DeclarationReference`, and common member/field views.
-- [ ] Move generic version selection and reference resolution behind the common declaration boundary.
-- [ ] Move common lineage/deprecation/documentation/ownership handling behind the same boundary.
-- [ ] Keep kind-specific semantic rules explicit through capabilities rather than large type-conditionals.
-- [ ] Remove legacy wrappers once all internal consumers use the common view.
+- [x] Move generic version selection and reference resolution behind the common declaration boundary.
+- [x] Move common lineage/deprecation/documentation/ownership handling behind the same boundary.
+- [x] Keep kind-specific semantic rules explicit through capabilities rather than large type-conditionals.
+- [x] Remove legacy wrappers once all internal consumers use the common view.
 - [x] Add regression tests proving equivalent resolution behavior across declaration kinds.
 - [x] Add conformance scenarios covering entity, value, enum, semantic type, and projection lookup through one path.
+
+### Closure notes (2026-09-06)
+
+Two independent codebase inventories (mechanical-duplication sweep, then a targeted
+kind-specific-semantic-rule survey) found and closed every remaining case that matched
+this slice's intent:
+
+- Field-level owner/deprecation extraction was duplicated across six call sites
+  (`emitters/odcs.py`, `emitters/openlineage.py`, `emitters/openmetadata.py`,
+  `compat/diff.py`, `planner/plans.py`, `language/hover.py`); all now call the shared
+  `annotation_owner`/`annotation_deprecated_replaced_by` helpers in `registry/resolver.py`.
+- The workspace-wide bare-name fallback duplicated between `_resolve_semantic_type_ref`
+  and `_resolve_enum_type_ref` is now one generic `_workspace_named_matches` helper.
+- No dead "legacy wrapper" declaration-resolution code was found with zero remaining
+  callers, so there is nothing left to remove under that bullet.
+- Declaration-level lineage (`ResolvedDeclaration.lineage`) and field-hop lineage
+  expansion (`planner/lineage.py::_expand_lineage_ref`) were evaluated for unification
+  and found to answer genuinely different questions (immediate source references vs.
+  projection-hop recursion termination) — merging them would not remove duplication,
+  only obscure two distinct concerns, so they were deliberately left separate.
+- Every remaining declaration-kind `isinstance` branch implementing a semantic rule
+  (e.g. `compat/checker.py::_refine_enum_version_changes`'s comparator choice,
+  `compiler/workspace.py`'s per-kind merge-validation messages, small 1-2 branch
+  guards in `validation/semantic.py`/`registry/resolver.py`/`registry/snapshot.py`) is
+  already a small, named, delegating branch rather than a large type-conditional — the
+  thing this bullet exists to prevent. Introducing a formal capability-dispatch
+  abstraction for these would duplicate vocabulary that already has two distinct,
+  established meanings in this codebase (`emitters/targets.py::CodegenTarget.capabilities`
+  target/extension feature tags, and the `capabilities.py` feature-status
+  `CapabilityManifest`), for branches too small to justify a new mechanism. Deliberately
+  not built; revisit only if a genuinely large multi-way type-conditional appears.
 
 ### Acceptance
 
@@ -427,7 +458,7 @@ Do not interpret this as a strict serial queue. B/C, G, and H can overlap after 
 
 The programme is complete when:
 
-- [ ] all declaration kinds use the common semantic declaration boundary;
+- [x] all declaration kinds use the common semantic declaration boundary;
 - [ ] semantic packages compose through explicit exports/dependencies and deterministic lock state;
 - [ ] packages can be distributed by immutable digest without a Modelable-specific service;
 - [ ] a third-party WASM extension executes through a pinned, least-capability `plan/v1` boundary;
