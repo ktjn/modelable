@@ -30,6 +30,7 @@ import type { SourceEditorHandle } from './editor/types';
 import {
   downloadText,
   downloadRecoveryData,
+  readOverlayFile,
   type ImportedWorkspaceFile,
   sanitizeDownloadName,
 } from './files';
@@ -58,7 +59,7 @@ import { GraphPanelContainer } from './visualization/GraphPanelContainer';
 import { ResizableLayout } from './layout/ResizableLayout';
 import { BottomPanel } from './layout/BottomPanel';
 import { WorkbenchHeader } from './layout/WorkbenchHeader';
-import { Toolbar } from './layout/Toolbar';
+import { OVERLAY_SUPPORTED_TARGETS, Toolbar } from './layout/Toolbar';
 import { MetricsFooter } from './layout/MetricsFooter';
 import { ViewTabs, type MobileView } from './layout/ViewTabs';
 import { RightPanel, type RightPanelTab } from './layout/RightPanel';
@@ -313,6 +314,9 @@ function AppInner({
     'Language services starting…',
   );
   const [languageCanRetry, setLanguageCanRetry] = useState(false);
+  const [overlayText, setOverlayText] = useState<string | null>(null);
+  const [overlayFileName, setOverlayFileName] = useState<string | null>(null);
+  const [overlayError, setOverlayError] = useState<string | null>(null);
   const { preference: themePreference, resolvedTheme, setPreference: setThemePreference } = useTheme();
   const [mobileView, setMobileView] = useState<MobileView>('source');
   const [rightTab, setRightTab] = useState<RightPanelTab>('assistant');
@@ -577,7 +581,11 @@ function AppInner({
           return;
         }
 
-        const result = await client.compile(sources, state.compileTarget);
+        const result = await client.compile(
+          sources,
+          state.compileTarget,
+          overlayText ?? undefined,
+        );
         const duration = now() - startedAt;
         if (
           hasErrorDiagnostics(result.diagnostics) ||
@@ -629,7 +637,7 @@ function AppInner({
         operationPendingRef.current = false;
       }
     },
-    [now, state.runtime, state.compileTarget],
+    [now, state.runtime, state.compileTarget, overlayText],
   );
 
   const handleValidate = useCallback((): void => {
@@ -1315,9 +1323,38 @@ function AppInner({
   const handleCompileTargetChange = useCallback(
     (target: CompileTarget): void => {
       dispatch({ type: 'compileTargetSelected', target });
+      if (!OVERLAY_SUPPORTED_TARGETS.has(target)) {
+        setOverlayText(null);
+        setOverlayFileName(null);
+        setOverlayError(null);
+      }
     },
     [],
   );
+
+  const overlaySelectionRef = useRef(0);
+  const handleOverlayFileSelected = useCallback((file: File): void => {
+    const selection = ++overlaySelectionRef.current;
+    readOverlayFile(file).then(
+      (text) => {
+        if (overlaySelectionRef.current !== selection) return;
+        setOverlayText(text);
+        setOverlayFileName(file.name);
+        setOverlayError(null);
+      },
+      (error: unknown) => {
+        if (overlaySelectionRef.current !== selection) return;
+        setOverlayError(toErrorMessage(error, 'Could not read overlay file'));
+      },
+    );
+  }, []);
+
+  const handleOverlayCleared = useCallback((): void => {
+    overlaySelectionRef.current += 1;
+    setOverlayText(null);
+    setOverlayFileName(null);
+    setOverlayError(null);
+  }, []);
 
   const sourceUris = workspaceSources(state.workspace).map(
     (source) => source.uri,
@@ -1604,6 +1641,8 @@ function AppInner({
         actionsDisabled={actionsDisabled}
         languageCanRetry={languageCanRetry}
         persistencePhase={persistentWorkspace.phase}
+        overlayFileName={overlayFileName}
+        overlayError={overlayError}
         onExportSource={exportSource}
         onResetToDemo={handleResetToDemo}
         onValidate={handleValidate}
@@ -1613,6 +1652,8 @@ function AppInner({
         onRetryLanguageServices={handleRetryLanguageServices}
         onRetryStorage={handleRetryStorage}
         onCompileTargetChange={handleCompileTargetChange}
+        onOverlayFileSelected={handleOverlayFileSelected}
+        onOverlayCleared={handleOverlayCleared}
       />
       <ViewTabs mobileView={mobileView} onChange={setMobileView} />
       <ResizableLayout
