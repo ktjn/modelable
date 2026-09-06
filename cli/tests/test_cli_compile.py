@@ -545,7 +545,7 @@ def test_cli_and_browser_compile_apply_the_same_overlay_resolution(tmp_path: Pat
     )
     assert result.exit_code == 0, result.output
 
-    generated = [path for path in out.rglob("*.sql")]
+    generated = list(out.rglob("*.sql"))
     assert len(generated) == 1
     cli_output = generated[0].read_text(encoding="utf-8")
 

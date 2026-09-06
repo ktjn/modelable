@@ -459,9 +459,7 @@ def test_dispatch_compile_threads_overlay_field():
             "compile",
             json.dumps(
                 {
-                    "sources": [
-                        {"uri": "inmemory:///warehouse.mdl", "text": WAREHOUSE_SOURCE_TEXT, "version": 1}
-                    ],
+                    "sources": [{"uri": "inmemory:///warehouse.mdl", "text": WAREHOUSE_SOURCE_TEXT, "version": 1}],
                     "target": "sql-postgres",
                     "overlay": WAREHOUSE_OVERLAY_TOML,
                 }
@@ -480,9 +478,7 @@ def test_dispatch_compile_rejects_non_string_overlay():
             "compile",
             json.dumps(
                 {
-                    "sources": [
-                        {"uri": "inmemory:///warehouse.mdl", "text": WAREHOUSE_SOURCE_TEXT, "version": 1}
-                    ],
+                    "sources": [{"uri": "inmemory:///warehouse.mdl", "text": WAREHOUSE_SOURCE_TEXT, "version": 1}],
                     "target": "sql-postgres",
                     "overlay": 42,
                 }

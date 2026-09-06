@@ -53,7 +53,6 @@ from modelable.emitters.targets import get_codegen_target
 from modelable.emitters.typescript import emit_typescript
 from modelable.extensions import ExtensionDescriptorError, validate_extension_admission
 from modelable.facets import FacetSubject, FacetSubjectKind, facets_for_subject
-from modelable.overlays import OverlayDocument, OverlayError, parse_overlay
 from modelable.language.completion import complete
 from modelable.language.definition import definition
 from modelable.language.dto import LanguagePosition
@@ -64,6 +63,7 @@ from modelable.language.rename import InvalidRenameError
 from modelable.language.rename import prepare_rename as language_prepare_rename
 from modelable.language.rename import rename as language_rename
 from modelable.language.workspace import LanguageDocument, LanguageWorkspace
+from modelable.overlays import OverlayDocument, OverlayError, parse_overlay
 from modelable.parser.ir import ParseError
 from modelable.parser.parse import parse_text_to_ir
 from modelable.planner.plans import build_plan_documents
@@ -502,9 +502,7 @@ class BrowserCompiler:
             if target not in ("sql-postgres", "sql-clickhouse"):
                 return BrowserCompileResult(
                     diagnostics=(
-                        _overlay_diagnostic(
-                            "Overlays are currently supported only for SQL targets.", sources[0].uri
-                        ),
+                        _overlay_diagnostic("Overlays are currently supported only for SQL targets.", sources[0].uri),
                     ),
                     artifacts=(),
                 )
