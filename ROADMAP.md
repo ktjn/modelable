@@ -207,12 +207,14 @@ consequences(from, to)
 - [x] Define deterministic graph node/edge and ordering rules.
 - [x] Define limits/pagination for large graph responses.
 - [x] Keep v1 read-only.
-- [ ] Migrate CLI/LSP graph queries to one in-process service.
+- [x] Migrate CLI/LSP graph queries to one in-process service.
 - [x] Add JSON/stdio transport suitable for MCP/agent bridges.
 - [x] Add browser support over the same semantic service.
 - [x] Check in protocol schema and golden fixtures.
 
 **Done when:** at least CLI plus one non-CLI host query semantic/usage/change/consequence data without importing internal resolver/graph implementations.
+
+Closed 2026-09-06: the CLI's `query` subcommand and the browser API both answer through the shared `WorkspaceQueryProtocolService`, meeting the bar above. LSP intentionally stays on its own cursor-position-based layer, and `impact`/`diff`/`graph export` stay on their richer purpose-built logic rather than being narrowed to the current protocol's feature set — see the closure notes in [the implementation plan](docs/superpowers/plans/2026-09-03-semantic-platform-next-phase.md).
 
 ### I — Declaration-level evolution and lineage
 
@@ -270,7 +272,7 @@ Keep universal built-ins small: identity, ownership, classification, PII, deprec
 - [x] E — composite identities complete.
 - [x] F — lifecycle metadata complete.
 - [ ] G — WASM extension ABI complete.
-- [ ] H — `modelable.query/v1` complete.
+- [x] H — `modelable.query/v1` complete.
 - [ ] I — declaration-level evolution mappings complete.
 - [ ] J — compatibility profiles complete.
 - [x] K — typed semantic facets complete.

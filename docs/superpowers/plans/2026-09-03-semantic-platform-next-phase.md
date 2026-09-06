@@ -329,11 +329,39 @@ consequences(from, to)
 - [x] Define structured graph node/edge representation reusable across query families.
 - [x] Define deterministic ordering for every response.
 - [x] Keep the first version read-only.
-- [ ] Implement an in-process service consumed by CLI and LSP.
+- [x] Implement an in-process service consumed by CLI and LSP.
 - [x] Add JSON/stdio transport suitable for MCP/agent bridges.
 - [x] Add browser transport over the same semantic service.
 - [x] Add protocol schema and golden fixtures.
 - [x] Add compatibility rules for additive query protocol evolution.
+
+### Closure notes (2026-09-06)
+
+`WorkspaceQueryProtocolService` (`query_service.py`) implements all eight query
+families in one place. The `modelable query` CLI subcommand (`commands/query.py`) and
+the browser API (`browser/api.py`) both call it directly, satisfying the acceptance
+criterion below without importing internal graph/resolver classes.
+
+Two things were investigated and deliberately not changed:
+
+- **LSP** (`lsp/references.py`, `definition.py`, `hover.py`, `federation.py`) does not
+  go through `query_service`; it resolves from an in-file cursor position via a
+  separate `language.*` layer. That is a different kind of operation from `query/v1`'s
+  id-scoped graph queries, not a gap in the same sense as a CLI command duplicating
+  service logic — see the Programme G-adjacent judgment call on not forcing every
+  internal consumer through one abstraction. Left as-is.
+- **`commands/impact.py`, `commands/diff.py`, and `commands/graph.py export`** also
+  import internal compat/registry/graph classes directly, but on inspection they are
+  not duplicating `query_service`'s `changes`/`consequences`/graph logic — they are
+  supersets of it (projection compatibility, additional consequence types like
+  governance review/wire compatibility/storage migration/data backfill, usage-manifest
+  and snapshot merging that `query_service` does not implement) or, for `graph export`,
+  a full graph dump built from the same `build_graph_export` primitive `query_service`
+  itself uses, not an alternative implementation of the same product. Routing them
+  through `query/v1` would mean either regressing their functionality or first
+  extending the stable protocol's `changes`/`consequences` families to match — a real
+  protocol-design decision, not an internal refactor. Not attempted here; revisit only
+  if there's a concrete need to expose that richer behavior through `query/v1` itself.
 
 ### Acceptance
 
@@ -484,7 +512,7 @@ The programme is complete when:
 - [ ] semantic packages compose through explicit exports/dependencies and deterministic lock state;
 - [ ] packages can be distributed by immutable digest without a Modelable-specific service;
 - [ ] a third-party WASM extension executes through a pinned, least-capability `plan/v1` boundary;
-- [ ] semantic/usage/change/consequence data is accessible through `modelable.query/v1`;
+- [x] semantic/usage/change/consequence data is accessible through `modelable.query/v1`;
 - [ ] composite identity is represented consistently across semantic analysis and admitted targets;
 - [ ] lifecycle metadata can change independently of immutable declaration content;
 - [ ] declaration-level refactors preserve explicit lineage and consequence paths;
