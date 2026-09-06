@@ -2,6 +2,7 @@ import { Handle } from '@xyflow/react';
 import type { ReactNode } from 'react';
 
 import type { LayoutDirection } from '../graph-types';
+import type { BrowserFacetRecord } from '../../protocol';
 import { handlePositions } from './handles';
 
 export interface GraphNodeFrameProps {
@@ -11,6 +12,7 @@ export interface GraphNodeFrameProps {
   badge: string;
   direction: LayoutDirection;
   children: ReactNode;
+  facets?: BrowserFacetRecord[];
 }
 
 /**
@@ -23,8 +25,14 @@ export function GraphNodeFrame({
   badge,
   direction,
   children,
+  facets,
 }: GraphNodeFrameProps) {
   const handles = handlePositions(direction);
+  const facetCount = facets?.length ?? 0;
+  const facetTitle =
+    facetCount > 0
+      ? (facets ?? []).map((facet) => `${facet.identity}: ${JSON.stringify(facet.value)}`).join('\n')
+      : undefined;
   return (
     <div className={`graph-node graph-node--${variant}`}>
       <Handle type="target" position={handles.target} />
@@ -33,6 +41,11 @@ export function GraphNodeFrame({
           {badge}
         </span>
         {children}
+        {facetCount > 0 && (
+          <span className="graph-node__facets" title={facetTitle} data-testid="graph-node-facets">
+            {facetCount}f
+          </span>
+        )}
       </div>
       <Handle type="source" position={handles.source} />
     </div>

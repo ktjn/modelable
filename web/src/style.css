@@ -1031,6 +1031,18 @@ button.view-tab--active:hover:not(:disabled) {
   color: var(--graph-field);
 }
 
+.graph-node__facets {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 0 0.3125rem;
+  border-radius: 0.625rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
 .graph-panel .react-flow__handle {
   background: var(--graph-border);
   border-color: var(--graph-surface);
