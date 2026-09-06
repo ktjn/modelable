@@ -53,6 +53,7 @@ import {
 } from './workspace-repository';
 import { CompatibilityView, GovernanceView } from './analysis/AnalysisViews';
 import { useAnalysisData } from './analysis/useAnalysisData';
+import { QueryPanel } from './analysis/QueryPanel';
 import { GraphPanelContainer } from './visualization/GraphPanelContainer';
 import { ResizableLayout } from './layout/ResizableLayout';
 import { BottomPanel } from './layout/BottomPanel';
@@ -1796,6 +1797,13 @@ function AppInner({
               <div className="analysis-panel__body" data-testid="analysis">
                 <GovernanceView result={analysisData.governance} />
               </div>
+            }
+            query={
+              <QueryPanel
+                clientRef={clientRef}
+                runtimeReady={state.runtime === 'ready'}
+                workspaceRevisionRef={workspaceRevisionRef}
+              />
             }
           />
         }

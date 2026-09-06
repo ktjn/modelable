@@ -16,6 +16,7 @@ describe('BottomPanel', () => {
         diagnostics={<p>diagnostics body</p>}
         compatibility={<p>compatibility body</p>}
         governance={<p>governance body</p>}
+        query={<p>query body</p>}
         diagnosticsCount={3}
         compatibilityCount={0}
       />,
@@ -39,6 +40,7 @@ describe('BottomPanel', () => {
         diagnostics={<p>diagnostics body</p>}
         compatibility={<p>compatibility body</p>}
         governance={<p>governance body</p>}
+        query={<p>query body</p>}
       />,
     );
 
@@ -48,6 +50,24 @@ describe('BottomPanel', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Governance/ }));
 
     expect(screen.getByText('governance body')).toBeTruthy();
+    expect(screen.queryByText('diagnostics body')).toBeNull();
+  });
+
+  test('shows the query tab and body on click', () => {
+    render(
+      <BottomPanel
+        diagnostics={<p>diagnostics body</p>}
+        compatibility={<p>compatibility body</p>}
+        governance={<p>governance body</p>}
+        query={<p>query body</p>}
+      />,
+    );
+
+    expect(screen.queryByText('query body')).toBeNull();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Query/ }));
+
+    expect(screen.getByText('query body')).toBeTruthy();
     expect(screen.queryByText('diagnostics body')).toBeNull();
   });
 });
