@@ -79,12 +79,14 @@ This programme is dependency-ordered, not a strict serial queue. Detailed tasks 
 **Priority:** P0
 
 - [x] Define one common internal declaration identity/version/reference surface for entity, aggregate, event, value, enum, semantic type, and projection.
-- [ ] Move shared version resolution, lineage, ownership, documentation, and deprecation behavior behind it.
+- [x] Move shared version resolution, lineage, ownership, documentation, and deprecation behavior behind it.
 - [x] Replace remaining declaration-kind-specific resolution paths where semantics are equivalent.
-- [ ] Remove legacy wrappers after all consumers migrate.
+- [x] Remove legacy wrappers after all consumers migrate (none remained; nothing to remove).
 - [x] Add cross-declaration conformance fixtures.
 
 **Done when:** adding a capability common to declaration kinds does not recreate resolution, identity, lineage, or compatibility infrastructure.
+
+Closed 2026-09-06; see the closure notes in [the implementation plan](docs/superpowers/plans/2026-09-03-semantic-platform-next-phase.md) for what was found, unified, and deliberately left alone.
 
 ### B — First-class semantic packages
 
@@ -259,7 +261,7 @@ Keep universal built-ins small: identity, ownership, classification, PII, deprec
 
 ## Programme-level progress
 
-- [ ] A — generic declaration model complete.
+- [x] A — generic declaration model complete.
 - [x] B — semantic package model complete.
 - [x] C — package-aware lock state complete.
 - [ ] D — package artifact + OCI transport complete.
