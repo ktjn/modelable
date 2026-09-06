@@ -1,0 +1,9 @@
+domain catalog {
+  owner: "scenario-team"
+
+  entity Product @ 1 (additive) {
+    @key productId: uuid
+    sku: string
+    name: string
+  }
+}

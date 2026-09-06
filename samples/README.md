@@ -34,6 +34,7 @@ contributors can run without access to private downstream projects. See
 | 13 | `13-composite-key-order-lines` | Composite Identity Order Lines | Core Language | Low | [Language reference](../docs/language-reference.md) §3.9 |
 | 14 | `14-regulated-customer-facets` | Regulated Customer Governance Facets | Core Language | Low | [Language reference](../docs/language-reference.md) §2.3.1 |
 | 15 | `15-overlay-postgres-tuning` | PostgreSQL Target Overlay | Core Language | Low | [Emitter extension overlays](../docs/emitter-extension-overlays.md) |
+| 16 | `16-model-package-release` | Semantic Package Release | Core Language | Low | [CLI reference](../docs/cli-reference.md) §10.7.1 |
 
 ---
 
@@ -308,6 +309,19 @@ Key techniques demonstrated:
 - `modelable.extensions/postgres.toml` (validated against the real, checked-in `sql-postgres-v1.schema.json`) renames the table to `warehouse_stock` and the `quantityOnHand` column to `qty_on_hand`, keyed by the **source entity's** canonical identity (`warehouse.StockItem@1`, `warehouse.StockItem@1#quantityOnHand`) — overlay selectors for a `db` projection target the entity it was generated from, not the generated projection's own identity
 - `modelable.toml`'s `[[target]] name = "sql-postgres"\noverlay = "modelable.extensions/postgres.toml"` selects the overlay automatically; `modelable compile scenarios/15-overlay-postgres-tuning --target sql-postgres --out ...` picks it up with no `--overlay` flag needed, and an explicit `--overlay modelable.extensions/postgres.toml` produces byte-identical output
 - The `#:schema` comment at the top of the overlay file is editor/tooling metadata (TOML syntax highlighting, completion, validation), not something the compiler requires
+
+---
+
+### 16. Semantic Package Release (`scenarios/16-model-package-release/`)
+
+A one-declaration `catalog` domain walks through the full offline `modelable.package/v1` lifecycle: define a package manifest, validate and inspect it, snapshot the workspace into a local registry lock that records the package, then pack, verify, and unpack a distributable package artifact — no network access anywhere in the flow, per [CLI reference](../docs/cli-reference.md) §10.7.1.
+
+Key techniques demonstrated:
+- `modelable.package.toml`'s `[package]` identity/version/description, `[exports]` (the one public declaration, `catalog.Product@1`), and an empty `[dependencies]` table (this package depends on nothing)
+- `modelable package validate modelable.package.toml` and `modelable package inspect modelable.package.toml` check the manifest and print its deterministic normalized form entirely offline, without needing a compiled workspace at all
+- `modelable registry update . --package-manifest modelable.package.toml --out .modelable` snapshots the workspace and persists the package identity/exports into `.modelable/registry.lock` — the local input `package pack` verifies against
+- `modelable package pack modelable.package.toml --snapshot .modelable --out catalog.modelable-package` produces a single deterministic, content-hashed artifact from that verified snapshot
+- `modelable package verify catalog.modelable-package` and `modelable package unpack catalog.modelable-package --out unpacked/` both work from the artifact alone — verification re-derives the content hash rather than trusting the file name or a side channel
 
 ---
 
