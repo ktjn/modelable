@@ -1,0 +1,8 @@
+domain releases {
+  owner: "scenario-team"
+
+  entity PaymentEvent @ 1 (additive) {
+    @key eventId: uuid
+    legacyGatewayCode?: string
+  }
+}

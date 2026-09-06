@@ -1,0 +1,6 @@
+profiles:
+  public-events:
+    targets: [protobuf]
+    requirement: full
+    thresholds:
+      protobuf: migration_required

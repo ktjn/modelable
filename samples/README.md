@@ -36,6 +36,8 @@ contributors can run without access to private downstream projects. See
 | 15 | `15-overlay-postgres-tuning` | PostgreSQL Target Overlay | Core Language | Low | [Emitter extension overlays](../docs/emitter-extension-overlays.md) |
 | 16 | `16-model-package-release` | Semantic Package Release | Core Language | Low | [CLI reference](../docs/cli-reference.md) §10.7.1 |
 | 17 | `17-declaration-rename-migration` | Declaration Rename Migration Lineage | Core Language | Low | [CLI reference](../docs/cli-reference.md) §10.7.3 |
+| 18 | `18-compat-profile-release-policy-baseline` | Compatibility Profile Release Policy (baseline) | Core Language | Low | [CLI reference](../docs/cli-reference.md) §5.5 |
+| 19 | `19-compat-profile-release-policy-candidate` | Compatibility Profile Release Policy (candidate) | Core Language | Low | [CLI reference](../docs/cli-reference.md) §5.5 |
 
 ---
 
@@ -346,6 +348,17 @@ Key techniques demonstrated:
 - `modelable.migration.json`'s one `rename` mapping (`sources: ["legacy.LegacyAccount@2"]`, `targets: ["accounts.Account@1"]`) is a genuine relocation across both name and domain — the case migration mappings exist for, distinct from scenario 10's plain field *removal* (no target, nothing to relocate to)
 - `modelable migration validate modelable.migration.json` and `modelable migration inspect modelable.migration.json` check and print the canonical mapping entirely offline, independent of any workspace
 - `modelable query . --request REQUEST.json --migration modelable.migration.json` with a `lineage` request for `accounts.Account@1` returns a `migrates_to` edge whose source is `legacy.LegacyAccount@2` and target is `accounts.Account@1`, with both endpoints represented as explicit `migration_reference` graph nodes rather than silently omitted because the source no longer compiles
+
+---
+
+### 18–19. Compatibility Profile Release Policy (`scenarios/18-compat-profile-release-policy-baseline/`, `scenarios/19-compat-profile-release-policy-candidate/`)
+
+Two independent workspaces — a published baseline and a release candidate — model the same `releases.PaymentEvent@1` declaration with one optional field removed between them. A named `public-events` profile in `policy.yaml` states organizational policy for that release class, per [CLI reference](../docs/cli-reference.md) §5.5. The two states are separate scenario directories, not two versions in one file, because `validate-compat --from`/`--to` always load two fully independent workspaces.
+
+Key techniques demonstrated:
+- `policy.yaml`'s `profiles.public-events` names the `protobuf` target, a `full` (bidirectional) compatibility `requirement`, and a `migration_required` threshold — an external, organization-owned contract rather than anything expressed in `.mdl`
+- `modelable validate-compat --from scenarios/18-.../ --to scenarios/19-.../ --target protobuf --policy scenarios/19-.../policy.yaml --profile public-events --format json` reports `"status": "breaking"` and `"passed": false` for the profile, with `blocking_findings` naming the exact causes: the candidate both drops `legacyGatewayCode` from its source representation (`removed_field`) and never reserves the retired Protobuf field number/name (`removed_field_not_reserved`) — the second finding is itself a real, independent reason a field removal must be paired with a `reserved protobuf { ... }` block (see scenario 11's Protobuf reservation for the fix pattern this candidate is missing)
+- The command's JSON output includes a full `consequence_graph` tracing every finding through to a `governance_review` action on the named profile, and exits non-zero — the exact CI failure signal a release pipeline would gate on
 
 ---
 
