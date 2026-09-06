@@ -279,6 +279,28 @@ WASM is the first external execution mechanism. Subprocess execution can follow 
 - [x] Add malicious/invalid module tests: wrong protocol, excessive output, undeclared access, hash mismatch.
 - [ ] Add subprocess host only after the WASM protocol is proven, reusing the same descriptor and result model.
 
+### Deferred (2026-09-06): browser reference-extension execution
+
+Native reference-extension execution is fully proven: `extension_host.py` runs the
+`cli/tests/fixtures/wasm-extension/reference.wat` fixture through real `wasmtime`
+execution, with positive and negative-path tests (hash mismatch, fuel/memory limits,
+malformed output, undeclared access).
+
+Browser execution of the same extension does not exist and is a materially larger gap
+than a missing test: the browser build runs the whole compiler as CPython-on-WASM via
+Pyodide, which has no facility to load an arbitrary third-party `.wasm` guest module.
+`wasmtime` is a native Rust extension incompatible with Pyodide, and `extension_host.py`
+is not currently shipped into the browser wheel. Closing this requires building a new
+subsystem: either a JS/TS-side WASM host using the browser's native `WebAssembly` API
+(reusing the language-agnostic alloc/run/result_len ABI, but re-implementing
+fuel/memory/output-limit and hash-pin enforcement in JS — a real security surface, not a
+mechanical port), or vendoring a Pyodide-compatible WASM engine (none currently exists in
+this codebase's dependency set).
+
+This is deliberately deferred rather than attempted as a small slice. Revisit once there
+is a concrete need for browser-side third-party extension execution, with an explicit
+design decision on which approach to take.
+
 ### Acceptance
 
 A separately built WASM target consumes `plan/v1`, runs under explicit least-capability policy, produces artifacts deterministically, and yields the same admitted result in supported native/browser hosts.
