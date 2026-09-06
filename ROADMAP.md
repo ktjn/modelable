@@ -184,6 +184,8 @@ WASM is the first third-party execution mechanism. Subprocess execution may foll
 
 **Done when:** a separately built WASM extension consumes `plan/v1` and produces deterministic admitted results under least-capability policy.
 
+Native reference-extension execution is proven; browser execution is deliberately deferred (2026-09-06) pending a design decision — see the deferral note in [the implementation plan](docs/superpowers/plans/2026-09-03-semantic-platform-next-phase.md).
+
 ### H — Stable `modelable.query/v1`
 
 **Priority:** P0
