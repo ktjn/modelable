@@ -1,0 +1,18 @@
+domain orders {
+  owner: "scenario-team"
+
+  entity OrderLine @ 1 (additive) {
+    @key orderId: uuid
+    @key lineNumber: int
+    sku: string
+    quantity: int
+  }
+
+  index OrderLine @ 1 {
+    primary orderId, lineNumber
+  }
+
+  auto projections OrderLine @ 1 {
+    db
+  }
+}
