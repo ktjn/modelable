@@ -345,7 +345,7 @@ Key techniques demonstrated:
 - `accounts.Account@1` is the only declaration that actually exists in `.mdl` source — `legacy.LegacyAccount@2`, its pre-rename identity, is never compiled anywhere; migration mappings can reference retired identities that no longer exist in current source
 - `modelable.migration.json`'s one `rename` mapping (`sources: ["legacy.LegacyAccount@2"]`, `targets: ["accounts.Account@1"]`) is a genuine relocation across both name and domain — the case migration mappings exist for, distinct from scenario 10's plain field *removal* (no target, nothing to relocate to)
 - `modelable migration validate modelable.migration.json` and `modelable migration inspect modelable.migration.json` check and print the canonical mapping entirely offline, independent of any workspace
-- `modelable query . --request REQUEST.json --migration modelable.migration.json` with a `lineage` request for `accounts.Account@1` returns a `migrates_to` edge back to `legacy.LegacyAccount@2`, with both endpoints represented as explicit `migration_reference` graph nodes rather than silently omitted because the source no longer compiles
+- `modelable query . --request REQUEST.json --migration modelable.migration.json` with a `lineage` request for `accounts.Account@1` returns a `migrates_to` edge whose source is `legacy.LegacyAccount@2` and target is `accounts.Account@1`, with both endpoints represented as explicit `migration_reference` graph nodes rather than silently omitted because the source no longer compiles
 
 ---
 
