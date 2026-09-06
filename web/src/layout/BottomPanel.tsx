@@ -1,11 +1,12 @@
 import { type ReactNode, useState } from 'react';
 
-export type BottomTab = 'diagnostics' | 'compatibility' | 'governance';
+export type BottomTab = 'diagnostics' | 'compatibility' | 'governance' | 'query';
 
 export interface BottomPanelProps {
   diagnostics: ReactNode;
   compatibility: ReactNode;
   governance: ReactNode;
+  query: ReactNode;
   diagnosticsCount?: number;
   compatibilityCount?: number;
   governanceCount?: number;
@@ -15,6 +16,7 @@ export function BottomPanel({
   diagnostics,
   compatibility,
   governance,
+  query,
   diagnosticsCount,
   compatibilityCount,
   governanceCount,
@@ -42,11 +44,13 @@ export function BottomPanel({
           active={tab === 'governance'}
           onClick={() => setTab('governance')}
         />
+        <TabButton label="Query" active={tab === 'query'} onClick={() => setTab('query')} />
       </div>
       <div className="bottom-panel__body" tabIndex={0}>
         {tab === 'diagnostics' && diagnostics}
         {tab === 'compatibility' && compatibility}
         {tab === 'governance' && governance}
+        {tab === 'query' && query}
       </div>
     </div>
   );
