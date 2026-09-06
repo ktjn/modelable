@@ -515,7 +515,7 @@ The programme is complete when:
 - [x] semantic/usage/change/consequence data is accessible through `modelable.query/v1`;
 - [ ] composite identity is represented consistently across semantic analysis and admitted targets;
 - [ ] lifecycle metadata can change independently of immutable declaration content;
-- [ ] declaration-level refactors preserve explicit lineage and consequence paths;
-- [ ] compatibility requirements can be expressed as named external profiles;
+- [x] declaration-level refactors preserve explicit lineage and consequence paths;
+- [x] compatibility requirements can be expressed as named external profiles;
 - [ ] new typed governance facts can be added without parser changes;
 - [ ] browser/native and external-showcase conformance cover the new platform surfaces.
