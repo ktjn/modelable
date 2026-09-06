@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [1.14.0] - 2026-09-06
+
+### Added
+
 - Add executable typed-facet examples for retention class, jurisdiction, data
   subject, and confidentiality, including browser query conformance coverage.
 
