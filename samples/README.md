@@ -220,6 +220,17 @@ Key techniques demonstrated:
   (it never referenced `email`) — the same source change, two different
   downstream consequences, both explicit rather than inferred
 
+**Lifecycle metadata addendum:** `modelable.lifecycle.json` (external
+`modelable.lifecycle/v1` metadata, never part of `.mdl`) marks
+`customer.Customer@1` `deprecated` with a `replacement` pointing at
+`customer.Customer@2`, which is `published`. `modelable query
+scenarios/10-impact-analysis --request REQUEST.json --lifecycle
+modelable.lifecycle.json` with a `lifecycle` request for
+`customer.Customer@1` returns its state and replacement identity;
+`modelable registry resolve scenarios/10-impact-analysis --lifecycle
+modelable.lifecycle.json` persists the same metadata into the local
+registry snapshot lock.
+
 ---
 
 ### 11. Fleet Telemetry Type System (`scenarios/11-fleet-telemetry-type-system/`)

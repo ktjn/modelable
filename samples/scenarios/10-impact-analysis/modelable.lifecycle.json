@@ -1,0 +1,7 @@
+{
+  "$schema": "modelable.lifecycle/v1",
+  "entries": [
+    {"identity": "customer.Customer@1", "state": "deprecated", "replacement": "customer.Customer@2"},
+    {"identity": "customer.Customer@2", "state": "published"}
+  ]
+}
