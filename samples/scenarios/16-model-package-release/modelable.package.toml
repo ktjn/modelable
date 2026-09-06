@@ -1,0 +1,9 @@
+[package]
+name = "catalog.contracts"
+version = "1.0.0"
+description = "Public catalog contracts for the model-package-release scenario"
+
+[exports]
+declarations = ["catalog.Product@1"]
+
+[dependencies]
