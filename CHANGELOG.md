@@ -8,9 +8,21 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Add Rust codegen for `union<discriminator> { tag: T, ... }`, rendering each
+  union field as an internally tagged `enum` (`#[serde(tag = "...")]`)
+  matching the JSON Schema/OpenAPI `oneOf`/`discriminator` mapping already
+  emitted for this construct.
+
 ### Changed
 
 ### Fixed
+
+- Give the Rust target the same enum-numbers.lock wire stability the
+  Protobuf target already has: enum-backed semantic declarations and enum
+  projections now get a hand-written `Serialize`/`Deserialize` impl that
+  tags each variant with its locked number, so non-self-describing
+  encodings (`postcard`, `bincode`) no longer silently change on a pure
+  member reorder. JSON and other self-describing formats are unaffected.
 
 ## [1.14.0] - 2026-09-06
 
