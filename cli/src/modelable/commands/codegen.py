@@ -181,6 +181,7 @@ def _type_mappings_for(format_name: str) -> list[tuple[str, str, str | None]]:
             ("enum(...)", "String", None),
             ("object { ... }", "{ ... }", "inline objects become nested structs"),
             ("named", "Name", None),
+            ("union<discriminator>", "enum", "internally-tagged enum, one variant per union member"),
         ]
     if format_name == "go":
         return [

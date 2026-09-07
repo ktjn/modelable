@@ -14,6 +14,7 @@ from modelable.parser.ir import (
     ObjectType,
     PrimitiveType,
     RefType,
+    UnionType,
     WireTargetHint,
 )
 
@@ -50,6 +51,12 @@ class TypeShapeField:
 
 
 @dataclass(frozen=True)
+class TypeShapeVariant:
+    tag: str
+    shape: TypeShape
+
+
+@dataclass(frozen=True)
 class TypeShape:
     kind: str
     optional: bool = False
@@ -64,6 +71,8 @@ class TypeShape:
     scale: int | None = None
     length: int | None = None
     version: int | None = None
+    discriminator: str | None = None
+    variants: tuple[TypeShapeVariant, ...] = ()
 
     @classmethod
     def from_field(cls, value: str | FieldType, *, optional: bool = False) -> TypeShape:
@@ -118,6 +127,16 @@ class TypeShape:
             return cls(kind="named", optional=optional, ref=field_type.name, version=field_type.version)
         if isinstance(field_type, NamedType):
             return cls(kind="named", optional=optional, ref=field_type.name)
+        if isinstance(field_type, UnionType):
+            return cls(
+                kind="union",
+                optional=optional,
+                discriminator=field_type.discriminator,
+                variants=tuple(
+                    TypeShapeVariant(tag=variant.tag, shape=cls.from_field_type(variant.type))
+                    for variant in field_type.variants
+                ),
+            )
         raise TypeError(f"unsupported field type: {type(field_type)!r}")
 
     def describe(self) -> str:
@@ -156,6 +175,9 @@ class TypeShape:
             return f"object {{ {rendered} }}"
         if self.kind == "named":
             return self.ref or "named"
+        if self.kind == "union":
+            variants = ", ".join(f"{v.tag}: {v.shape.describe()}" for v in self.variants) if self.variants else "..."
+            return f"union<{self.discriminator or '?'}> {{ {variants} }}"
         return self.kind
 
 
@@ -186,6 +208,23 @@ def type_shape_catalog() -> list[tuple[str, TypeShape, str]]:
             "named member shapes remain recursive",
         ),
         ("named Customer", TypeShape(kind="named", ref="Customer"), "named value object"),
+        (
+            "union<discriminator>",
+            TypeShape(
+                kind="union",
+                discriminator="type",
+                variants=(
+                    TypeShapeVariant(
+                        tag="card",
+                        shape=TypeShape(
+                            kind="object",
+                            fields=(TypeShapeField(name="number", shape=TypeShape(kind="primitive", ref="string")),),
+                        ),
+                    ),
+                ),
+            ),
+            "discriminated union of object, named, or ref variants",
+        ),
     ]
 
 

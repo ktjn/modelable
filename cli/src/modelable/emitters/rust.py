@@ -19,7 +19,7 @@ from modelable.emitters.naming import pascalize_titlecase as _pascalize
 from modelable.emitters.naming import snake_case as _snake_case
 from modelable.emitters.package_graph import PackageGraph, build_package_graph
 from modelable.emitters.rust_plan import emit_rust_projection_plan
-from modelable.emitters.shapes import TypeShape, TypeShapeField
+from modelable.emitters.shapes import TypeShape, TypeShapeField, TypeShapeVariant
 from modelable.parser.ir import (
     ArrayType,
     DecimalType,
@@ -554,6 +554,9 @@ def _collect_named_type_refs_from_shape(shape: TypeShape, result: set[str]) -> N
     elif shape.kind == "object":
         for field in shape.fields:
             _collect_named_type_refs_from_shape(field.shape, result)
+    elif shape.kind == "union":
+        for variant in shape.variants:
+            _collect_named_type_refs_from_shape(variant.shape, result)
 
 
 def _crate_ident(package_name: str) -> str:
@@ -1044,6 +1047,8 @@ def _emit_model(
             TypeShape.from_field_type(field.type),
             owner=f"{type_name}.{field.name}",
             warnings=warnings,
+            mdl=mdl,
+            current_domain=domain.name,
         )
 
     needs_serde_with = _any_needs_serde_with(field_specs)
@@ -1147,6 +1152,8 @@ def _emit_projection(
             field_shape,
             owner=f"{type_name}.{field.name}",
             warnings=warnings,
+            mdl=mdl,
+            current_domain=domain.name,
         )
         is_nominal_enum = (
             field_shape.kind == "named"
@@ -1682,6 +1689,77 @@ def _header_lines(
     return lines
 
 
+def _render_union_definition(
+    type_name: str,
+    discriminator: str,
+    variants: tuple[TypeShapeVariant, ...],
+    *,
+    owner_type: str,
+    path: list[str],
+    definitions: dict[str, list[str]],
+    enum_info: dict[str, list[str]] | None = None,
+    named_type_map: dict[str, str] | None = None,
+) -> list[str]:
+    """Render a ``union<discriminator> { tag: T, ... }`` field as a Rust
+    ``enum`` with per-variant associated data, using serde's internally
+    tagged representation (``#[serde(tag = "...")]``) so the wire shape
+    matches the JSON Schema/OpenAPI ``oneOf``/``discriminator`` mapping
+    already emitted for this construct elsewhere.
+    """
+    tags = [variant.tag for variant in variants]
+    for identifier, members in find_identifier_collisions(tags, _enum_member_name).items():
+        raise ValueError(
+            f"{owner_type}: Rust union '{type_name}' variant collision: "
+            + ", ".join(f"'{member}'" for member in members)
+            + f" all generate identifier '{identifier}'"
+        )
+
+    derives = ["Debug", "Clone", "PartialEq", "serde::Serialize", "serde::Deserialize"]
+    lines = [
+        f"#[derive({', '.join(derives)})]",
+        f'#[serde(tag = "{discriminator}")]',
+        f"pub enum {type_name} {{",
+    ]
+    for variant in variants:
+        member = _enum_member_name(variant.tag)
+        if member != variant.tag:
+            lines.append(f'    #[serde(rename = "{variant.tag}")]')
+        variant_path = [*path, variant.tag]
+        if variant.shape.kind == "object":
+            field_specs = _field_specs_from_object_fields(
+                variant.shape.fields,
+                owner_type=owner_type,
+                path=variant_path,
+                definitions=definitions,
+                enum_info=enum_info,
+                named_type_map=named_type_map,
+            )
+            if not field_specs:
+                lines.append(f"    {member} {{}},")
+                continue
+            lines.append(f"    {member} {{")
+            for spec in sorted(field_specs, key=lambda s: (s.optional, s.index)):
+                for attr in spec.serde_attrs:
+                    lines.append(f"        {attr}")
+                annotation = spec.annotation
+                if spec.optional and not annotation.startswith("Option<"):
+                    annotation = f"Option<{annotation}>"
+                lines.append(f"        {_field_name(spec.name)}: {annotation},")
+            lines.append("    },")
+        else:
+            inner_type = _shape_annotation(
+                variant.shape,
+                owner_type=owner_type,
+                path=variant_path,
+                definitions=definitions,
+                enum_info=enum_info,
+                named_type_map=named_type_map,
+            )
+            lines.append(f"    {member}({inner_type}),")
+    lines.append("}")
+    return lines
+
+
 def _render_nested_definitions(definitions: dict[str, list[str]]) -> list[str]:
     lines: list[str] = []
     for definition in definitions.values():
@@ -1765,13 +1843,41 @@ def _render_enum_definition(
     return lines
 
 
+def _named_variant_is_object_shaped(ref: str, mdl: MdlFile | None, current_domain: str | None) -> bool:
+    """Best-effort check that a "named" union variant serializes as a map.
+
+    serde's internally tagged enum representation requires every variant's
+    content to serialize as a map so it can be merged with the discriminator
+    field. A model reference is always object-shaped; a semantic declaration
+    is only safe when its underlying type is itself an ``object``. Returns
+    True (assume safe) when the reference cannot be resolved, to avoid
+    false-positive warnings rather than guessing.
+    """
+    if mdl is None or current_domain is None:
+        return True
+    if any(ref in domain.models for domain in mdl.domains):
+        return True
+    try:
+        resolved = resolve_named_declaration(mdl, current_domain, ref, include_enum_projections=True)
+        decl = cast(SemanticTypeDecl | EnumProjectionDecl, resolved.declaration)
+    except LookupError, AmbiguousSemanticTypeError:
+        return True
+    if isinstance(decl, EnumProjectionDecl):
+        return False
+    return isinstance(decl.underlying, ObjectType)
+
+
 def _append_enum_collision_warnings(
     shape: TypeShape | None,
     *,
     owner: str,
     warnings: list[str],
+    mdl: MdlFile | None = None,
+    current_domain: str | None = None,
 ) -> None:
-    """Report anonymous-enum members that collapse to one Rust identifier.
+    """Report anonymous-enum members that collapse to one Rust identifier,
+    and union variants whose content can't serialize as a map under serde's
+    internally tagged representation.
 
     Rust's member policy (PascalCase plus leading-digit escaping) can map
     distinct canonical members — `foo bar` and `foo_bar` — onto the same
@@ -1786,12 +1892,38 @@ def _append_enum_collision_warnings(
             warnings.append(enum_member_collision("rust", owner, identifier, members))
         return
     if shape.kind == "array" and shape.element is not None:
-        _append_enum_collision_warnings(shape.element, owner=f"{owner}[]", warnings=warnings)
+        _append_enum_collision_warnings(
+            shape.element, owner=f"{owner}[]", warnings=warnings, mdl=mdl, current_domain=current_domain
+        )
     elif shape.kind == "map" and shape.value is not None:
-        _append_enum_collision_warnings(shape.value, owner=f"{owner}{{}}", warnings=warnings)
+        _append_enum_collision_warnings(
+            shape.value, owner=f"{owner}{{}}", warnings=warnings, mdl=mdl, current_domain=current_domain
+        )
     elif shape.kind == "object":
         for item in shape.fields:
-            _append_enum_collision_warnings(item.shape, owner=f"{owner}.{item.name}", warnings=warnings)
+            _append_enum_collision_warnings(
+                item.shape, owner=f"{owner}.{item.name}", warnings=warnings, mdl=mdl, current_domain=current_domain
+            )
+    elif shape.kind == "union":
+        for variant in shape.variants:
+            variant_owner = f"{owner}.{variant.tag}"
+            unsafe_ref = variant.shape.kind == "ref"
+            unsafe_named = (
+                variant.shape.kind == "named"
+                and variant.shape.ref is not None
+                and not _named_variant_is_object_shaped(variant.shape.ref, mdl, current_domain)
+            )
+            if unsafe_ref or unsafe_named:
+                # A bare String (ref<T>) or a scalar-backed named type cannot serialize
+                # as a map, but serde's internally tagged enum representation requires
+                # every variant's content to merge with the discriminator field as one
+                # object — this variant will fail to (de)serialize at runtime despite
+                # compiling.
+                kind_label = "ref<T>" if unsafe_ref else "named"
+                warnings.append(type_loss(f"{variant_owner} ({kind_label} union variant)"))
+            _append_enum_collision_warnings(
+                variant.shape, owner=variant_owner, warnings=warnings, mdl=mdl, current_domain=current_domain
+            )
 
 
 def _field_specs_from_model_fields(
@@ -1985,6 +2117,20 @@ def _shape_base_annotation(
                     enum_info=enum_info,
                     named_type_map=named_type_map,
                 ),
+            )
+        return type_name
+    if shape.kind == "union":
+        type_name = _nested_type_name(owner_type, path)
+        if type_name not in definitions:
+            definitions[type_name] = _render_union_definition(
+                type_name,
+                shape.discriminator or "type",
+                shape.variants,
+                owner_type=owner_type,
+                path=path,
+                definitions=definitions,
+                enum_info=enum_info,
+                named_type_map=named_type_map,
             )
         return type_name
     return "String"
