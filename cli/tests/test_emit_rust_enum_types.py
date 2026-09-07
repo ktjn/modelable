@@ -7,6 +7,7 @@ import pytest
 
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.rust import emit_rust
+from modelable.registry.enum_numbers import allocate_enum_numbers
 
 
 def _write(tmp_path, name: str, text: str) -> None:
@@ -219,4 +220,79 @@ binding order-binding {
     assert "status: match src.status {" in projection_artifact.content
     assert 'OrderStatus::Pending => "pending".to_string(),' in projection_artifact.content
     assert 'OrderStatus::Active => "active".to_string(),' in projection_artifact.content
-    assert 'OrderStatus::Done => "done".to_string(),' in projection_artifact.content
+
+
+def test_enum_backed_semantic_declaration_gets_explicit_discriminants_from_lock(tmp_path):
+    """A Protobuf enum-numbers.lock allocation, when supplied, must be threaded
+    into the Rust enum as explicit discriminants so non-self-describing
+    encodings (postcard, bincode) get the same reorder-safe wire stability
+    the Protobuf target already has (issue #855)."""
+    _write(
+        tmp_path,
+        "model.mdl",
+        """
+domain orders {
+  owner: "orders-team"
+  semantic OrderStatus @ 1 (additive): enum(pending, active, done)
+  entity Order @ 1 (additive) { @key orderId: uuid status: OrderStatus @ 1 }
+}
+""",
+    )
+    workspace = load_workspace(tmp_path)
+    enum_numbers = allocate_enum_numbers(workspace.mdl, {})
+    artifacts = emit_rust(workspace, tmp_path / "out", enum_numbers=enum_numbers)
+
+    enum_artifact = next(a for a in artifacts if a.ref == "orders.OrderStatus")
+    assert "Pending = 1," in enum_artifact.content
+    assert "Active = 2," in enum_artifact.content
+    assert "Done = 3," in enum_artifact.content
+
+
+def test_enum_backed_semantic_declaration_without_lock_has_no_discriminants(tmp_path):
+    """No enum_numbers allocation supplied (e.g. no --enum-numbers ledger
+    configured) leaves the enum without explicit discriminants, unchanged
+    from prior behavior."""
+    _write(
+        tmp_path,
+        "model.mdl",
+        """
+domain orders {
+  owner: "orders-team"
+  semantic OrderStatus @ 1 (additive): enum(pending, active, done)
+  entity Order @ 1 (additive) { @key orderId: uuid status: OrderStatus @ 1 }
+}
+""",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    enum_artifact = next(a for a in artifacts if a.ref == "orders.OrderStatus")
+    assert "Pending," in enum_artifact.content
+    assert "= 1" not in enum_artifact.content
+
+
+def test_enum_projection_discriminants_carry_source_lock_numbers(tmp_path):
+    """An enum projection's included members must carry their source
+    declaration's locked numbers, mirroring Protobuf's
+    ``resolve_projection_numbers`` reuse-by-value semantics."""
+    _write(
+        tmp_path,
+        "model.mdl",
+        """
+domain orders {
+  owner: "orders-team"
+  semantic OrderStatus @ 1 (additive): enum(pending, active, done)
+  entity Order @ 1 (additive) { @key orderId: uuid status: OrderStatus @ 1 }
+  enum projection PublicStatus @ 1 (additive)
+    from OrderStatus @ 1
+    pick(active, done)
+}
+""",
+    )
+    workspace = load_workspace(tmp_path)
+    enum_numbers = allocate_enum_numbers(workspace.mdl, {})
+    artifacts = emit_rust(workspace, tmp_path / "out", enum_numbers=enum_numbers)
+
+    projection_artifact = next(a for a in artifacts if a.ref == "orders.PublicStatus")
+    assert "Active = 2," in projection_artifact.content
+    assert "Done = 3," in projection_artifact.content

@@ -46,6 +46,7 @@ from modelable.parser.ir import (
 )
 from modelable.planner.plans import build_plan_documents
 from modelable.planner.protocol import PLAN_V1_SCHEMA, PlanDocument
+from modelable.registry.enum_numbers import EnumNumberAllocation, resolve_projection_numbers
 from modelable.registry.resolver import (
     AmbiguousSemanticTypeError,
     latest_enum_projection_declarations,
@@ -142,7 +143,11 @@ def _lineage_enum_from_impl_lines(
 
 
 def emit_rust(
-    workspace: Workspace, out_dir: Path, *, registry_ids: dict[str, int] | None = None
+    workspace: Workspace,
+    out_dir: Path,
+    *,
+    registry_ids: dict[str, int] | None = None,
+    enum_numbers: dict[str, EnumNumberAllocation] | None = None,
 ) -> list[EmittedArtifact]:
     """Emit Rust source files for every model and projection version.
 
@@ -158,8 +163,12 @@ def emit_rust(
         for plan in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA)
     }
     if package_graph.package_for_domain:
-        return _emit_rust_packages(workspace, out_dir, package_graph, registry_ids=registry_ids, plans=plans)
-    return _emit_rust_single_crate(workspace, out_dir, registry_ids=registry_ids, plans=plans)
+        return _emit_rust_packages(
+            workspace, out_dir, package_graph, registry_ids=registry_ids, plans=plans, enum_numbers=enum_numbers
+        )
+    return _emit_rust_single_crate(
+        workspace, out_dir, registry_ids=registry_ids, plans=plans, enum_numbers=enum_numbers
+    )
 
 
 def _validate_rust_enum_projection_versions(workspace: Workspace) -> None:
@@ -219,6 +228,7 @@ def _emit_rust_single_crate(
     *,
     registry_ids: dict[str, int] | None = None,
     plans: dict[tuple[object, object, object], PlanDocument] | None = None,
+    enum_numbers: dict[str, EnumNumberAllocation] | None = None,
 ) -> list[EmittedArtifact]:
     postgres_sources = _adapter_bound_sources(workspace.mdl, "postgres")
     clickhouse_sources = _adapter_bound_sources(workspace.mdl, "clickhouse")
@@ -228,7 +238,10 @@ def _emit_rust_single_crate(
         for decl in latest_semantic_type_declarations(domain):
             qualified_name = f"{domain.name}.{decl.name}"
             allocated_id = (registry_ids or {}).get(qualified_name) if decl.registry else None
-            artifacts.append(_emit_semantic_type(domain, decl, out_dir, allocated_id=allocated_id))
+            allocation = (enum_numbers or {}).get(qualified_name)
+            artifacts.append(
+                _emit_semantic_type(domain, decl, out_dir, allocated_id=allocated_id, enum_allocation=allocation)
+            )
         for projection in latest_enum_projection_declarations(domain):
             resolved = resolve_named_declaration(
                 workspace.mdl,
@@ -239,7 +252,18 @@ def _emit_rust_single_crate(
             )
             source_domain = resolved.domain_name
             source_decl = cast(SemanticTypeDecl, resolved.declaration)
-            artifacts.append(_emit_enum_projection(domain, projection, source_domain, source_decl, out_dir))
+            source_qualified_name = f"{source_domain}.{source_decl.name}"
+            source_allocation = (enum_numbers or {}).get(source_qualified_name)
+            artifacts.append(
+                _emit_enum_projection(
+                    domain,
+                    projection,
+                    source_domain,
+                    source_decl,
+                    out_dir,
+                    source_allocation=source_allocation,
+                )
+            )
         for model_name, versions in domain.models.items():
             for version in versions:
                 artifacts.append(
@@ -278,6 +302,7 @@ def _emit_rust_packages(
     *,
     registry_ids: dict[str, int] | None = None,
     plans: dict[tuple[object, object, object], PlanDocument] | None = None,
+    enum_numbers: dict[str, EnumNumberAllocation] | None = None,
 ) -> list[EmittedArtifact]:
     mdl = workspace.mdl
     assert mdl.workspace is not None
@@ -300,6 +325,7 @@ def _emit_rust_packages(
             for decl in latest_semantic_type_declarations(domain):
                 qualified_name = f"{domain.name}.{decl.name}"
                 allocated_id = (registry_ids or {}).get(qualified_name) if decl.registry else None
+                allocation = (enum_numbers or {}).get(qualified_name)
                 artifact = _emit_semantic_type(
                     domain,
                     decl,
@@ -308,6 +334,7 @@ def _emit_rust_packages(
                     mdl=mdl,
                     current_pkg=pkg.name,
                     package_for_domain=package_for_domain,
+                    enum_allocation=allocation,
                 )
                 artifacts.append(artifact)
                 modules.append(artifact.path.stem)
@@ -321,6 +348,8 @@ def _emit_rust_packages(
                 )
                 source_domain = resolved.domain_name
                 source_decl = cast(SemanticTypeDecl, resolved.declaration)
+                source_qualified_name = f"{source_domain}.{source_decl.name}"
+                source_allocation = (enum_numbers or {}).get(source_qualified_name)
                 artifact = _emit_enum_projection(
                     domain,
                     projection,
@@ -329,6 +358,7 @@ def _emit_rust_packages(
                     pkg_dir,
                     current_pkg=pkg.name,
                     package_for_domain=package_for_domain,
+                    source_allocation=source_allocation,
                 )
                 artifacts.append(artifact)
                 modules.append(artifact.path.stem)
@@ -761,6 +791,7 @@ def _emit_semantic_type(
     mdl: MdlFile | None = None,
     current_pkg: str | None = None,
     package_for_domain: dict[str, str] | None = None,
+    enum_allocation: EnumNumberAllocation | None = None,
 ) -> EmittedArtifact:
     artifact_id = f"{domain.name}.{decl.name}"
     struct_name = decl.name
@@ -771,6 +802,7 @@ def _emit_semantic_type(
             decl.underlying,
             out_dir,
             allocated_id=allocated_id,
+            enum_allocation=enum_allocation,
         )
     rust_type, base_derives, use_statement = _rust_type_for_semantic_underlying(
         decl.underlying,
@@ -837,11 +869,17 @@ def _emit_semantic_enum_type(
     out_dir: Path,
     *,
     allocated_id: int | None = None,
+    enum_allocation: EnumNumberAllocation | None = None,
 ) -> EmittedArtifact:
     """Emit one nominal Rust ``pub enum`` for an enum-backed semantic
     declaration (evolution plan E7), reused by every field that references it
     instead of the opaque string-wrapper newtype other semantic underlying
     types get.
+
+    When a Protobuf enum-numbers.lock allocation exists for this declaration,
+    its member numbers are threaded through as explicit Rust discriminants so
+    non-self-describing encodings (postcard, bincode) get the same wire
+    stability against member reordering that the Protobuf target already has.
     """
     artifact_id = f"{domain.name}.{decl.name}"
     type_name = decl.name
@@ -854,7 +892,8 @@ def _emit_semantic_enum_type(
     lines = _header_lines()
     if allocated_id is not None:
         lines.append(f"/// registry id: {allocated_id}")
-    lines.extend(_render_enum_definition(type_name, list(underlying.values)))
+    discriminants = enum_allocation.member_numbers if enum_allocation is not None else None
+    lines.extend(_render_enum_definition(type_name, list(underlying.values), discriminants=discriminants))
     if allocated_id is not None:
         lines.extend(_render_registry_id_impl(type_name, allocated_id))
 
@@ -879,6 +918,7 @@ def _emit_enum_projection(
     *,
     current_pkg: str | None = None,
     package_for_domain: dict[str, str] | None = None,
+    source_allocation: EnumNumberAllocation | None = None,
 ) -> EmittedArtifact:
     """Emit one nominal Rust ``pub enum`` for an enum projection, plus proven
     lineage conversions to and from its source semantic-enum type (evolution
@@ -904,8 +944,9 @@ def _emit_enum_projection(
     prefix = _import_prefix(source_domain, domain.name, current_pkg, package_for_domain)
     source_module = _snake_case(source_decl.name)
 
+    discriminants = resolve_projection_numbers(projection, source_allocation) if source_allocation is not None else None
     lines = _header_lines(extra_uses=[f"use {prefix}::{source_module}::{source_type_name};"])
-    lines.extend(_render_enum_definition(type_name, projected_values))
+    lines.extend(_render_enum_definition(type_name, projected_values, discriminants=discriminants))
 
     lines.append("")
     lines.append(f"impl From<{type_name}> for {source_type_name} {{")
@@ -1705,7 +1746,9 @@ def _enum_member_name(value: str) -> str:
     return name or "Unknown"
 
 
-def _render_enum_definition(type_name: str, values: list[str]) -> list[str]:
+def _render_enum_definition(
+    type_name: str, values: list[str], *, discriminants: dict[str, int] | None = None
+) -> list[str]:
     derives = ["Debug", "Clone", "PartialEq", "serde::Serialize", "serde::Deserialize"]
     lines = [
         f"#[derive({', '.join(derives)})]",
@@ -1715,7 +1758,9 @@ def _render_enum_definition(type_name: str, values: list[str]) -> list[str]:
         member = _enum_member_name(v)
         if member != v:
             lines.append(f'    #[serde(rename = "{v}")]')
-        lines.append(f"    {member},")
+        number = (discriminants or {}).get(v)
+        suffix = f" = {number}" if number is not None else ""
+        lines.append(f"    {member}{suffix},")
     lines.append("}")
     return lines
 
