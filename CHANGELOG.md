@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [1.15.0] - 2026-09-07
+
+### Added
+
 - Add Rust codegen for `union<discriminator> { tag: T, ... }`, rendering each
   union field as an internally tagged `enum` (`#[serde(tag = "...")]`)
   matching the JSON Schema/OpenAPI `oneOf`/`discriminator` mapping already
