@@ -222,11 +222,13 @@ binding order-binding {
     assert 'OrderStatus::Active => "active".to_string(),' in projection_artifact.content
 
 
-def test_enum_backed_semantic_declaration_gets_explicit_discriminants_from_lock(tmp_path):
+def test_enum_backed_semantic_declaration_gets_wire_stable_serde_impl_from_lock(tmp_path):
     """A Protobuf enum-numbers.lock allocation, when supplied, must be threaded
-    into the Rust enum as explicit discriminants so non-self-describing
-    encodings (postcard, bincode) get the same reorder-safe wire stability
-    the Protobuf target already has (issue #855)."""
+    into a hand-written Serialize/Deserialize impl so non-self-describing
+    encodings (postcard, bincode) tag each variant by its locked number
+    instead of serde derive's declaration-order index — verified empirically
+    that derive ignores an explicit `= N` discriminant entirely for those
+    formats, so this hand-rolled impl is required (issue #855)."""
     _write(
         tmp_path,
         "model.mdl",
@@ -243,15 +245,26 @@ domain orders {
     artifacts = emit_rust(workspace, tmp_path / "out", enum_numbers=enum_numbers)
 
     enum_artifact = next(a for a in artifacts if a.ref == "orders.OrderStatus")
-    assert "Pending = 1," in enum_artifact.content
-    assert "Active = 2," in enum_artifact.content
-    assert "Done = 3," in enum_artifact.content
+    content = enum_artifact.content
+    # No derive-based Serialize/Deserialize when wire numbers are locked.
+    assert "#[derive(Debug, Clone, PartialEq)]" in content
+    assert "serde::Serialize, serde::Deserialize" not in content
+    # Hand-written impls exist and encode the locked numbers as the wire tag.
+    assert "impl serde::Serialize for OrderStatus {" in content
+    assert "impl<'de> serde::Deserialize<'de> for OrderStatus {" in content
+    assert "OrderStatus::Pending => 1," in content
+    assert "OrderStatus::Active => 2," in content
+    assert "OrderStatus::Done => 3," in content
+    # JSON round-trip is unaffected: the variant name string is still used.
+    assert 'OrderStatus::Pending => "pending",' in content
+    assert "1 => Ok(__Field::Pending)," in content
+    assert '"pending" => Ok(__Field::Pending),' in content
 
 
-def test_enum_backed_semantic_declaration_without_lock_has_no_discriminants(tmp_path):
+def test_enum_backed_semantic_declaration_without_lock_uses_derive(tmp_path):
     """No enum_numbers allocation supplied (e.g. no --enum-numbers ledger
-    configured) leaves the enum without explicit discriminants, unchanged
-    from prior behavior."""
+    configured) leaves the enum on the derive-based path, unchanged from
+    prior behavior — there's no locked number to make wire-stable."""
     _write(
         tmp_path,
         "model.mdl",
@@ -267,14 +280,16 @@ domain orders {
     artifacts = emit_rust(workspace, tmp_path / "out")
 
     enum_artifact = next(a for a in artifacts if a.ref == "orders.OrderStatus")
+    assert "serde::Serialize, serde::Deserialize" in enum_artifact.content
     assert "Pending," in enum_artifact.content
-    assert "= 1" not in enum_artifact.content
+    assert "impl serde::Serialize for OrderStatus" not in enum_artifact.content
 
 
-def test_enum_projection_discriminants_carry_source_lock_numbers(tmp_path):
+def test_enum_projection_wire_numbers_carry_source_lock_numbers(tmp_path):
     """An enum projection's included members must carry their source
-    declaration's locked numbers, mirroring Protobuf's
-    ``resolve_projection_numbers`` reuse-by-value semantics."""
+    declaration's locked numbers into the same hand-written Serialize impl,
+    mirroring Protobuf's ``resolve_projection_numbers`` reuse-by-value
+    semantics."""
     _write(
         tmp_path,
         "model.mdl",
@@ -294,5 +309,5 @@ domain orders {
     artifacts = emit_rust(workspace, tmp_path / "out", enum_numbers=enum_numbers)
 
     projection_artifact = next(a for a in artifacts if a.ref == "orders.PublicStatus")
-    assert "Active = 2," in projection_artifact.content
-    assert "Done = 3," in projection_artifact.content
+    assert "PublicStatus::Active => 2," in projection_artifact.content
+    assert "PublicStatus::Done => 3," in projection_artifact.content
