@@ -1706,7 +1706,7 @@ def _emit_target(
     if target == "python":
         return emit_python(workspace, output)
     if target == "rust":
-        return emit_rust(workspace, output, registry_ids=registry_ids)
+        return emit_rust(workspace, output, registry_ids=registry_ids, enum_numbers=enum_numbers)
     if target == "go":
         return emit_go(workspace, output)
     if target == "dbt-yaml":

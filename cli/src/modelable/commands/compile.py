@@ -76,7 +76,10 @@ def register_compile_commands(cli_group: click.Group) -> None:
     "enum_numbers_path",
     type=click.Path(path_type=Path),
     default=None,
-    help="Path to the Protobuf enum number allocation ledger. Defaults beside the source workspace.",
+    help=(
+        "Path to the enum number allocation ledger, used for Protobuf field numbers and Rust "
+        "enum discriminants. Defaults beside the source workspace."
+    ),
 )
 @click.option(
     "--domain",
