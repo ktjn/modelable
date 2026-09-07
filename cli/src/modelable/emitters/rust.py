@@ -880,7 +880,8 @@ def _emit_semantic_enum_type(
     types get.
 
     When a Protobuf enum-numbers.lock allocation exists for this declaration,
-    its member numbers are threaded through as explicit Rust discriminants so
+    its member numbers are threaded through into a hand-written Serialize/
+    Deserialize impl (see ``_render_enum_definition_with_wire_numbers``) so
     non-self-describing encodings (postcard, bincode) get the same wire
     stability against member reordering that the Protobuf target already has.
     """
@@ -1827,6 +1828,8 @@ def _enum_member_name(value: str) -> str:
 def _render_enum_definition(
     type_name: str, values: list[str], *, discriminants: dict[str, int] | None = None
 ) -> list[str]:
+    if discriminants is not None:
+        return _render_enum_definition_with_wire_numbers(type_name, values, discriminants)
     derives = ["Debug", "Clone", "PartialEq", "serde::Serialize", "serde::Deserialize"]
     lines = [
         f"#[derive({', '.join(derives)})]",
@@ -1836,9 +1839,149 @@ def _render_enum_definition(
         member = _enum_member_name(v)
         if member != v:
             lines.append(f'    #[serde(rename = "{v}")]')
-        number = (discriminants or {}).get(v)
-        suffix = f" = {number}" if number is not None else ""
-        lines.append(f"    {member}{suffix},")
+        lines.append(f"    {member},")
+    lines.append("}")
+    return lines
+
+
+def _render_enum_definition_with_wire_numbers(
+    type_name: str, values: list[str], discriminants: dict[str, int]
+) -> list[str]:
+    """Render a nominal enum-backed declaration with hand-written
+    ``Serialize``/``Deserialize`` that tag each variant with its locked
+    ``enum-numbers.lock`` number for non-self-describing encodings.
+
+    serde derive ignores an explicit Rust ``= N`` discriminant entirely: it
+    always calls ``serialize_unit_variant`` with the variant's *declaration-
+    order* index, never its assigned discriminant value (confirmed
+    empirically against real ``postcard``/``bincode`` output — reordering
+    members while keeping ``= N`` unchanged still silently changed every
+    encoded byte). Passing the locked number explicitly through
+    ``serialize_unit_variant``/a matching custom ``Deserialize`` is the only
+    way to give the Rust target the same reorder-safe wire stability the
+    Protobuf target already has via this same ledger. Self-describing
+    formats (JSON) are unaffected: they still round-trip on the variant name
+    string, exactly as with the derive-based path.
+    """
+    members = [(value, _enum_member_name(value), discriminants[value]) for value in values]
+    variants_literal = ", ".join(f'"{value}"' for value, _, _ in members)
+
+    lines = ["#[derive(Debug, Clone, PartialEq)]", f"pub enum {type_name} {{"]
+    for _, member, _number in members:
+        lines.append(f"    {member},")
+    lines.append("}")
+    lines.append("")
+    lines.append(f"impl {type_name} {{")
+    lines.append(f"    const VARIANTS: &'static [&'static str] = &[{variants_literal}];")
+    lines.append("")
+    lines.append("    fn wire_index(&self) -> u32 {")
+    lines.append("        match self {")
+    for _, member, number in members:
+        lines.append(f"            {type_name}::{member} => {number},")
+    lines.append("        }")
+    lines.append("    }")
+    lines.append("")
+    lines.append("    fn wire_name(&self) -> &'static str {")
+    lines.append("        match self {")
+    for value, member, _ in members:
+        lines.append(f'            {type_name}::{member} => "{value}",')
+    lines.append("        }")
+    lines.append("    }")
+    lines.append("}")
+    lines.append("")
+    lines.append(f"impl serde::Serialize for {type_name} {{")
+    lines.append("    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>")
+    lines.append("    where")
+    lines.append("        S: serde::Serializer,")
+    lines.append("    {")
+    lines.append(f'        serializer.serialize_unit_variant("{type_name}", self.wire_index(), self.wire_name())')
+    lines.append("    }")
+    lines.append("}")
+    lines.append("")
+    lines.append(f"impl<'de> serde::Deserialize<'de> for {type_name} {{")
+    lines.append("    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>")
+    lines.append("    where")
+    lines.append("        D: serde::Deserializer<'de>,")
+    lines.append("    {")
+    lines.append("        #[allow(non_camel_case_types)]")
+    lines.append("        enum __Field {")
+    for _, member, _ in members:
+        lines.append(f"            {member},")
+    lines.append("        }")
+    lines.append("")
+    lines.append("        impl<'de> serde::Deserialize<'de> for __Field {")
+    lines.append("            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>")
+    lines.append("            where")
+    lines.append("                D: serde::Deserializer<'de>,")
+    lines.append("            {")
+    lines.append("                struct __FieldVisitor;")
+    lines.append("")
+    lines.append("                impl<'de> serde::de::Visitor<'de> for __FieldVisitor {")
+    lines.append("                    type Value = __Field;")
+    lines.append("")
+    lines.append(
+        "                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {"
+    )
+    lines.append(f'                        formatter.write_str("variant identifier for {type_name}")')
+    lines.append("                    }")
+    lines.append("")
+    lines.append("                    fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>")
+    lines.append("                    where")
+    lines.append("                        E: serde::de::Error,")
+    lines.append("                    {")
+    lines.append("                        match value {")
+    for _, member, number in members:
+        lines.append(f"                            {number} => Ok(__Field::{member}),")
+    lines.append("                            _ => Err(serde::de::Error::invalid_value(")
+    lines.append("                                serde::de::Unexpected::Unsigned(value),")
+    lines.append(f'                                &"a valid {type_name} wire number",')
+    lines.append("                            )),")
+    lines.append("                        }")
+    lines.append("                    }")
+    lines.append("")
+    lines.append("                    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>")
+    lines.append("                    where")
+    lines.append("                        E: serde::de::Error,")
+    lines.append("                    {")
+    lines.append("                        match value {")
+    for value, member, _ in members:
+        lines.append(f'                            "{value}" => Ok(__Field::{member}),')
+    lines.append(
+        f"                            _ => Err(serde::de::Error::unknown_variant(value, {type_name}::VARIANTS)),"
+    )
+    lines.append("                        }")
+    lines.append("                    }")
+    lines.append("                }")
+    lines.append("")
+    lines.append("                deserializer.deserialize_identifier(__FieldVisitor)")
+    lines.append("            }")
+    lines.append("        }")
+    lines.append("")
+    lines.append("        struct __Visitor;")
+    lines.append("")
+    lines.append("        impl<'de> serde::de::Visitor<'de> for __Visitor {")
+    lines.append(f"            type Value = {type_name};")
+    lines.append("")
+    lines.append("            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {")
+    lines.append(f'                formatter.write_str("enum {type_name}")')
+    lines.append("            }")
+    lines.append("")
+    lines.append("            fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>")
+    lines.append("            where")
+    lines.append("                A: serde::de::EnumAccess<'de>,")
+    lines.append("            {")
+    lines.append("                use serde::de::VariantAccess;")
+    lines.append("                let (field, variant) = serde::de::EnumAccess::variant(data)?;")
+    lines.append("                variant.unit_variant()?;")
+    lines.append("                Ok(match field {")
+    for _, member, _ in members:
+        lines.append(f"                    __Field::{member} => {type_name}::{member},")
+    lines.append("                })")
+    lines.append("            }")
+    lines.append("        }")
+    lines.append("")
+    lines.append(f'        deserializer.deserialize_enum("{type_name}", {type_name}::VARIANTS, __Visitor)')
+    lines.append("    }")
     lines.append("}")
     return lines
 
