@@ -12,6 +12,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+## [1.15.1] - 2026-09-08
+
+### Added
+
+### Changed
+
+### Fixed
+
 - Suppress a `clippy::enum_variant_names` false positive on the private
   `__Field` helper enum generated for wire-stable Rust enum
   Serialize/Deserialize (introduced in 1.15.0): every-variant-shares-a-prefix
