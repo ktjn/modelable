@@ -261,6 +261,34 @@ domain orders {
     assert '"pending" => Ok(__Field::Pending),' in content
 
 
+def test_enum_backed_declaration_with_shared_variant_prefix_suppresses_clippy_lint(tmp_path):
+    """A private helper enum whose variants all share a prefix (e.g. every
+    member of a real-world PaymentEffectType starting with "Payment") trips
+    clippy's `enum_variant_names` lint, which only fires on non-`pub` enums
+    (confirmed empirically: the public nominal enum itself, with the same
+    variant shape, does not trigger it). A `-D warnings` clippy gate would
+    reject the generated code without this allow attribute on the private
+    `__Field` helper."""
+    _write(
+        tmp_path,
+        "model.mdl",
+        """
+domain payments {
+  owner: "payments-team"
+  semantic PaymentEffectType @ 1 (additive): enum(payment_authorize, payment_capture, payment_refund, payment_void)
+  entity Payment @ 1 (additive) { @key paymentId: uuid effectType: PaymentEffectType @ 1 }
+}
+""",
+    )
+    workspace = load_workspace(tmp_path)
+    enum_numbers = allocate_enum_numbers(workspace.mdl, {})
+    artifacts = emit_rust(workspace, tmp_path / "out", enum_numbers=enum_numbers)
+
+    enum_artifact = next(a for a in artifacts if a.ref == "payments.PaymentEffectType")
+    assert "#[allow(non_camel_case_types, clippy::enum_variant_names)]" in enum_artifact.content
+    assert "enum __Field {" in enum_artifact.content
+
+
 def test_enum_backed_semantic_declaration_without_lock_uses_derive(tmp_path):
     """No enum_numbers allocation supplied (e.g. no --enum-numbers ledger
     configured) leaves the enum on the derive-based path, unchanged from

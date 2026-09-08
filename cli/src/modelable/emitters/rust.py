@@ -1903,7 +1903,7 @@ def _render_enum_definition_with_wire_numbers(
     lines.append("    where")
     lines.append("        D: serde::Deserializer<'de>,")
     lines.append("    {")
-    lines.append("        #[allow(non_camel_case_types)]")
+    lines.append("        #[allow(non_camel_case_types, clippy::enum_variant_names)]")
     lines.append("        enum __Field {")
     for _, member, _ in members:
         lines.append(f"            {member},")
