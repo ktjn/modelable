@@ -12,6 +12,12 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Suppress a `clippy::enum_variant_names` false positive on the private
+  `__Field` helper enum generated for wire-stable Rust enum
+  Serialize/Deserialize (introduced in 1.15.0): every-variant-shares-a-prefix
+  declarations (e.g. `payment_authorize`/`payment_capture`/...) failed a
+  `-D warnings` clippy gate in consuming crates.
+
 ## [1.15.0] - 2026-09-07
 
 ### Added
