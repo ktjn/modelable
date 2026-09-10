@@ -13,7 +13,7 @@ The architecture source of truth is [docs/architecture.md](docs/architecture.md)
 ### Stabilization baseline
 
 - [x] Phase 1 — canonical identity/path grammar baseline.
-- [ ] Phase 2 — declaration/projection unification complete end-to-end. The baseline is shipped, but legacy declaration-specific wrappers/paths remain.
+- [x] Phase 2 — declaration/projection unification complete end-to-end. Closed 2026-09-06 with Programme A; no legacy declaration-specific wrapper/path code remained to remove. The two items evaluated and deliberately left alone (separate immediate-source vs. projection-hop lineage functions; a handful of small per-kind `isinstance` branches not worth a formal capability-dispatch layer) are documented as intentional in the Programme A closure notes, not outstanding work.
 - [x] Phase 3 — `modelable.plan/v0` migration boundary.
 - [x] Phase 4 — deterministic version-aware target overlays.
 - [ ] Phase 5 — external extension execution. Descriptors, capabilities, provenance pins, trust policy, and a native third-party WASM host are shipped; virtual capability handoff, browser execution, and subprocess execution remain.
