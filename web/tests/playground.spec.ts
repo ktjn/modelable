@@ -278,7 +278,9 @@ test('creates, validates, and restores a multi-file workspace', async ({
     .toEqual([
       'file:///billing.mdl',
       'file:///customer.mdl',
+      'file:///oms.mdl',
       'file:///orders.mdl',
+      'file:///payments.mdl',
       'file:///sales.mdl',
       'file:///workspace.mdl',
     ]);

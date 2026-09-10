@@ -1,0 +1,22 @@
+domain payments {
+  owner: "payments-platform"
+  description: "Payment service provider -- the master system of record for payment authorization, capture, and refund events. References the order master system by id."
+
+  entity Payment @ 1 (additive) {
+    @key paymentId: uuid
+    orderId: ref<oms.Order @ 1>
+    amount: decimal(12, 2)
+      constraint { min: 0 }
+    method: enum(card, ach, wire)
+    status: enum(authorized, captured, refunded, failed)
+    paidAt: timestamp
+  }
+
+  index Payment @ 1 {
+    primary paymentId
+
+    secondary byOrder {
+      key: [orderId]
+    }
+  }
+}

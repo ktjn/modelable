@@ -1,0 +1,41 @@
+# Example target overlay for the sql-postgres compile target.
+# Not loaded automatically -- select "sql-postgres" as the compile target in
+# the playground toolbar, then use the "Overlay file" picker to load a local
+# copy of this file. See docs/emitter-extension-overlays.md for the full
+# overlay model.
+
+target = "sql-postgres"
+version = 1
+
+[models."customer.Customer@3"]
+table = "customers"
+
+[models."sales.Product@1"]
+table = "products"
+
+[models."oms.Order@1"]
+table = "orders"
+
+[models."payments.Payment@1"]
+table = "payments"
+
+[fields."customer.Customer@3#customerId"]
+column = "customer_id"
+
+# Version-range selector: legalName only existed in Customer @1-@2, before
+# the @3 rename to fullName. Lower specificity than the exact-version entry
+# below, so @3 always wins where both could apply.
+[fields."customer.Customer@>=1,<3#legalName"]
+column = "legal_name"
+
+[fields."customer.Customer@3#fullName"]
+column = "full_name"
+
+[fields."oms.Order@1#customerId"]
+column = "customer_id"
+
+[fields."oms.Order@1#productId"]
+column = "product_id"
+
+[fields."payments.Payment@1#orderId"]
+column = "order_id"

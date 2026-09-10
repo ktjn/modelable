@@ -1,5 +1,6 @@
 domain sales {
   owner: "sales-platform"
+  description: "Product catalogue -- the master system of record for sellable items. Order placement lives in the oms domain, which references products here by id."
 
   entity Product @ 1 (additive) {
     @key productId: uuid
@@ -9,13 +10,5 @@ domain sales {
     tags: array<string>
     unitPrice: decimal(10, 2)
     createdAt: timestamp
-  }
-
-  entity Purchase @ 1 (additive) {
-    @key purchaseId: uuid
-    customer: ref<customer.Customer @ 3>
-    total: decimal(12, 2)
-      constraint { min: 0 }
-    placedAt: timestamp
   }
 }

@@ -1,13 +1,49 @@
 domain billing {
   owner: "billing-platform"
 
-  projection BillingCustomer @ 1
-    from customer.Customer @ 3 as c
+  // Cross-system lineage: joins three independent master source systems --
+  // customer (CRM), oms (order management), and payments (PSP) -- into one
+  // row per order, preserving each field's immediate source system.
+  projection CustomerOrderPayment @ 1
+    from oms.Order @ 1 as o
+    join customer.Customer @ 3 as c on o.customerId == c.customerId
+    left join payments.Payment @ 1 as p on o.orderId == p.orderId
   {
-    billingId <- c.customerId
-    name <- c.fullName
+    orderId       <- o.orderId
+    customerId    <- o.customerId
+    customerName  <- c.fullName
     @pii
-    invoiceEmail <- c.email
-    isActive = c.status == "active"
+    customerEmail <- c.email
+    orderTotal    <- o.total
+    orderStatus   <- o.status
+    paymentId     <- p.paymentId
+    paymentAmount <- p.amount
+    paymentStatus <- p.status
+    paidAt        <- p.paidAt
+    isPaid        = p.status == "captured"
+  }
+
+  // Aggregation after lineage: the same three-system join as
+  // CustomerOrderPayment above, grouped down to one row per customer. PII
+  // (customer email) is deliberately not propagated into this rollup.
+  projection CustomerBillingSummary @ 1
+    from oms.Order @ 1 as o
+    join customer.Customer @ 3 as c on o.customerId == c.customerId
+    left join payments.Payment @ 1 as p on o.orderId == p.orderId
+    group by o.customerId, c.fullName
+  {
+    customerId        <- o.customerId
+    customerName      <- c.fullName
+    orderCount        = count(o.orderId)
+    totalOrderedCents = sum(o.total)
+    totalPaid         = sum(p.amount) where p.status == "captured"
+    unpaidOrderCount  = countif(p.status != "captured")
+    lastPaymentAt     = max(p.paidAt)
+  }
+
+  generate {
+    openapi -> "./generated/api/"
+    typescript -> "./generated/types/"
+    sql(postgres) -> "./generated/sql/"
   }
 }

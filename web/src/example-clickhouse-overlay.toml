@@ -1,0 +1,22 @@
+# Example target overlay for the sql-clickhouse compile target.
+# Not loaded automatically -- select "sql-clickhouse" as the compile target
+# in the playground toolbar, then use the "Overlay file" picker to load a
+# local copy of this file. See docs/emitter-extension-overlays.md for the
+# full overlay model.
+
+target = "sql-clickhouse"
+version = 1
+
+# Declaration wildcards: one naming convention for every version of each
+# master-system entity, without repeating a selector per version.
+[models."customer.Customer@*"]
+table = "dim_customer"
+
+[models."sales.Product@*"]
+table = "dim_product"
+
+[models."oms.Order@*"]
+table = "fact_order"
+
+[models."payments.Payment@*"]
+table = "fact_payment"
