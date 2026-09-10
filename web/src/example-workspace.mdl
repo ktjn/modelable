@@ -1,6 +1,6 @@
 workspace {
   name: "playground-example"
-  description: "Customer identity, its compiler-expanded db/request/reply/event projections, a cross-domain billing projection, and a sales domain referencing customer by id."
+  description: "Four independent master source systems -- customer (CRM), sales (product catalogue), oms (order management), and payments (PSP) -- consolidated by a billing domain that joins across all three transactional systems to establish lineage, then aggregates on top of that lineage into a per-customer billing summary."
 
   generate {
     docs          -> "./generated/docs/"

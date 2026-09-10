@@ -1,0 +1,29 @@
+domain oms {
+  owner: "oms-platform"
+  description: "Order Management System -- the master system of record for order lifecycle state across web, mobile, and partner channels. References the customer master system by id; product identity is denormalized at order time rather than kept as a live cross-domain reference, as is typical for an OMS."
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: ref<customer.Customer @ 3>
+    productId: uuid
+    quantity: int
+      constraint { min: 1 }
+    unitPrice: decimal(10, 2)
+    total: decimal(12, 2)
+      constraint { min: 0 }
+    status: enum(pending, confirmed, shipped, delivered, cancelled)
+    placedAt: timestamp
+  }
+
+  index Order @ 1 {
+    primary orderId
+
+    secondary byCustomer {
+      key: [customerId]
+    }
+  }
+
+  auto projections Order @ 1 {
+    db
+  }
+}

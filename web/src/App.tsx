@@ -23,6 +23,8 @@ import { normalizeDiagnosticsByUri } from './diagnostics';
 import type { BrowserDiagnostic } from './protocol';
 import customerSource from './example-customer.mdl?raw';
 import salesSource from './example-sales.mdl?raw';
+import omsSource from './example-oms.mdl?raw';
+import paymentsSource from './example-payments.mdl?raw';
 import billingSource from './example-billing.mdl?raw';
 import workspaceSource from './example-workspace.mdl?raw';
 import { SourceEditor } from './editor/SourceEditor';
@@ -289,6 +291,8 @@ function AppInner({
     createDefaultWorkspace([
       { path: 'customer.mdl', content: customerSource },
       { path: 'sales.mdl', content: salesSource },
+      { path: 'oms.mdl', content: omsSource },
+      { path: 'payments.mdl', content: paymentsSource },
       { path: 'billing.mdl', content: billingSource },
       { path: 'workspace.mdl', content: workspaceSource },
     ]),
