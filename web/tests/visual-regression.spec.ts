@@ -3,7 +3,7 @@ import { waitForReady } from './helpers';
 
 /**
  * Responsive visual-regression coverage for Phase 5 of the Playground UI
- * uplift plan (docs/superpowers/plans/2026-08-13-playground-ui-uplift.md):
+ * uplift plan (docs/superpowers/plans/archived/2026-08-13-playground-ui-uplift.md):
  * "Add ... responsive visual regression coverage" at 390px, 768px, 1024px,
  * and 1440px, in both light and dark theme.
  *

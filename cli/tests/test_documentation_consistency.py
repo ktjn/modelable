@@ -27,7 +27,10 @@ def test_integrations_reference_matches_protobuf_grpc_support() -> None:
     integrations = _read("docs/integrations.md")
 
     assert "descriptor sets and compatibility validation remain follow-up work" not in integrations
-    assert "Avro, Protobuf, and Scalable-oriented gRPC generation are implemented" in integrations
+    assert (
+        "| Event/API contracts | Avro, Protobuf, gRPC, OpenAPI, event-sink contracts "
+        "| Runtime brokers/materializers remain outside core; AsyncAPI is deferred |"
+    ) in integrations
 
 
 def test_avro_documentation_matches_the_implemented_target() -> None:
@@ -35,6 +38,6 @@ def test_avro_documentation_matches_the_implemented_target() -> None:
     cli_reference = _read("docs/cli-reference.md")
     language_reference = _read("docs/language-reference.md")
 
-    assert "| Avro | 5 | Implemented local artifact for model and event records |" in compiler_reference
+    assert "| Avro | Implemented local artifact for model and event records |" in compiler_reference
     assert "`openapi`, `avro`, `registry`, or `event-sink`" in cli_reference
     assert "(`asyncapi` and the `mysql`/`sqlite` SQL dialects" in language_reference

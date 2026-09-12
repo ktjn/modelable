@@ -1,11 +1,9 @@
 # Modelable Playground Architecture
 
-> **Status:** Long-term product vision with Phases 1–7 shipped. The browser
-> compiler, single-file editor, multi-file workspace with persistence,
-> browser-native language services, visualization MVP, analysis views,
-> local AI, and offline hardening (service worker, cross-browser validation,
-> accessibility and performance hardening) are all archived. Extensibility
-> is the active next phase.
+> **Status:** Current architecture with the historical Phases 1–8 shipped
+> within the bounded host-plugin scope described below. Completed delivery
+> plans are archived; forward-looking product work lives only in
+> [ROADMAP.md](../ROADMAP.md).
 
 ## 1. Purpose
 
@@ -952,7 +950,7 @@ Permitted local diagnostics:
 
 Any remote telemetry must be opt-in, documented, and scrubbed of source text, prompts, generated artifacts, file names, and identifiers.
 
-## 24. Delivery roadmap
+## 24. Delivery history and boundary
 
 ### Phase 1: browser compiler spike — shipped
 
@@ -1071,21 +1069,21 @@ and `prefers-reduced-motion` support. Performance budgets enforce ≤ 200 ms
 median graph operations. The completed design is archived in
 [Playground Visualization MVP — Design](superpowers/specs/archived/2026-07-21-playground-visualization-design.md).
 
-### Phase 5: analysis views
+### Phase 5: analysis views — shipped
 
 - Field lineage.
 - Compatibility visualization.
 - Governance visualization.
 - SVG and PNG export.
 
-### Phase 6: local AI
+### Phase 6: local AI — shipped
 
 - WebLLM provider.
 - Model download UX.
 - Generate and explain actions.
 - Validated update preview and acceptance flow.
 
-### Phase 6b: documentation RAG
+### Phase 6b: documentation RAG — shipped
 
 The Playground routes high-confidence documentation questions through the
 shared deterministic intent classifier, Python retrieval pipeline in Pyodide,
@@ -1097,7 +1095,7 @@ or failed indexes fall back to ordinary chat for automatic turns. The index is
 not persisted with workspace state. Structured binary document shards,
 vector/hybrid retrieval, and user-supplied browser indexes remain deferred.
 
-### Phase 7: offline and hardening
+### Phase 7: offline and hardening — shipped
 
 - Service worker.
 - Offline workspace support.
@@ -1106,12 +1104,17 @@ vector/hybrid retrieval, and user-supplied browser indexes remain deferred.
 - Security review.
 - Cross-browser validation.
 
-### Phase 8: extensibility
+### Phase 8: bounded host extensibility — shipped
 
-- Plugin contracts.
-- Additional visualization modes.
-- Additional opt-in provider conformance suites.
-- Optional GitHub integration using explicit user authorization.
+The Playground supports host-registered, browser-local artifact-viewer plugins
+through its versioned plugin contract. Additional visualization/provider
+integrations may be added as ordinary product slices when a concrete use case
+exists.
+
+Arbitrary downloaded JavaScript, arbitrary third-party WASM extension modules,
+and executable plugin discovery are explicitly outside the static Playground
+boundary. Optional external integrations require explicit user authorization
+and a separate security/design review.
 
 ## 25. Architectural decisions
 

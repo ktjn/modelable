@@ -1,8 +1,5 @@
 # Modelable Compiler and Artifact Reference
 
-> **Scope:** Compiler outputs, emitters, compatibility metadata, lineage, and
-> generated-artifact guarantees.
-
 > **Status:** Current implementation reference. Target and integration support
 > is compiler-owned; catalog/runtime boundaries and deferred work are called
 > out below and in [the roadmap](https://github.com/ktjn/modelable/blob/main/ROADMAP.md).
@@ -28,31 +25,31 @@ version are byte-for-byte identical at every downstream boundary, including
 every implemented codegen target's output (verified directly across all of
 them by `cli/tests/test_q1_convergence.py`).
 
-## 2. Phase Scope
+## 2. Target Status
 
-| Target | Phase | Status |
-|---|---:|---|
-| JSON Schema 2020-12 | 1 | Required |
-| TypeScript via `json-schema-to-typescript` | 1 | Required |
-| Markdown documentation | 1 | Required |
-| C#, Java, Python, Rust, and Go | 1 | Implemented |
-| SQL DDL | 5 | Implemented local artifact |
-| dbt `schema.yml` | 4 | Implemented local artifact |
-| FHIR R4 profile | 4b | Implemented local artifact for Patient, Observation, and Encounter profile bases |
-| Apicurio Registry | 2 | Implemented JSON Schema artifact publish/pull |
-| OpenMetadata export | 3 | Implemented local artifact; live catalog sync deferred |
-| OpenLineage sync | 3 | Implemented for Marquez-compatible `/api/v1/lineage` endpoints |
-| OpenLineage export | 3 | Implemented local artifact; runtime collection deferred |
-| ODCS export | 4 | Implemented local artifact |
-| Protobuf | 5 | Implemented local artifact with opt-in descriptor artifacts, native supported maps, source reservations, and manifest-based compatibility validation |
-| Scalable gRPC profile | 5 | Implemented local artifact with opt-in service descriptors, declared read-index metadata, and manifest-based compatibility validation |
-| Avro | 5 | Implemented local artifact for model and event records |
-| OpenAPI | 5 | Implemented local artifact with schemas, paths, and projection-backed operations |
-| Event sink | 5 | Implemented local contract artifact; broker and materialization runtime deferred |
-| Registry manifest | 5 | Implemented local contract inventory with model identity metadata |
-| AsyncAPI | 5 | Deferred |
+| Target | Status |
+|---|---|
+| JSON Schema 2020-12 | Implemented local artifact |
+| TypeScript | Implemented local artifact with native emitter |
+| Markdown documentation | Implemented local artifact |
+| C#, Java, Python, Rust, and Go | Implemented local artifacts |
+| SQL DDL | Implemented local artifact |
+| dbt `schema.yml` | Implemented local artifact |
+| FHIR R4 profile | Implemented local artifact for Patient, Observation, and Encounter profile bases |
+| Apicurio Registry | Implemented JSON Schema artifact publish/pull |
+| OpenMetadata export | Implemented local artifact; live catalog sync deferred |
+| OpenLineage sync | Implemented for Marquez-compatible `/api/v1/lineage` endpoints |
+| OpenLineage export | Implemented local artifact; runtime collection deferred |
+| ODCS export | Implemented local artifact |
+| Protobuf | Implemented local artifact with opt-in descriptor artifacts, native maps, reservations, and manifest compatibility validation |
+| Scalable gRPC profile | Implemented local artifact with opt-in service descriptors, read-index metadata, and manifest compatibility validation |
+| Avro | Implemented local artifact for model and event records |
+| OpenAPI | Implemented local artifact with schemas, paths, and projection-backed operations |
+| Event sink | Implemented local contract artifact; broker/materialization runtime outside core |
+| Registry manifest | Implemented local contract inventory with model identity metadata |
+| AsyncAPI | Deferred |
 
-Phase 1 must not require runtime adapters.
+Artifact generation must not require runtime adapters.
 
 ## 3. Emitter Interface
 
@@ -153,15 +150,14 @@ Type mapping:
 
 ## 7. TypeScript Emitter
 
-The TypeScript emitter delegates type generation to `json-schema-to-typescript`.
+The TypeScript emitter is native and maps the normalized Modelable graph directly.
 
 Requirements:
 
-- Generate JSON Schema first.
-- Generate one `.ts` file per schema.
-- Preserve `x-modelable-*` metadata as JSDoc where supported.
-- Use stable interface names derived from `<Domain><Name>V<version>`.
-- Do not hand-roll a separate TypeScript type mapper in Phase 1.
+- Generate one `.ts` file per selected contract artifact.
+- Preserve semantic identity and target-relevant metadata without routing semantics through JSON Schema.
+- Use stable interface/type names derived from canonical declaration identity.
+- Reject or explicitly diagnose Modelable constructs the target cannot represent.
 
 ## 8. Markdown Documentation Emitter
 
@@ -317,19 +313,18 @@ Emitter diagnostics are warnings unless the artifact cannot be generated correct
 | `EMIT002` | Type cannot be represented without loss |
 | `EMIT003` | Missing metadata required by target |
 | `EMIT004` | Generated artifact failed validation |
-| `EMIT005` | Deferred target requested in current phase |
+| `EMIT005` | Deferred or unavailable target requested |
 | `EMIT006` | Rust enum member collision: distinct canonical members generate the same identifier |
 | `EMIT007` | Storage-bound Rust projection has no explicit `@wire(json.fieldCase: ...)` override, so the wire name may not match the physical column casing |
 
 ## 12. Open Decisions
 
-- Whether emitters become third-party plugins through Python entry points.
-- How target-specific annotations are represented without polluting canonical models.
+- Which additional targets warrant first-party maintenance versus a native WASM extension.
 - Whether large domains require streaming artifact generation APIs.
 
 ## 13. Acceptance Criteria
 
-- Phase 1 emits JSON Schema, TypeScript, and Markdown for models and projections.
+- Baseline JSON Schema, TypeScript, and Markdown emitters remain deterministic for models and projections.
 - Implemented local emitters are deterministic and appear in `modelable codegen formats`.
 - JSON Schema output validates against draft 2020-12.
 - Generated artifacts include version metadata and `x-modelable-*` extensions where supported.

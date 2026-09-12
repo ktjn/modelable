@@ -12,14 +12,15 @@ The CLI is designed as a phased tool: early phases focus on local authoring and 
 ## 2. Current Surface and Delivery History
 
 | Surface | Status |
-|:------|:------|:-------|
-| Local compiler, language server, and artifact targets | Supported stable surface |
-| Registry, package, query, lifecycle, migration, facet, and extension workflows | Implemented local/offline surfaces; see `modelable capabilities` and [the roadmap](https://github.com/ktjn/modelable/blob/main/ROADMAP.md) for boundaries |
-| Live catalogs, runtime collection, OCI transport, and hosted execution | Deferred or explicitly opt-in; see [the compiler reference](compiler-reference.md) |
+|:------|:-------|
+| Local compiler, language server, browser, and artifact targets | Supported stable surface |
+| Registry, local package, query, lifecycle, migration, facet, and native WASM extension workflows | Implemented local/offline surfaces; use `modelable capabilities` for support status |
+| OCI package transport | Active roadmap work; network operations remain explicit |
+| Live catalogs, runtime collection/execution, hosted registry, subprocess extensions | Deferred, external, or explicitly not planned; see [architecture](architecture.md) and the [roadmap](https://github.com/ktjn/modelable/blob/main/ROADMAP.md) |
 
-The table describes the current product surface. Historical delivery phases are
-retained in [the roadmap](https://github.com/ktjn/modelable/blob/main/ROADMAP.md)
-and its [archived roadmap](roadmap-archive-2026-08.md).
+Historical delivery phases are retained in the
+[archived roadmap](roadmap-archive-2026-08.md) and archived implementation
+plans. The active roadmap contains only forward-looking work.
 
 ## 3. Installation and Runtime
 
@@ -806,7 +807,7 @@ modelable graph export ./models --focus customer.CustomerView@1 --out ./dist/cus
 modelable export openmetadata [PATH] --out FILE
 ```
 
-**Phase 3 — command form not yet implemented.** The shipped local export path is
+**Command form not implemented.** The shipped local export path is
 `modelable compile PATH --target openmetadata --out DIR`. Live catalog publish
 remains deferred.
 
@@ -849,7 +850,7 @@ modelable compile ./models --target openmetadata --out ./dist/openmetadata
 modelable compile PATH --target openlineage --out DIR
 ```
 
-**Phase 3 — implemented as a compile target.**
+**Implemented as a compile target.**
 
 Exports each model and projection version as a deterministic OpenLineage
 `COMPLETE` run event. The event output dataset includes a schema facet, and
@@ -872,7 +873,7 @@ modelable compile ./models --target openlineage --out ./dist/openlineage
 modelable sync PATH --lineage marquez --url URL [--token TOKEN] [--dry-run]
 ```
 
-**Phase 3 — implemented for the first live lineage target.**
+**Implemented for the first live lineage target.**
 
 Generates the same deterministic OpenLineage events as
 `compile --target openlineage` and posts each event to a Marquez-compatible
@@ -900,7 +901,7 @@ modelable sync ./models --lineage marquez --url http://localhost:5000 --dry-run
 modelable compile PATH --target fhir-profile --out DIR
 ```
 
-**Phase 4b — implemented as a local compile target.**
+**Implemented as a local compile target.**
 
 Exports each projection version as a FHIR R4 `StructureDefinition` constraint
 profile. The current supported base-resource set is `Patient`, `Observation`,
@@ -939,7 +940,7 @@ modelable compile ./models --target fhir-profile --out ./dist/fhir
 modelable sync PATH --catalog openmetadata --url URL
 ```
 
-**Phase 3 — not yet implemented.**
+**Not yet implemented.**
 
 Reserved command surface for pushing the OpenMetadata export document to a live
 OpenMetadata instance. Use `compile --target openmetadata` for local export and
@@ -953,7 +954,7 @@ OpenMetadata instance. Use `compile --target openmetadata` for local export and
 modelable compile PATH --target odcs --out DIR
 ```
 
-**Phase 4 — implemented as a compile target.**
+**Implemented as a compile target.**
 
 Exports each model and projection version as an Open Data Contract Standard
 (ODCS) v3.1.0 YAML document. The output preserves Modelable reference,
@@ -1012,8 +1013,7 @@ datacontract lint ./dist/odcs/customer.Customer.v1.odcs.yaml
 modelable compile PATH --target openapi --out DIR
 ```
 
-**Implemented as a compile target** (Slice F2 in
-[ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md#slice-f2--openapi-emission)).
+**Implemented as a compile target.**
 
 Writes a single `openapi.json` document — unlike most other targets, this is
 one file for the whole workspace, not one file per domain or model version.

@@ -976,9 +976,10 @@ these names still have no implemented emitter behind them
 (`asyncapi` and the `mysql`/`sqlite` SQL dialects — only
 `postgres` and `clickhouse` are implemented; `openapi` is implemented, see
 `modelable compile --target openapi`, including schemas and explicit
-paths/operations. See the capability/doc-consistency slices (B2 and the
-F-slices) in
-[ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md#slice-b2--reconcile-current-documentation-claims).
+paths/operations. Use `modelable capabilities` for the compiler-owned support inventory and
+[Compiler Reference](compiler-reference.md) for current target behavior.
+Historical capability-slice vocabulary is retained only in the
+[archived roadmap](roadmap-archive-2026-08.md).
 
 `modelable compile --target <name>` is the actual code-generation path, and
 its target names and descriptions are compiler-owned data, not this table —
@@ -1212,12 +1213,12 @@ consumer {
 
 ---
 
-## 8. Deferred Language Scope
+## 8. Deferred and External Scope
 
-- Subscription runtime execution (Phase 5)
-- Registry HTTP server (no server needed for dev-time use; deferred if ever needed)
-- Catalog / governance sync (Phase 3)
-- GraphQL target (post-MVP)
+- Subscription runtime execution
+- Hosted registry HTTP service (not planned unless a concrete consumer requires it)
+- Live catalog / governance synchronization beyond explicitly implemented integrations
+- GraphQL target (candidate, not committed)
 - Non-Python parser implementations
 
 ---

@@ -13,6 +13,7 @@ def test_capabilities_text_output_lists_every_category():
     assert "sql_dialect" in result.output
     assert "model_kind" in result.output
     assert "annotation" in result.output
+    assert "language_capability" in result.output
     assert "deferred_feature" in result.output
     assert "typescript" in result.output
     assert "composite-keys" in result.output
@@ -36,10 +37,11 @@ def test_capabilities_json_output_is_valid_and_complete():
         assert set(entry) == {"name", "category", "status", "description", "notes", "test_refs"}
 
 
-def test_capabilities_json_output_marks_deferred_features():
+def test_capabilities_json_output_marks_composite_keys_implemented():
     result = CliRunner().invoke(cli, ["capabilities", "--format", "json"])
 
     payload = json.loads(result.output)
     composite_keys = next(entry for entry in payload if entry["name"] == "composite-keys")
-    assert composite_keys["status"] == "deferred"
+    assert composite_keys["status"] == "implemented"
+    assert composite_keys["category"] == "language_capability"
     assert composite_keys["notes"]

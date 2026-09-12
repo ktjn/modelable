@@ -10,6 +10,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Correct `modelable capabilities` to report composite-key language semantics as
+  implemented; generation targets that do not support composite keys continue
+  to reject them explicitly through target capability negotiation.
+
 ### Fixed
 
 ## [1.15.1] - 2026-09-08

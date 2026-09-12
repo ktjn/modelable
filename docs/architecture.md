@@ -1,6 +1,6 @@
 # Modelable Architecture and System Specification
 
-> **Authority:** This document is the product source of truth for Modelable concepts, invariants, trust boundaries, and current/deferred implementation boundaries. It also defines the intended stabilization architecture. Where an architectural target is not yet implemented, that status is stated explicitly.
+> **Authority:** This document is the product source of truth for Modelable concepts, invariants, trust boundaries, and current/deferred implementation boundaries. It records the current architecture plus historical stabilization boundaries. Where an architectural target is not yet implemented, that status is stated explicitly.
 
 ## 1. Product thesis
 
@@ -318,7 +318,7 @@ Parser-specific Python classes are internal implementation details, not an exten
 
 ### 7.3 Runtime engine
 
-**Deferred and outside core.** Modelable has no general streaming/runtime engine and should not grow one as part of stabilization.
+**Deferred and outside core.** Modelable has no general streaming/runtime engine and should not grow one as part of the core product.
 
 ### 7.4 Materializer
 
@@ -336,7 +336,7 @@ Current shipped syntax includes runtime-adjacent constructs with limited behavio
 - `consumer {}` parses but is deferred; future impact analysis should prefer derived usage evidence.
 - `binding {}` currently honors only the implemented compile-time subset such as adapter/model/table; unrecognized opaque content is reported as deferred.
 
-**Disposition during stabilization:** retain these forms for language compatibility, keep explicit `DEFERRED` diagnostics, do not silently ignore them, and do not implement a runtime behind them. Removal or replacement requires a separately versioned language change and migration path.
+**Current disposition:** retain these forms for language compatibility, keep explicit `DEFERRED` diagnostics, do not silently ignore them, and do not implement a runtime behind them. Removal or replacement requires a separately versioned language change and migration path.
 
 ## 8. Evolution and compatibility
 
@@ -450,17 +450,20 @@ output kinds
 compatibility support
 ```
 
-The extension boundary supports built-in extensions and a native WASM host;
-subprocess execution remains a future host using the same logical protocol.
+The extension boundary supports built-in extensions and a native WASM host.
+Native WASM is the supported third-party executable boundary. Subprocess and
+browser-hosted arbitrary extension execution are not planned unless a concrete
+consumer demonstrates a requirement that cannot be met by the WASM host,
+overlays, or host-registered browser plugins.
 
 ### 13.1 Capability negotiation
 
 A target advertises support for capabilities such as records, enums, semantic
 types, enum-projection field types, unions, maps, constraints, lineage, or
 compatibility. The current target descriptors own these capability declarations;
-third-party discovery and subprocess execution remain outside the shipped
-boundary. WASM execution is available only through the explicit, pinned
-extension host.
+third-party executable discovery remains outside the shipped boundary. WASM
+execution is available only through the explicit, pinned extension host;
+subprocess execution is intentionally not a parallel host.
 
 The compiler validates normalized semantic input against advertised capabilities before emission.
 
@@ -478,9 +481,12 @@ These pins belong in deterministic lock state.
 
 ### 13.3 Execution isolation
 
-Built-in extensions run with the trust level of Modelable itself. Third-party subprocess/WASM extensions must be treated as untrusted by default.
+Built-in extensions run with the trust level of Modelable itself. Third-party
+WASM extensions are untrusted by default.
 
-The host should minimize filesystem/network/process capabilities, pass only declared inputs, and collect only declared outputs. WASM is preferred where it provides a practical capability sandbox; subprocess execution requires an explicit trust/allow policy.
+The host minimizes capabilities, passes only declared inputs, collects only
+declared outputs, and provides no ambient filesystem or network access. A
+subprocess host is not part of the supported extension boundary.
 
 A plugin protocol must not imply that arbitrary downloaded code is safe to execute during compilation.
 
@@ -561,7 +567,7 @@ Overlays must never execute code. Unknown keys or selectors are diagnostics acco
 
 `@wire` is existing stable syntax. It is therefore not reinterpreted or silently removed.
 
-During stabilization:
+Current migration policy:
 
 1. existing `@wire` keeps its current meaning;
 2. new target-specific capabilities prefer overlays;
@@ -629,12 +635,12 @@ or semantic IR.
 
 ## 16. Security requirements
 
-Stabilization adds explicit extension and overlay trust boundaries. Security requirements therefore remain first-class architecture, not deferred implementation detail.
+Extensions and overlays introduce explicit trust boundaries. Security requirements therefore remain first-class architecture, not deferred implementation detail.
 
 1. **Offline by default.** Normal compile/validate/diff/impact does not implicitly contact registries, package services, or extension sources.
 2. **Pinned dependencies.** External semantic dependencies and executable extensions are resolved intentionally and pinned by immutable identity/hash.
 3. **No silent executable discovery.** Merely finding an extension on PATH or in a workspace must not execute it.
-4. **Explicit extension allow policy.** Third-party subprocess extensions require explicit trust/enablement; sandboxed WASM may use a narrower policy but remains pinned.
+4. **Explicit extension allow policy.** Third-party WASM extensions require explicit trust/enablement and immutable implementation pins.
 5. **Least capability.** Extension hosts expose only required files/configuration and no network by default.
 6. **Deterministic overlays.** Overlay files are non-executable, schema-validated build inputs. Unknown/ambiguous selectors fail clearly.
 7. **Secrets stay outside semantic artifacts.** Plans, lockfiles, generated manifests, diagnostics, and usage snapshots must not embed credentials.
@@ -648,7 +654,7 @@ Stabilization adds explicit extension and overlay trust boundaries. Security req
 
 The historical Phase 1/MVP has long shipped. The current stable product surface is a local compiler and language-server toolchain with semantic validation, compatibility/lineage/governance analysis, deterministic multi-target generation/import support, local registry/index behavior, editor tooling, and a browser compiler/playground that reuses the same compiler semantics.
 
-The roadmap now focuses on stabilization rather than redefining the old MVP.
+The consolidated roadmap now focuses on OCI package distribution, release-artifact preflight parity, and package supply-chain verification rather than reopening the shipped semantic baseline.
 
 ### 17.2 CLI commands
 
@@ -658,7 +664,7 @@ Current important compiler workflows include validation, compilation/generation,
 
 ## 18. Non-goals
 
-The following remain outside the core stabilization roadmap:
+The following remain outside the core product boundary:
 
 - streaming execution engine;
 - subscription runtime;
@@ -667,6 +673,8 @@ The following remain outside the core stabilization roadmap:
 - database synchronization service;
 - retry/dead-letter execution;
 - distributed Modelable registry service;
+- arbitrary third-party executable extensions in the browser Playground;
+- a subprocess extension host alongside native sandboxed WASM;
 - emitter breadth solely for feature-count growth;
 - target/framework concepts added directly to `.mdl` when overlays/extensions suffice;
 - duplicate semantic implementations for browser, agents, or integrations.
@@ -709,14 +717,21 @@ A future use should normally require an extension, overlay, policy, analyzer, or
 
 ## 21. Protocol ownership
 
-Public machine-readable protocols currently planned are:
+Public machine-readable boundaries include:
 
 ```text
-modelable.plan/v0       stabilization-only unstable plan
-modelable.plan/v1       stable normalized plan after identity/declaration/capability convergence
-modelable.lock/v1       reproducible dependency/usage/extension/allocation state
+modelable.plan/v0            legacy migration input
+modelable.plan/v1            stable normalized compiler plan
+modelable.lock/v1            reproducible dependency/usage/extension/allocation state
+modelable.package/v1         transport-independent semantic package
+modelable.query/v1           read-only semantic/usage/change/consequence queries
+modelable.usage/v1           compiled-consumer usage evidence
+modelable.lifecycle/v1       external declaration lifecycle metadata
+modelable.migration/v1       external evolution/relocation lineage
+modelable.facets/v1          typed namespaced semantic facts
+modelable.extension/v1       extension descriptor/capability contract
+modelable.extension-host/v1  native WASM execution request/result contract
 modelable.diagnostics/v1
-modelable.extension/v1
 ```
 
 There is intentionally **no `modelable.semantic/v1` public protocol** at this stage. The semantic graph remains the compiler's conceptual core and internal representation until a concrete external consumer requires a separately frozen semantic protocol.
