@@ -37,9 +37,11 @@ Completed or superseded planning material is intentionally kept out of normal
 navigation:
 
 - [August 2026 roadmap archive](roadmap-archive-2026-08.md);
-- [archived implementation plans](superpowers/plans/archived/);
-- [archived design specifications](superpowers/specs/archived/);
 - [archived future-direction research](archived/2026-09-12-future-direction.md).
+
+Archived implementation plans and design specifications remain in the
+repository's internal agent-workflow directory and are not part of the public
+documentation set.
 
 Historical checkboxes and priorities are non-authoritative. Current support
 status comes from implementation/tests and `modelable capabilities`; current
