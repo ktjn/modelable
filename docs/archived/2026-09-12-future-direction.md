@@ -1,6 +1,8 @@
-# Future Direction
+# Future Direction — Archived Research
 
-> **Status:** Directional research, not committed roadmap work.
+> **Status:** Archived 2026-09-12. This document preserves exploratory research
+> that predates roadmap consolidation. It is non-authoritative; surviving
+> candidates are summarized in `../../ROADMAP.md`.
 >
 > Items in this document describe plausible product evolution and ecosystem
 > alignment. They move into `ROADMAP.md` only when a concrete consumer, GitHub

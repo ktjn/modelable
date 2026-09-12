@@ -71,7 +71,7 @@ class FacetRequirementFinding:
 
 @dataclass(frozen=True)
 class CompatibilityPolicy:
-    """Per-target enforcement thresholds (Slice C4).
+    """Per-target compatibility enforcement thresholds.
 
     A threshold is the minimum finding severity that fails a target's
     report. Because SEVERITIES is bounded above by "breaking" and a
@@ -173,7 +173,7 @@ def load_policy(path: Path) -> CompatibilityPolicy:
     """Load a compatibility policy from a YAML file.
 
     Only the `compatibility:` section is implemented. A `lint:` section (see
-    the example in ROADMAP.md Slice C4) is not
+    the historical policy proposal in docs/roadmap-archive-2026-08.md) is not
     yet designed or implemented -- rejecting it explicitly here keeps a
     policy file honest about what it configures, rather than silently
     discarding a section a user believes takes effect.
@@ -186,7 +186,7 @@ def load_policy(path: Path) -> CompatibilityPolicy:
     if "lint" in unsupported:
         raise ValueError(
             "policy file has a 'lint:' section, which is not yet implemented "
-            "(see Slice C4 in ROADMAP.md); remove it or "
+            "(lint policy is not implemented); remove it or "
             "only configure 'compatibility:'"
         )
     if unsupported:

@@ -1,39 +1,23 @@
 # Roadmap
 
-Modelable's stabilization baseline is complete.
+> **Status:** Sole source of forward-looking product work as of 2026-09-12.
+> Shipped behavior belongs in the references and changelog; historical plans
+> belong in archives.
 
-The latest published release is **1.13.2**.
+Modelable's stabilization programme is complete. The product is now a local,
+offline-first semantic compiler/platform with stable identity, compatibility,
+lineage, consequence, package, query, extension, lifecycle, migration, facet,
+browser, and editor surfaces.
 
-The product already has broad language, compatibility, lineage, code generation, import, browser, and tooling capability. The next priority is to grow from a capable IDL/compiler into a semantic platform without destabilizing the core language or reintroducing declaration/emitter duplication.
+Release history is intentionally **not** duplicated here. Use
+[CHANGELOG.md](CHANGELOG.md) and GitHub Releases for the current published
+version.
 
-The architecture source of truth is [docs/architecture.md](docs/architecture.md). The previous shipped-state roadmap is retained as [docs/roadmap-archive-2026-08.md](docs/roadmap-archive-2026-08.md).
-
-## Current execution status
-
-### Stabilization baseline
-
-- [x] Phase 1 — canonical identity/path grammar baseline.
-- [x] Phase 2 — declaration/projection unification complete end-to-end. Closed 2026-09-06 with Programme A; no legacy declaration-specific wrapper/path code remained to remove. The two items evaluated and deliberately left alone (separate immediate-source vs. projection-hop lineage functions; a handful of small per-kind `isinstance` branches not worth a formal capability-dispatch layer) are documented as intentional in the Programme A closure notes, not outstanding work.
-- [x] Phase 3 — `modelable.plan/v0` migration boundary.
-- [x] Phase 4 — deterministic version-aware target overlays.
-- [ ] Phase 5 — external extension execution. Descriptors, capabilities, provenance pins, trust policy, and a native third-party WASM host are shipped; virtual capability handoff, browser execution, and subprocess execution remain.
-- [x] Phase 6 — stable `modelable.plan/v1` boundary.
-- [x] Phase 7 — usage graph baseline.
-- [x] Phase 8 — deterministic `modelable.lock/v1` baseline.
-- [x] Phase 9 — structured consequence graph baseline.
-- [x] Phase 10 — layered semantic/target compatibility baseline.
-- [x] Phase 11 — external policy evaluator boundary.
-- [x] Phase 12 — browser/native/showcase conformance as a continuous release gate.
-
-Completed programmes retained as implementation history:
-
-- [Offline registry and consequence delivery](docs/superpowers/plans/archived/2026-08-21-offline-registry-dx-delivery.md)
-- [Model evolution slices](docs/superpowers/plans/archived/2026-08-22-model-evolution-slices-roadmap.md)
-- [Typed semantic facets](docs/superpowers/plans/archived/2026-09-04-typed-semantic-facets.md), with its [implemented design](docs/superpowers/specs/archived/2026-09-04-typed-semantic-facets-design.md)
-
-The active post-stabilization implementation plan is:
-
-- [Semantic platform next phase](docs/superpowers/plans/2026-09-03-semantic-platform-next-phase.md)
+The architecture source of truth is
+[docs/architecture.md](docs/architecture.md). Historical roadmap vocabulary is
+retained in [docs/roadmap-archive-2026-08.md](docs/roadmap-archive-2026-08.md)
+and completed implementation plans under
+[docs/superpowers/plans/archived/](docs/superpowers/plans/archived/).
 
 ## Product boundary
 
@@ -42,462 +26,227 @@ semantic packages
       │
       ▼
 semantic graph
-    + usage graph
-    + change graph
+  + usage graph
+  + change graph
       │
       ▼
 consequence graph
       │
-      ├──────────────► modelable.query/v1 ─► CLI / LSP / MCP / agents / CI
+      ├──────────────► modelable.query/v1 ─► CLI / browser / agents / CI
       │
-      └──────────────► modelable.plan/v1 ──► trusted extensions / emitters
+      └──────────────► modelable.plan/v1 ──► built-ins / trusted native WASM
 ```
 
-The semantic graph and consequence graph are the durable product. Emitters, policies, adapters, package transports, registries, catalogs, framework integrations, and runtime consumers remain replaceable edges.
+The durable product is semantic identity plus explainable change impact.
+Emitters, policies, adapters, package transports, registries, catalogs, and
+runtime consumers remain replaceable edges.
 
-## Operating rules
+## Shipped baseline
 
-1. **Correctness first.** Confirmed false compatibility results are release blockers.
-2. **No silent loss.** Parsed content that is silently ignored or discarded without an explicit diagnostic is a release blocker for the affected construct.
-3. **Language stability.** Old stable syntax never changes meaning silently. New semantics require new syntax, an explicitly versioned protocol change, or a compatibility-preserving migration path.
-4. **Grammar freeze by default.** New broad grammar features are paused unless existing semantics cannot represent the requirement correctly.
-5. **Target behavior stays at the edge.** New target/framework behavior should prefer overlays or extensions over core annotations.
-6. **One normalized compiler boundary.** New emitters and analyzers consume normalized compiler output rather than duplicate semantic resolution.
-7. **Browser/native equivalence.** Browser and native compilation remain semantically equivalent.
-8. **Conformance before completion.** Significant semantic changes require realistic external conformance coverage in `modelable-showcase` or an equivalent cross-surface fixture.
-9. **Runtime stays external.** Runtime execution features remain outside the core roadmap.
-10. **Security is part of extensibility.** Executable extensions, dependency refresh, and generated-code-affecting configuration require explicit provenance/trust rules.
-11. **Offline by default.** Validate/compile/diff/query do not implicitly contact package services, registries, or extension sources.
-12. **Package and extension identity is immutable.** Resolution may use ranges, but lock state records exact content digests and provenance.
+The following are complete product capabilities, not roadmap work:
 
-## Post-stabilization semantic platform programme
+- canonical declaration/path identity and generic declaration resolution;
+- stable `modelable.plan/v1`, `modelable.lock/v1`, and read-only
+  `modelable.query/v1` boundaries;
+- semantic packages, deterministic local package resolution, package-aware lock
+  state, and local `modelable.package/v1` pack/verify/unpack;
+- usage, change, consequence, migration, lifecycle, and typed-facet metadata;
+- layered compatibility plus named backward/forward/full profiles;
+- ordered composite identities with per-target capability admission;
+- deterministic target overlays outside `.mdl`;
+- built-in extension descriptors plus a pinned, least-capability native WASM
+  extension host;
+- browser/native compiler parity, Playground, VS Code language services, and
+  conversational authoring/compilation.
 
-This programme is dependency-ordered, not a strict serial queue. Detailed tasks and acceptance criteria live in [the active implementation plan](docs/superpowers/plans/2026-09-03-semantic-platform-next-phase.md).
+Conversational Compilation Management remains a supported shipped surface. Its
+completed design is archived at
+`docs/superpowers/specs/archived/2026-07-19-conversational-compilation-management-design.md`.
 
-### A — Complete generic declaration unification
+## Active roadmap
 
-**Priority:** P0
+Only work with a concrete product outcome belongs here.
 
-- [x] Define one common internal declaration identity/version/reference surface for entity, aggregate, event, value, enum, semantic type, and projection.
-- [x] Move shared version resolution, lineage, ownership, documentation, and deprecation behavior behind it.
-- [x] Replace remaining declaration-kind-specific resolution paths where semantics are equivalent.
-- [x] Remove legacy wrappers after all consumers migrate (none remained; nothing to remove).
-- [x] Add cross-declaration conformance fixtures.
+### P0 — OCI distribution for semantic packages
 
-**Done when:** adding a capability common to declaration kinds does not recreate resolution, identity, lineage, or compatibility infrastructure.
+**Goal:** distribute `modelable.package/v1` through existing OCI registries
+without creating a Modelable-hosted registry service or weakening offline
+reproducibility.
 
-Closed 2026-09-06; see the closure notes in [the implementation plan](docs/superpowers/plans/2026-09-03-semantic-platform-next-phase.md) for what was found, unified, and deliberately left alone.
+- [ ] Define OCI media types and the transport mapping for
+  `modelable.package/v1` without changing the logical package digest.
+- [ ] Implement explicit `package push` / `package pull` operations.
+- [ ] Allow tags only as discovery inputs; resolve them to an immutable digest
+  before admission and lock the exact digest.
+- [ ] Verify package content and transport digest before unpack/admission.
+- [ ] Record OCI source/provenance and the exact pulled digest in
+  `modelable.lock/v1`.
+- [ ] Use standard OCI credentials/credential helpers; never persist credentials
+  in source, package artifacts, plans, or lock state.
+- [ ] Make normal validate/compile/diff/query paths remain network-independent.
+- [ ] Cache pulled content so a verified locked package can be consumed offline.
+- [ ] Add corruption, digest mismatch, tag substitution, auth failure, and
+  clean-offline-checkout conformance tests.
 
-### B — First-class semantic packages
+**Done when:** a local package can be packed, pushed, pulled by immutable digest,
+verified, locked, and consumed offline with the same semantic/package digest as
+the original.
 
-**Priority:** P0
+### P0 — Release artifact preflight parity
 
-Keep package metadata outside `.mdl` initially, preferably in a deterministic TOML manifest.
+**Goal:** anything the release workflow packages must already have been packaged
+successfully in pull-request CI.
 
-- [x] Define immutable package identity/version/content hashing.
-- [x] Define public exports and package-private declarations.
-- [x] Define dependency constraints and package graph rules.
-- [x] Define deterministic local package resolution.
-- [x] Define package-level compatibility over exported declarations.
-- [x] Add package validation/inspection CLI surfaces.
+The v1.15.0 release exposed a concrete gap: normal validation did not package
+the VS Code extension, so an `@types/vscode` / `engines.vscode` mismatch was
+discovered only during release.
 
-**Done when:** multiple independently versioned semantic packages compose without coupling canonical identities to file/repository locations.
+- [ ] Package the Python wheel and sdist in validation CI.
+- [ ] Run the same VSIX packaging/preflight command used by release CI.
+- [ ] Build/package the static browser artifact using the release dependency
+  versions and asset checks.
+- [ ] Validate the release artifact inventory/manifest without publishing.
+- [ ] Keep preflight side-effect free: no registry upload, tag, release, or
+  deployment operation.
+- [ ] Fail validation when release-only packaging constraints diverge from the
+  ordinary build/test path.
 
-### C — Package-aware `modelable.lock/v1`
+**Done when:** release creation contains publishing/signing/deployment work, not
+new compilation or packaging validation.
 
-**Priority:** P0
+### P1 — Package attestations and verification policy
 
-- [x] Record exact resolved package versions and content digests.
-- [x] Record package provenance and deterministic transitive dependencies.
-- [x] Make dependency refresh explicit; normal compilation never silently changes locked packages.
-- [x] Detect immutable-version content drift.
-- [x] Add clean-offline-checkout reproduction tests.
+**Goal:** add optional supply-chain verification without coupling package
+identity to one signing product.
 
-**Done when:** manifests + lock state reproduce the exact package and semantic graphs offline.
+- [ ] Define a verifier interface keyed by immutable package digest.
+- [ ] Support detached signature/attestation metadata without changing semantic
+  identity or package content.
+- [ ] Make trust policy explicit and host-owned; unsigned packages remain
+  admissible unless configured policy requires verification.
+- [ ] Preserve enough verified metadata for subsequent offline admission.
+- [ ] Add substitution, stale-attestation, wrong-subject, and untrusted-signer
+  tests.
 
-### D — `modelable.package/v1` and OCI transport
+**Dependency:** build on the OCI digest/provenance work above.
 
-**Priority:** P1
+## Continuous engineering gates
 
-OCI is the preferred first transport, but the logical package artifact must remain transport-independent.
+These are invariants, not finishable programme phases.
 
-- [x] Specify deterministic `modelable.package/v1` contents and digest rules.
-- [x] Implement local pack/unpack/verify first.
-- [ ] Add OCI push/pull by immutable digest.
-- [ ] Pin pulled digests into `lock/v1`.
-- [x] Keep all network operations explicit commands.
-- [ ] Add provenance/signature hooks without coupling to one signing system.
+1. **Correctness first.** A confirmed false compatibility result is a release
+   blocker.
+2. **No silent loss.** Parsed content that is ignored or discarded without an
+   explicit diagnostic is a release blocker for that construct.
+3. **Language stability.** Existing stable syntax never changes meaning
+   silently. New semantics require additive syntax, an explicitly versioned
+   protocol, or a compatibility-preserving migration.
+4. **Grammar freeze by default.** Prefer facets, policies, overlays, extensions,
+   analyzers, and external metadata unless the semantic model genuinely cannot
+   express the requirement.
+5. **One normalized semantic boundary.** Emitters/analyzers consume normalized
+   compiler contracts rather than parser/internal implementation classes.
+6. **Conformance before completion.** New semantic behavior requires realistic
+   cross-surface fixtures; browser/native behavior must remain semantically
+   equivalent where both surfaces expose the feature.
+7. **Truthful capabilities.** `modelable capabilities`, target descriptors,
+   docs, samples, and tests must agree. Unsupported target behavior fails
+   explicitly rather than degrading silently.
+8. **Protocol discipline.** Stable machine-readable protocols keep checked-in
+   schemas/golden fixtures and evolve additively or under a new version.
+9. **Offline by default.** Network access is explicit. Locked compilation and
+   analysis remain reproducible without network access.
+10. **Supply-chain inputs are pinned.** Packages, executable extensions, and
+    generation-affecting configuration carry immutable identity/provenance.
+11. **Security is part of extensibility.** No executable auto-discovery, ambient
+    network, ambient filesystem, or secret material in semantic artifacts.
+12. **Release parity.** PR validation must exercise all packaging constraints
+    required to create release artifacts.
 
-**Done when:** a locally packed semantic package can round-trip through OCI with identical verified semantic content.
+## Parsed-but-deferred syntax
 
-### E — Composite identity keys
+These stable forms remain accepted for language compatibility but are not
+runtime commitments:
 
-**Priority:** P1
+- `subscription` — explicit `DEFERRED`; no subscription runtime;
+- projection `materialisation` — explicit `DEFERRED`; no materializer;
+- workspace `registry {}` / `peers` — explicit `DEFERRED` where they have
+  no compiler semantics;
+- `consumer {}` — deferred/non-authoritative; compiled usage evidence is the
+  preferred source;
+- unsupported opaque `binding {}` content — explicit `DEFERRED`; the
+  implemented compile-time subset remains supported.
 
-- [x] Allow one-or-more ordered `@key` fields on entities/aggregates.
-- [x] Keep canonical declaration identity independent of instance-key values.
-- [x] Align `primary`/index semantics with the ordered key set.
-- [x] Define semantic compatibility for add/remove/reorder/type-change of key components.
-- [x] Admit support per target through capabilities; unsupported targets fail explicitly.
-- [x] Add representative SQL/JSON Schema/OpenAPI/Protobuf and browser/native conformance.
+Do not silently remove these forms. Removal or reinterpretation requires an
+explicit language migration.
 
-**Done when:** composite identity behaves deterministically across semantic analysis and admitted targets.
+## Explicitly not planned
 
-### F — External declaration lifecycle metadata
+The following are intentionally outside the active roadmap unless a concrete
+consumer demonstrates a requirement that existing boundaries cannot satisfy:
 
-**Priority:** P1
+- streaming/runtime execution, subscriptions, materialization, broker
+  abstraction, database synchronization, retries, or dead-letter handling;
+- a mandatory hosted/distributed Modelable registry service;
+- arbitrary third-party WASM execution inside the browser Playground;
+- a subprocess extension host; native sandboxed WASM is the executable
+  third-party boundary;
+- generic external-extension overlay handoff when versioned extension
+  configuration already represents the requirement;
+- target/framework concepts in `.mdl` when overlays/extensions suffice;
+- emitter breadth solely to increase target count;
+- duplicate browser/agent semantic implementations;
+- new grammar for governance facts that fit typed namespaced facets.
 
-Declaration bodies remain immutable. Lifecycle should initially live in external package/registry metadata keyed by canonical identity.
+## Candidate directions — not committed
 
-Proposed lifecycle:
+These are intentionally kept in this single roadmap instead of separate
+future-direction documents. Promotion requires a concrete consumer, issue,
+accepted design, security review where relevant, and a reviewable first slice.
+
+### Richer consumer evidence
+
+Extend the shipped compiled usage manifest with optional static/build/runtime
+evidence for exact fields, operations, or variants. Evidence must preserve
+provenance and confidence. Absence of observed evidence must never prove a
+dependency safe to remove.
+
+### Deployment/evolution action plans
+
+Derive prerequisite/action graphs from semantic consequences and explicit
+migration intent. Modelable may describe required ordering, but CI/CD and
+migration systems execute it.
+
+### Verification adapter protocol
+
+Emit stable assertions for external systems to verify (schema existence,
+types, nullability, enum values, constraints, freshness, wire conformance).
+Adapters own credentials, network I/O, retries, and system-specific execution.
+
+### Generated conformance corpus
+
+Generate data-first valid/invalid/boundary/compatibility/migration/wire fixtures
+that consumer repositories can adapt to JUnit, xUnit, pytest, Vitest, proptest,
+or other frameworks.
+
+### Organization graph export
+
+Export package/application/ownership/usage/consequence relations to existing
+catalogs such as Backstage, OpenMetadata, or DataHub. Do not build a second
+organization catalog inside Modelable.
+
+## Decision rule
+
+For each new requirement:
 
 ```text
-candidate -> published -> deprecated -> retired
-```
-
-- [x] Specify lifecycle states and transition rules.
-- [x] Define canonical replacement links.
-- [x] Define lifecycle state as explicit registry-snapshot metadata when it affects build admission.
-- [x] Add policy checks for new references to deprecated/retired contracts.
-- [x] Expose lifecycle/replacement through CLI and query surfaces.
-- [x] Feed lifecycle transitions into consequences where appropriate.
-
-**Done when:** a declaration can be deprecated/retired without editing its immutable semantic version.
-
-### G — WASM extension ABI
-
-**Priority:** P0
-
-WASM is the first third-party execution mechanism. Subprocess execution may follow using the same logical protocol.
-
-- [x] Specify `modelable.extension-host/v1` request/result protocol.
-- [x] Use `modelable.plan/v1` as semantic input; no parser/internal compiler imports.
-- [x] Support artifact outputs, diagnostics, compatibility findings, and structured failures.
-- [x] Require exact extension id/version/hash/provenance pins.
-- [x] Require explicit trust/enablement; never execute extensions merely because they are discoverable.
-- [x] Default to no network and no ambient filesystem.
-- [x] Pass only explicitly declared virtual UTF-8 input files and returned artifacts.
-- [x] Add CPU/memory/output limits and deterministic failure behavior.
-- [x] Build a reference extension outside the compiler package.
-- [ ] Prove native/browser execution where WASM host support permits.
-- [x] Add hostile/invalid module conformance tests.
-
-**Done when:** a separately built WASM extension consumes `plan/v1` and produces deterministic admitted results under least-capability policy.
-
-Native reference-extension execution is proven; browser execution is deliberately deferred (2026-09-06) pending a design decision — see the deferral note in [the implementation plan](docs/superpowers/plans/2026-09-03-semantic-platform-next-phase.md).
-
-### H — Stable `modelable.query/v1`
-
-**Priority:** P0
-
-Minimum query families:
-
-```text
-declaration(id)
-referencesTo(id)
-lineage(path)
-consumersOf(path)
-dependencies(id)
-dependents(id)
-changes(from, to)
-consequences(from, to)
-```
-
-- [x] Specify versioned request/response envelopes.
-- [x] Define deterministic graph node/edge and ordering rules.
-- [x] Define limits/pagination for large graph responses.
-- [x] Keep v1 read-only.
-- [x] Migrate CLI/LSP graph queries to one in-process service.
-- [x] Add JSON/stdio transport suitable for MCP/agent bridges.
-- [x] Add browser support over the same semantic service.
-- [x] Check in protocol schema and golden fixtures.
-
-**Done when:** at least CLI plus one non-CLI host query semantic/usage/change/consequence data without importing internal resolver/graph implementations.
-
-Closed 2026-09-06: the CLI's `query` subcommand and the browser API both answer through the shared `WorkspaceQueryProtocolService`, meeting the bar above. LSP intentionally stays on its own cursor-position-based layer, and `impact`/`diff`/`graph export` stay on their richer purpose-built logic rather than being narrowed to the current protocol's feature set — see the closure notes in [the implementation plan](docs/superpowers/plans/2026-09-03-semantic-platform-next-phase.md).
-
-### I — Declaration-level evolution and lineage
-
-**Priority:** P1
-
-Start with an external/versioned migration mapping rather than broad new grammar.
-
-- [x] Represent declaration rename and domain/package move.
-- [x] Represent field moves into/out of value objects.
-- [x] Represent one-to-many split and many-to-one merge lineage.
-- [x] Preserve immediate and ultimate source lineage.
-- [x] Feed mappings into change/consequence graphs.
-- [x] Reject dangling, cyclic, and ambiguous mappings.
-- [x] Add cross-package move scenarios after package identity stabilizes.
-
-**Done when:** declaration refactors preserve explicit causal lineage rather than appearing only as remove/add pairs.
-
-### J — Named compatibility profiles
-
-**Priority:** P1
-
-Profiles remain external configuration rather than `.mdl` semantics.
-
-- [x] Specify profile schema for backward/forward/full and target-specific requirements.
-- [x] Bind profiles at the explicit CLI/policy boundary.
-- [x] Evaluate profiles over semantic changes, target compatibility, and known usage evidence.
-- [x] Emit structured profile findings with causal links to lower-level findings.
-- [x] Feed profile failures into consequences.
-- [x] Add CI-friendly CLI selection and exit behavior.
-
-**Done when:** CI can report that a named compatibility contract failed and explain the exact semantic/target/consumer causes.
-
-### K — Typed semantic facets
-
-**Priority:** P2
-
-Keep universal built-ins small: identity, ownership, classification, PII, deprecation, and lineage. New enterprise/governance facts use typed namespaced facets.
-
-- [x] Specify namespaced facet identity and schema versioning.
-- [x] Define typed values and allowed semantic subjects.
-- [x] Define projection inheritance/propagation rules.
-- [x] Preserve unknown facets without interpreting them when their schema is unavailable.
-- [x] Expose facets to policy evaluators, plans, and query results.
-- [x] Keep target-specific representation metadata in overlays, not facets.
-- [x] Add examples for retention class, jurisdiction, data subject, and confidentiality.
-
-**Done when:** a new typed governance fact and policies around it can be introduced without parser changes.
-
-## Programme-level progress
-
-- [x] A — generic declaration model complete.
-- [x] B — semantic package model complete.
-- [x] C — package-aware lock state complete.
-- [ ] D — package artifact + OCI transport complete.
-- [x] E — composite identities complete.
-- [x] F — lifecycle metadata complete.
-- [ ] G — WASM extension ABI complete.
-- [x] H — `modelable.query/v1` complete.
-- [x] I — declaration-level evolution mappings complete.
-- [x] J — compatibility profiles complete.
-- [x] K — typed semantic facets complete.
-
-Recommended implementation order:
-
-1. A — declaration unification.
-2. B + C — package model and lock integration.
-3. G — WASM extension ABI, in parallel once A/`plan/v1` representation needs are understood.
-4. H — query protocol over the shipped graph model.
-5. E — composite identity.
-6. F — lifecycle metadata.
-7. D — OCI/package distribution after B/C semantics stabilize.
-8. I — declaration-level refactor lineage.
-9. J — compatibility profiles.
-10. K — typed semantic facets.
-
-## Continuous gates
-
-These apply to every active slice.
-
-- [ ] Browser/native semantic equivalence remains green.
-- [ ] `modelable-showcase` or equivalent external conformance covers each new semantic surface before completion.
-- [ ] New stable protocols have checked-in schemas and deterministic golden fixtures.
-- [ ] Target capability descriptors are updated when support changes.
-- [ ] Normal compile/validate/query paths remain network-independent.
-- [ ] Executable extensions/package refresh remain explicit and provenance-pinned.
-- [ ] Repository-health, typing, coverage, and release checks remain green.
-
-## Current/deferred syntax disposition
-
-Runtime-adjacent syntax already exists and cannot silently disappear:
-
-- `subscription` remains parsed but explicitly `DEFERRED`; no runtime execution is added.
-- projection `materialisation` remains parsed but explicitly `DEFERRED`.
-- workspace `registry {}` / `peers` forms with no semantic effect remain explicitly `DEFERRED`.
-- `consumer {}` remains deferred/non-authoritative; usage evidence is preferred.
-- `binding {}` retains its implemented compile-time subset; unsupported opaque content remains explicitly `DEFERRED`.
-
-No parsed construct may be silently discarded. Future removal/replacement requires an explicit language migration under Operating rule 3.
-
-## Shipped product record retained during stabilization
-
-The old roadmap mixed shipped history with future work. That history remains in [docs/roadmap-archive-2026-08.md](docs/roadmap-archive-2026-08.md) rather than being deleted.
-
-### Conversational Compilation Management
-
-Conversational Compilation Management is shipped through CLI chat and the native VS Code participant. The completed design remains archived at:
-
-`docs/superpowers/specs/archived/2026-07-19-conversational-compilation-management-design.md`
-
-This remains a supported shipped surface while semantic-platform work changes compiler internals beneath it.
-
-## Legacy slice compatibility index
-
-Historical comments, tests, documentation, and deep links still use these names. Preserve the headings even when their work maps to newer programme slices.
-
-### Slice A1 — correct optionality compatibility under the current model
-
-Shipped correctness work. Maps to continuous correctness gates and layered compatibility.
-
-### Slice A2 — create one property-dependency graph
-
-Shipped dependency-graph work. Foundational to usage/consequence/query work.
-
-### Slice A3 — validate all expression positions
-
-Shipped correctness work. Continues under Operating rules 1–2.
-
-### Slice A4 — fix semantic-type resolution ambiguity
-
-Shipped resolution work. Foundational to programme A.
-
-### Slice B1 — add a canonical capability manifest
-
-Shipped capability foundation. Programme G completes executable extension hosting.
-
-### Slice B2 — reconcile current documentation claims
-
-Shipped documentation/capability consistency work.
-
-### Slice B3 — eliminate silently ignored syntax
-
-Shipped `DEFERRED` diagnostic behavior. Preserved by Operating rule 2.
-
-### Slice C1 — projection-to-projection compatibility
-
-Shipped projection compatibility work.
-
-### Slice C2 — extend existing version resolution to `ref<>` types
-
-Shipped resolution work. Programme A continues declaration-wide unification.
-
-### Slice C3 — generalize existing target compatibility
-
-Shipped target-compatibility abstraction. Programme J adds named compatibility contracts above it.
-
-### Slice C4 — configurable compatibility and lint policy
-
-Shipped policy foundation. Programme J adds named compatibility profiles; programme K adds typed extensible facts.
-
-### Slice D1 — separate presence and nullability
-
-Historical language-evolution slice. Any remaining work is subject to Operating rules 3–4.
-
-### Slice D2 — value and semantic type evolution
-
-Historical language-evolution work; programme A finishes common declaration infrastructure.
-
-### Slice D3 — enum declaration convergence
-
-Historical enum work; programme A finishes common declaration infrastructure.
-
-### Slice D4 — discriminated unions
-
-Shipped/future language capability; additional grammar only proceeds from concrete semantic need.
-
-### Slice D5 — resolve composite-key support
-
-Composite keys are accepted by core semantic validation with ordered primary
-index checking; target capability negotiation and emitter conformance remain in
-Programme E.
-
-### Slice D6 — model lifecycle status
-
-Lifecycle status remains absent from immutable declaration grammar/IR. Programme F intentionally models lifecycle externally first.
-
-### Slice F1 — nominal semantic types beyond Rust
-
-Target coverage remains demand-driven and capability-negotiated.
-
-### Slice F2 — OpenAPI emission
-
-OpenAPI emission is shipped. This heading remains for existing deep links.
-
-### Slice G1 — critical compatibility coverage
-
-Continuous coverage ratchet.
-
-### Slice G2 — strict typing baseline reduction
-
-Continuous typing ratchet.
-
-### Slice G3 — conformance fixtures
-
-Shipped/continuous conformance foundation; remains a release gate.
-
-## Deferred product areas
-
-The following remain outside the core roadmap unless the product thesis changes:
-
-- streaming execution engine;
-- subscription runtime;
-- materialization runtime;
-- broker abstraction;
-- database synchronization service;
-- retry/dead-letter execution;
-- distributed Modelable registry service.
-
-Modelable may generate contracts, plans, mappings, migrations, validation packages, or consequence actions for these systems.
-
-## Future-use design tests
-
-| Use | Expected mechanism |
-|---|---|
-| GraphQL | emitter + compatibility evaluator |
-| AsyncAPI | emitter |
-| additional wire/schema formats | extension/emitter |
-| Iceberg/Delta | extension/emitter |
-| ORM/framework bindings | overlay + extension |
-| Unity | C# extension + overlay |
-| SDK generation | extension/emitter |
-| industry standards | extension package |
-| enterprise governance | typed facet + policy evaluator |
-| catalog integration | adapter |
-| schema registry integration | adapter |
-| API migration tooling | consequence graph + action generator |
-| AI-assisted refactoring | `modelable.query/v1` |
-| code migrations | declaration evolution mapping + action generator |
-| cross-repo blast radius | packages + lock snapshots + usage graph |
-| runtime validation | generated package |
-| MCP/agent integration | `modelable.query/v1` transport |
-
-## Explicit non-goals
-
-Do not spend semantic-platform capacity on:
-
-- adding emitters solely for breadth;
-- adding grammar syntax for target configuration;
-- making SQLite registry state authoritative;
-- building a remote/distributed Modelable registry service;
-- making package resolution implicitly networked;
-- executing plugins merely because they are present on PATH or in a workspace;
-- implementing runtime materialization/subscriptions;
-- creating duplicate semantic implementations for browser or integrations.
-
-## Contribution decision rule
-
-Before extending the language:
-
-```text
-Can existing semantic constructs represent this correctly?
+Can existing semantics represent it correctly?
   │
-  ├─ yes → extension / overlay / package metadata / migration mapping / policy / facet
+  ├─ yes → facet / policy / overlay / extension / analyzer / adapter
   │
-  └─ no  → propose a semantic-model change
+  └─ no  → consider a semantic-model or language change
 ```
 
-A semantic-model proposal must document why projections, semantic types, overlays, extension capabilities, package metadata, migration mappings, facets, and policy/action mechanisms are insufficient.
-
-## Stabilization completion criteria
-
-The shipped stabilization baseline remains complete when these invariants stay true:
-
-- canonical declaration identity and nested semantic path grammar are defined and used consistently;
-- declarations/projections share common baseline resolution/version/lineage infrastructure;
-- `modelable.plan/v1` remains stable and parser-independent;
-- external target configuration uses deterministic version-aware overlays;
-- extension capability negotiation and provenance/trust rules are enforced;
-- usage evidence feeds deterministic `modelable.lock/v1`;
-- compatibility-critical target allocations are lock state, not optional config;
-- consequences form an explainable graph;
-- semantic and target compatibility remain separated;
-- browser/native semantic conformance is enforced;
-- showcase provides realistic cross-target conformance;
-- significant integrations can be added without changing `.mdl`.
-
-The post-stabilization programme extends this baseline rather than replacing it.
+Historical slice names and completed programme checklists are intentionally
+absent from this file. Use the archived roadmap and implementation plans when
+their original terminology is needed.

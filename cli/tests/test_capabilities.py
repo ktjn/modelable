@@ -50,6 +50,16 @@ def test_manifest_annotations_include_all_eleven_kinds():
     }
 
 
+def test_manifest_marks_composite_keys_as_implemented_language_capability():
+    manifest = build_capability_manifest()
+
+    capabilities = {capability.name: capability for capability in manifest.language_capabilities}
+    composite = capabilities["composite-keys"]
+    assert composite.status is CapabilityStatus.implemented
+    assert composite.category == "language_capability"
+    assert composite.test_refs
+
+
 def test_manifest_deferred_features_are_all_status_deferred():
     manifest = build_capability_manifest()
 
@@ -81,6 +91,7 @@ def test_manifest_all_returns_every_capability_across_categories():
         + len(manifest.sql_dialects)
         + len(manifest.model_kinds)
         + len(manifest.annotations)
+        + len(manifest.language_capabilities)
         + len(manifest.registry_capabilities)
         + len(manifest.deferred_features)
     )

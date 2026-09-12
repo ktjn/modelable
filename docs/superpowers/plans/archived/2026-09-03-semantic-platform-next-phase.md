@@ -1,6 +1,7 @@
 # Semantic Platform Next-Phase Implementation Plan
 
-> **Status:** Active plan. Track implementation with the checkboxes in this document and the matching programme section in `ROADMAP.md`.
+> **Status:** Archived 2026-09-12. `ROADMAP.md` is the sole active plan. The
+> checkboxes below preserve historical execution state and are non-authoritative.
 >
 > **Scope:** Post-stabilization work that turns Modelable from a capable IDL/compiler into a semantic platform with package composition, executable extensions, stable graph queries, richer identity/evolution semantics, and reproducible distribution.
 

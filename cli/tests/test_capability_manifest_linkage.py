@@ -1,4 +1,4 @@
-"""Slice G3: capability-manifest-to-test linkage.
+"""Capability-manifest-to-test linkage.
 
 Before this file, a `Capability.notes` string could claim a deferred status
 that no longer matched the compiler (or never did), and nothing would catch
@@ -70,7 +70,6 @@ def test_every_deferred_feature_is_linked_or_acknowledged():
 @pytest.mark.parametrize(
     "name",
     [
-        "composite-keys",
         "model-lifecycle-status",
         "workspace-registry",
         "workspace-peers",

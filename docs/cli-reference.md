@@ -12,14 +12,15 @@ The CLI is designed as a phased tool: early phases focus on local authoring and 
 ## 2. Current Surface and Delivery History
 
 | Surface | Status |
-|:------|:------|:-------|
-| Local compiler, language server, and artifact targets | Supported stable surface |
-| Registry, package, query, lifecycle, migration, facet, and extension workflows | Implemented local/offline surfaces; see `modelable capabilities` and [the roadmap](https://github.com/ktjn/modelable/blob/main/ROADMAP.md) for boundaries |
-| Live catalogs, runtime collection, OCI transport, and hosted execution | Deferred or explicitly opt-in; see [the compiler reference](compiler-reference.md) |
+|:------|:-------|
+| Local compiler, language server, browser, and artifact targets | Supported stable surface |
+| Registry, local package, query, lifecycle, migration, facet, and native WASM extension workflows | Implemented local/offline surfaces; use `modelable capabilities` for support status |
+| OCI package transport | Active roadmap work; network operations remain explicit |
+| Live catalogs, runtime collection/execution, hosted registry, subprocess extensions | Deferred, external, or explicitly not planned; see [architecture](architecture.md) and the [roadmap](https://github.com/ktjn/modelable/blob/main/ROADMAP.md) |
 
-The table describes the current product surface. Historical delivery phases are
-retained in [the roadmap](https://github.com/ktjn/modelable/blob/main/ROADMAP.md)
-and its [archived roadmap](roadmap-archive-2026-08.md).
+Historical delivery phases are retained in the
+[archived roadmap](roadmap-archive-2026-08.md) and archived implementation
+plans. The active roadmap contains only forward-looking work.
 
 ## 3. Installation and Runtime
 

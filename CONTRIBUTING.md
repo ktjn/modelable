@@ -106,19 +106,18 @@ for the case you had in mind:
 2. **Never let parsed input silently no-op.** If the grammar/IR accepts a
    construct the compiler can't fully act on yet, it must produce an
    explicit diagnostic (see `validation/deferred_syntax.py`'s `DEFERRED`
-   pattern), not disappear. Per `ROADMAP.md`'s interleaving rule 2, silently
-   dropped or ignored parsed content is a release blocker for that
-   construct — treat it as such in review, not as a follow-up ticket.
+   pattern), not disappear. Under `ROADMAP.md`'s **No silent loss** rule, silently dropped or
+   ignored parsed content is a release blocker for that construct — treat it as such in review, not as a follow-up ticket.
 3. **Add a shared conformance fixture, not just a local unit test.**
    Anything reachable from more than one surface (native CLI, browser/Pyodide
    compiler, LSP, Playground) needs a fixture under `cli/tests/conformance/`
-   exercised through each surface it touches, per the Slice G3 pattern.
+   exercised through each surface it touches, through every applicable shared conformance surface.
    Tranche 1 of that work found a real bug precisely this way: a diagnostic
    that worked in the CLI was invisible in the browser because
    `workspace.py`'s `synchronize()` only read one of two fields. A
    same-surface-only test would not have caught it.
 4. **Hold new emitters/importers to the real-data bar before calling them
-   stable.** Interleaving rule 6: a new target isn't stable until
+   stable.** The roadmap's conformance gate means a new target isn't stable until
    representative real-world fixture data is covered by deterministic
    regression tests, not just a hand-written minimal case. Hand-written
    fixtures are fine for early development; they are not sufficient to flip

@@ -73,7 +73,7 @@ flowchart TB
     PLAN --> PROTO
     PLAN --> GOV
 
-    subgraph FUTURE["Streaming runtime — Phase 5, deferred, not implemented"]
+    subgraph FUTURE["Streaming runtime — outside core, not implemented"]
         direction LR
         ENVELOPE["Change event envelope"] --> SUBSCRIPTION["Subscription"] --> MATERIALIZED["Materialized replica<br/>Postgres / Kafka"]
     end
@@ -83,7 +83,7 @@ flowchart TB
 
 Everything above the "Streaming runtime" box is implemented by the local
 compiler today. `subscription`, adapter-driven materialization, and the
-runtime engine parse and validate but do not execute yet — see
+runtime engine remain outside the core execution boundary — see
 [Architecture and system specification](docs/architecture.md) for the exact
 implemented/deferred boundary of every concept in the diagram.
 
@@ -186,8 +186,8 @@ in-memory only and are never persisted.
 ## Stable compatibility surface
 
 Modelable 1.0 established the local compiler and language-server compatibility
-surface, which remains supported throughout the 1.x releases. The current
-release is listed in [the roadmap](ROADMAP.md).
+surface, which remains supported throughout the 1.x releases. Release history is tracked in [the changelog](CHANGELOG.md) and GitHub Releases;
+the [roadmap](ROADMAP.md) contains forward-looking work only.
 
 **In scope for 1.0:**
 

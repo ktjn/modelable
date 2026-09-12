@@ -12,7 +12,7 @@ from modelable.emitters.base import EmittedArtifact
 
 PASSING_STATUSES = {"wire_compatible", "read_compatible"}
 
-# The common target-compatibility axis/severity IR (Slice C3). Every
+# The common target-compatibility axis/severity IR. Every
 # comparator in this module — the pre-existing protobuf/gRPC wire guards and
 # the source/storage/projection-rebuild/governance additions below — returns
 # TargetCompatibilityReport/TargetCompatibilityFinding through this one
@@ -31,8 +31,8 @@ SEVERITIES = ("compatible", "review_required", "migration_required", "breaking")
 _SEVERITY_RANK = {name: rank for rank, name in enumerate(SEVERITIES)}
 
 # Legacy protobuf/gRPC status vocabulary preserved for CLI/output backward
-# compatibility (see ROADMAP.md Slice C3 "Preserve
-# existing CLI behaviour during migration"), mapped onto the four generic
+# compatibility. The historical migration vocabulary is retained in
+# docs/roadmap-archive-2026-08.md and mapped onto the four generic
 # severities so reports from every axis can be ranked and merged uniformly.
 _STATUS_TO_SEVERITY = {
     "wire_compatible": "compatible",

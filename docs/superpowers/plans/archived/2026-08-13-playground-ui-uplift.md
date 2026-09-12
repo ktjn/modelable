@@ -1,5 +1,8 @@
 # Playground UI uplift plan
 
+> **Status:** Archived 2026-09-12. The uplift phases are shipped; this file is
+> retained as implementation history, not active roadmap work.
+
 ## Goal
 
 Make the Playground feel like a modern contract-design workbench while

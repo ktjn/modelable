@@ -25,8 +25,8 @@ class Capability:
     status: CapabilityStatus
     description: str
     notes: str | None = None
-    # Test references prove capability status against implementation. The historical
-    # origin of this linkage is archived as ROADMAP.md Slice G3.
+    # Test references prove capability status against implementation. Historical
+    # slice vocabulary is retained in docs/roadmap-archive-2026-08.md.
     test_refs: tuple[str, ...] = ()
 
 
@@ -36,6 +36,7 @@ class CapabilityManifest:
     sql_dialects: tuple[Capability, ...]
     model_kinds: tuple[Capability, ...]
     annotations: tuple[Capability, ...]
+    language_capabilities: tuple[Capability, ...]
     registry_capabilities: tuple[Capability, ...]
     deferred_features: tuple[Capability, ...]
 
@@ -45,6 +46,7 @@ class CapabilityManifest:
             + self.sql_dialects
             + self.model_kinds
             + self.annotations
+            + self.language_capabilities
             + self.registry_capabilities
             + self.deferred_features
         )
@@ -71,19 +73,23 @@ _ANNOTATION_DESCRIPTIONS: dict[str, str] = {
     "custom": "Attaches an opaque, target-defined annotation",
 }
 
-_DEFERRED_FEATURES: tuple[Capability, ...] = (
+_LANGUAGE_CAPABILITIES: tuple[Capability, ...] = (
     Capability(
         name="composite-keys",
-        category="deferred_feature",
-        status=CapabilityStatus.deferred,
-        description="Multiple @key fields on a single entity or aggregate",
+        category="language_capability",
+        status=CapabilityStatus.implemented,
+        description="Ordered multiple @key fields on an entity or aggregate",
         notes=(
-            "Core validation preserves ordered multiple @key fields, but target "
-            "capability negotiation and emitter conformance remain deferred; see "
-            "docs/architecture.md and ROADMAP.md Programme E."
+            "Core semantics, compatibility, browser/native conformance, and per-target "
+            "capability admission are shipped. Targets without composite-key support "
+            "reject compilation explicitly rather than dropping key components."
         ),
         test_refs=("test_semantic.py::test_composite_key_is_validated_as_an_ordered_key_set",),
     ),
+)
+
+
+_DEFERRED_FEATURES: tuple[Capability, ...] = (
     Capability(
         name="model-lifecycle-status",
         category="deferred_feature",
@@ -91,7 +97,7 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         description="Draft, published, deprecated, and retired version status",
         notes=(
             "docs/architecture.md explicitly records that lifecycle status is not represented "
-            "in the current stable grammar or IR. See ROADMAP.md Slice D6 (legacy mapping)."
+            "in the current stable grammar or IR. Lifecycle remains external metadata by design; see docs/architecture.md §8.3."
         ),
         test_refs=("test_capabilities.py::test_model_version_has_no_lifecycle_status_field",),
     ),
@@ -102,7 +108,7 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         description="Preserving semantic-type nominal identity in targets other than Rust, Protobuf, and gRPC",
         notes=(
             "Other targets resolve a semantic type reference structurally today. "
-            "See ROADMAP.md Slice F1 (legacy mapping) and Phase 5 capability negotiation. "
+            "Support remains target-specific and capability-negotiated; see docs/architecture.md §13.1. "
             "Not yet linked to a proving test; the intended output for each target needs "
             "target-specific scoping before implementation."
         ),
@@ -127,7 +133,7 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         notes=(
             "Parses but is discarded before IR construction; has no effect on compilation. "
             "Peer identifiers referenced elsewhere are checked by a separate editor-only text scan. "
-            "The stabilization disposition is retain + explicit DEFERRED diagnostic; see legacy Slice B3."
+            "The disposition is retain + explicit DEFERRED diagnostic; see ROADMAP.md Parsed-but-deferred syntax."
         ),
         test_refs=("test_deferred_syntax.py::test_workspace_peers_block_produces_deferred_warning",),
     ),
@@ -189,7 +195,7 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         notes=(
             "AutoProjectionTarget.operations only exists on the pre-expansion `auto projections {}` declaration "
             "and is discarded during expansion; it is not present on the resulting ProjectionVersion to diff. "
-            "See legacy Slice C1 and Phase 10 layered compatibility. Not yet linked to a proving test."
+            "Layered compatibility intentionally leaves this as a known deferred edge case. Not yet linked to a proving test."
         ),
     ),
 )
@@ -335,6 +341,7 @@ def build_capability_manifest() -> CapabilityManifest:
         sql_dialects=sql_dialects,
         model_kinds=model_kinds,
         annotations=annotations,
+        language_capabilities=_LANGUAGE_CAPABILITIES,
         registry_capabilities=_REGISTRY_CAPABILITIES,
         deferred_features=_DEFERRED_FEATURES,
     )
