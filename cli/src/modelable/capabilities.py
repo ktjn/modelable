@@ -120,8 +120,8 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         description="Workspace-level `registry {}` configuration",
         notes=(
             "Parses but is discarded before IR construction; has no effect on compilation. "
-            "The stabilization disposition is retain + explicit DEFERRED diagnostic; see ROADMAP.md "
-            "Current/deferred syntax disposition and legacy Slice B3."
+            "The disposition is retain + explicit DEFERRED diagnostic; see ROADMAP.md "
+            "Parsed-but-deferred syntax."
         ),
         test_refs=("test_deferred_syntax.py::test_workspace_registry_block_produces_deferred_warning",),
     ),
@@ -144,8 +144,8 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         description="Top-level `consumer {}` declarations",
         notes=(
             "Parses but is discarded before IR construction; consumer registration and impact analysis "
-            "have no effect. Retained with DEFERRED diagnostics for language stability; Phase 7 prefers "
-            "derived usage evidence."
+            "have no effect. Retained with DEFERRED diagnostics for language stability; compiled "
+            "usage evidence is the preferred consumer signal."
         ),
         test_refs=("test_deferred_syntax.py::test_top_level_consumer_declaration_produces_deferred_warning",),
     ),
@@ -181,7 +181,7 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         description="Unrecognized keys inside `binding {}` beyond `adapter`, `model`, and `table`",
         notes=(
             "Parses but is discarded before IR construction; only `adapter`, `model`, and `table` are honored today. "
-            "Unsupported opaque content remains explicitly DEFERRED under the stabilization language-stability rule."
+            "Unsupported opaque content remains explicitly DEFERRED under the roadmap language-stability rule."
         ),
         test_refs=(
             "test_deferred_syntax.py::test_binding_opaque_content_produces_one_deferred_warning_per_unrecognized_key",

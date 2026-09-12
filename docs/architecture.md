@@ -1,6 +1,6 @@
 # Modelable Architecture and System Specification
 
-> **Authority:** This document is the product source of truth for Modelable concepts, invariants, trust boundaries, and current/deferred implementation boundaries. It also defines the intended stabilization architecture. Where an architectural target is not yet implemented, that status is stated explicitly.
+> **Authority:** This document is the product source of truth for Modelable concepts, invariants, trust boundaries, and current/deferred implementation boundaries. It records the current architecture plus historical stabilization boundaries. Where an architectural target is not yet implemented, that status is stated explicitly.
 
 ## 1. Product thesis
 
@@ -318,7 +318,7 @@ Parser-specific Python classes are internal implementation details, not an exten
 
 ### 7.3 Runtime engine
 
-**Deferred and outside core.** Modelable has no general streaming/runtime engine and should not grow one as part of stabilization.
+**Deferred and outside core.** Modelable has no general streaming/runtime engine and should not grow one as part of the core product.
 
 ### 7.4 Materializer
 
@@ -336,7 +336,7 @@ Current shipped syntax includes runtime-adjacent constructs with limited behavio
 - `consumer {}` parses but is deferred; future impact analysis should prefer derived usage evidence.
 - `binding {}` currently honors only the implemented compile-time subset such as adapter/model/table; unrecognized opaque content is reported as deferred.
 
-**Disposition during stabilization:** retain these forms for language compatibility, keep explicit `DEFERRED` diagnostics, do not silently ignore them, and do not implement a runtime behind them. Removal or replacement requires a separately versioned language change and migration path.
+**Current disposition:** retain these forms for language compatibility, keep explicit `DEFERRED` diagnostics, do not silently ignore them, and do not implement a runtime behind them. Removal or replacement requires a separately versioned language change and migration path.
 
 ## 8. Evolution and compatibility
 
@@ -567,7 +567,7 @@ Overlays must never execute code. Unknown keys or selectors are diagnostics acco
 
 `@wire` is existing stable syntax. It is therefore not reinterpreted or silently removed.
 
-During stabilization:
+Current migration policy:
 
 1. existing `@wire` keeps its current meaning;
 2. new target-specific capabilities prefer overlays;
@@ -635,7 +635,7 @@ or semantic IR.
 
 ## 16. Security requirements
 
-Stabilization adds explicit extension and overlay trust boundaries. Security requirements therefore remain first-class architecture, not deferred implementation detail.
+Extensions and overlays introduce explicit trust boundaries. Security requirements therefore remain first-class architecture, not deferred implementation detail.
 
 1. **Offline by default.** Normal compile/validate/diff/impact does not implicitly contact registries, package services, or extension sources.
 2. **Pinned dependencies.** External semantic dependencies and executable extensions are resolved intentionally and pinned by immutable identity/hash.
@@ -664,7 +664,7 @@ Current important compiler workflows include validation, compilation/generation,
 
 ## 18. Non-goals
 
-The following remain outside the core stabilization roadmap:
+The following remain outside the core product boundary:
 
 - streaming execution engine;
 - subscription runtime;

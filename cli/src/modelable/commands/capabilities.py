@@ -24,8 +24,8 @@ def register_capabilities_commands(cli_group: click.Group) -> None:
 def capabilities(output_format: str) -> None:
     """List Modelable's compiler-owned capabilities.
 
-    Covers output targets, SQL dialects, model kinds, annotations, and
-    known deferred features.
+    Covers output targets, SQL dialects, model kinds, annotations, shipped
+    language capabilities, registry capabilities, and known deferred features.
     """
     manifest = build_capability_manifest()
     entries = manifest.all()
