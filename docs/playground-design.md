@@ -1,11 +1,9 @@
 # Modelable Playground Architecture
 
-> **Status:** Long-term product vision with Phases 1–7 shipped. The browser
-> compiler, single-file editor, multi-file workspace with persistence,
-> browser-native language services, visualization MVP, analysis views,
-> local AI, and offline hardening (service worker, cross-browser validation,
-> accessibility and performance hardening) are all archived. Extensibility
-> is the active next phase.
+> **Status:** Current architecture with the historical Phases 1–8 shipped
+> within the bounded host-plugin scope described below. Completed delivery
+> plans are archived; forward-looking product work lives only in
+> [ROADMAP.md](../ROADMAP.md).
 
 ## 1. Purpose
 

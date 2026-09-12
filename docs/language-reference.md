@@ -1213,12 +1213,12 @@ consumer {
 
 ---
 
-## 8. Deferred Language Scope
+## 8. Deferred and External Scope
 
-- Subscription runtime execution (Phase 5)
-- Registry HTTP server (no server needed for dev-time use; deferred if ever needed)
-- Catalog / governance sync (Phase 3)
-- GraphQL target (post-MVP)
+- Subscription runtime execution
+- Hosted registry HTTP service (not planned unless a concrete consumer requires it)
+- Live catalog / governance synchronization beyond explicitly implemented integrations
+- GraphQL target (candidate, not committed)
 - Non-Python parser implementations
 
 ---

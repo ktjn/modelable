@@ -1,7 +1,8 @@
 # External Integrations and Tool Alignment
 
-> **Status:** Mixed — shipped local integrations alongside research/planning
-> for deferred ones. Shipped: dbt `schema.yml` export/import, FHIR R4
+> **Status:** Shipped integration reference plus non-committed research.
+> This document is not a roadmap; candidate work becomes committed only when
+> promoted into [ROADMAP.md](../ROADMAP.md). Shipped: dbt `schema.yml` export/import, FHIR R4
 > `StructureDefinition` export/import, ODCS export/import, OpenMetadata and
 > OpenLineage local export and Marquez lineage sync, `modelable attach`/`modelable spec` drift review
 > for dbt/FHIR/ODCS, and `modelable publish apicurio`/`modelable pull
@@ -9,10 +10,10 @@
 > requiring an issue and accepted design per
 > [ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md):
 > live OpenMetadata catalog synchronization, remote tracked-spec polling, and
-> the additional artifact targets and tools surveyed in §4. This
-> document consolidates earlier tool-boundary research and extends
-> [getting-started.md](getting-started.md) with concept mappings and
-> phased proposals for dbt, FHIR, and other ecosystems.
+> the additional artifact targets and tools surveyed in §4. This document
+> consolidates earlier tool-boundary research and extends
+> [getting-started.md](getting-started.md) with concept mappings for dbt, FHIR,
+> and other ecosystems.
 
 This document also consolidates the earlier external-tool boundary, technology
 evaluation, and data-model-language survey. Those documents informed the
@@ -120,8 +121,7 @@ domain ownership, and projections, but scoped to the warehouse.
 
 ### 2.3 Alignment plan
 
-**Implemented — dbt schema/source export (extends Phase 1/4 of
-the integration boundary above):**
+**Implemented — dbt schema/source export:**
 
 `modelable compile --target dbt-yaml` generates dbt `schema.yml` fragments for
 a model or projection:
@@ -176,7 +176,7 @@ with a computed `additive`/`breaking` change kind when they differ. See
 `spec sync --preview|--write` can repeat the drift review without restating the
 source path and binding.
 
-**Phase C — exposure/lineage stitching:**
+**Candidate — exposure/lineage stitching (not committed):**
 
 Treat dbt `exposures` as external consumers in the lineage graph, so
 `modelable lineage` can show "this field flows into dbt exposure X" even when
@@ -184,7 +184,7 @@ the exposure itself lives outside `.mdl`. This feeds
 [compiler-reference.md](compiler-reference.md) rather than the
 local compiler.
 
-**Phase D — semantic layer (deferred, see §2.4).**
+**Deferred — semantic layer (see §2.4).**
 
 ### 2.4 Open questions
 
@@ -264,7 +264,7 @@ resource-specific conformance. Representative FHIR-native Patient profile
 output is validated with the HL7-maintained Java FHIR Validator smoke in the
 local/CI gate when `validator_cli.jar` is available.
 
-**Phase B — terminology and reference mapping:**
+**Reference direction — terminology and reference mapping:**
 
 - Map Modelable `enum(...)` to a FHIR `binding` (`valueSet` + `strength`).
   Modelable does not need its own ValueSet/CodeSystem resources initially —
@@ -301,7 +301,7 @@ trackable for repeatable status/diff/sync workflows. ODCS YAML documents can
 also bootstrap brand-new `.mdl` models through `modelable generate --from`
 or an explicit `--format odcs`.
 
-**Phase D (Later, roadmap) — Implementation Guide packaging:**
+**Candidate — Implementation Guide packaging (not committed):**
 
 Generate an IG-shaped documentation bundle (profiles + narrative + examples)
 from a Modelable workspace, reusing the Markdown emitter.
@@ -321,47 +321,44 @@ from a Modelable workspace, reusing the Markdown emitter.
   production health systems.
 - This is export/import of static profile artifacts only. FHIR servers (e.g.
   HAPI FHIR), `CapabilityStatement`-driven runtime conformance, and FHIR
-  Subscriptions are runtime concerns and stay out of scope, consistent with
-  the Phase 5 boundary in
-  the integration boundary and deferred-candidate summary above.
+  Subscriptions are runtime concerns and stay out of scope, consistent with the core runtime boundary in
+  [architecture.md](architecture.md).
 
 ## 4. Other tools to evaluate for alignment
 
-| Tool / standard | What it is | Why relevant to Modelable | Suggested alignment | Phase |
+| Tool / standard | What it is | Why relevant to Modelable | Suggested alignment | Status |
 |---|---|---|---|---|
-| **OpenLineage** | Open standard for lineage events (job/run/dataset/column facets); adopted by Airflow, Spark, dbt, OpenMetadata, and major cloud catalogs | Modelable's internal lineage graph can be exported as OpenLineage `ColumnLineageDatasetFacet` events, letting catalogs that already consume OpenLineage ingest Modelable lineage without a bespoke integration | Local `modelable compile --target openlineage` emits deterministic design-time events with schema and column-lineage facets; `modelable sync --lineage marquez` posts those events to a Marquez-compatible `/api/v1/lineage` endpoint; runtime event collection remains deferred | 3 |
-| **Open Data Contract Standard (ODCS) / Data Contract CLI** | Vendor-neutral data contract interchange format | Already on the roadmap (Phase 4); reaffirm — dbt model contracts and FHIR profiles both have partial overlap with ODCS fields (owner, classification, quality) | Local ODCS import preserves key, required, PII, owner, classification, version, and Modelable exact type hints for `attach`/`spec` and `generate --from`, including normalized string boolean flags and `customProperties` emitted by `compile --target odcs`; `modelable compile --target odcs` exports ODCS v3.1.0 YAML for models and projections; Data Contract CLI lint validation is implemented in local and CI gates | 4 |
-| **Apache Iceberg / Delta Lake (table formats)** | Open table formats with schema evolution (add/rename/widen columns with stable field IDs) | Schema evolution semantics (stable column IDs, additive-only safe changes) closely mirror Modelable's additive/breaking model and the field-ID concern already flagged for Protobuf | Potential `--target iceberg-schema` emitter reusing the same field-ID stability mechanism proposed for Protobuf | 5 |
-| **Snowplow / Segment tracking plans** | Versioned event-schema governance for product analytics | "Event model + classification + versioning" maps closely to Modelable's `event` kind and `@classification` | Potential compile target for analytics/event-tracking teams | 5 |
-| **OMOP CDM** | Common Data Model for healthcare observational research (alternative to FHIR for analytics use cases) | Worth a follow-up evaluation if FHIR's operational profile model proves too heavyweight for analytics-only healthcare domains | Evaluate only if a concrete healthcare-analytics consumer emerges; do not build speculatively | Later |
-| **GraphQL SDL / federation (Apollo subgraphs)** | Schema definition language with subgraph ownership and composition | Subgraph ownership and composed schema concepts parallel Modelable domain ownership and cross-domain projections | Potential future compile target alongside OpenAPI (Phase 5) | 5 |
+| **OpenLineage** | Open standard for lineage events (job/run/dataset/column facets); adopted by Airflow, Spark, dbt, OpenMetadata, and major cloud catalogs | Modelable's internal lineage graph can be exported as OpenLineage `ColumnLineageDatasetFacet` events, letting catalogs that already consume OpenLineage ingest Modelable lineage without a bespoke integration | Local `modelable compile --target openlineage` emits deterministic design-time events with schema and column-lineage facets; `modelable sync --lineage marquez` posts those events to a Marquez-compatible `/api/v1/lineage` endpoint; runtime event collection remains deferred | Implemented |
+| **Open Data Contract Standard (ODCS) / Data Contract CLI** | Vendor-neutral data contract interchange format | dbt model contracts and FHIR profiles have partial overlap with ODCS fields (owner, classification, quality) | Local ODCS import preserves key, required, PII, owner, classification, version, and Modelable exact type hints for `attach`/`spec` and `generate --from`, including normalized string boolean flags and `customProperties` emitted by `compile --target odcs`; `modelable compile --target odcs` exports ODCS v3.1.0 YAML for models and projections; Data Contract CLI lint validation is implemented in local and CI gates | 4 |
+| **Apache Iceberg / Delta Lake (table formats)** | Open table formats with schema evolution (add/rename/widen columns with stable field IDs) | Schema evolution semantics (stable column IDs, additive-only safe changes) closely mirror Modelable's additive/breaking model and the field-ID concern already flagged for Protobuf | Potential `--target iceberg-schema` emitter reusing the same field-ID stability mechanism proposed for Protobuf | Candidate |
+| **Snowplow / Segment tracking plans** | Versioned event-schema governance for product analytics | "Event model + classification + versioning" maps closely to Modelable's `event` kind and `@classification` | Potential compile target for analytics/event-tracking teams | Candidate |
+| **OMOP CDM** | Common Data Model for healthcare observational research (alternative to FHIR for analytics use cases) | Worth a follow-up evaluation if FHIR's operational profile model proves too heavyweight for analytics-only healthcare domains | Evaluate only if a concrete healthcare-analytics consumer emerges; do not build speculatively | Evaluate on demand |
+| **GraphQL SDL / federation (Apollo subgraphs)** | Schema definition language with subgraph ownership and composition | Subgraph ownership and composed schema concepts parallel Modelable domain ownership and cross-domain projections | Potential future compile target alongside OpenAPI | Candidate |
 
 Tools already evaluated and not repeated here: JSON Schema, Avro, Protobuf,
 OpenAPI, AsyncAPI, Apicurio, OpenMetadata, LinkML — see
 the consolidated research summary above.
 
-## 5. Recommended sequencing
+## 5. Integration status summary
 
-This slots into the existing phased plan from
-[the integration boundary](#current-integration-boundary) and
-[ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md):
+This is a status inventory, not delivery sequencing. Candidate integrations are
+non-committed unless promoted into the single project roadmap.
 
-| Phase | Existing focus | New additions from this document |
+| Area | Current support | Remaining boundary |
 |---|---|---|
-| 1 — Local modelling compiler | JSON Schema, Markdown, TypeScript | none |
-| 2 — Artifact registry | Apicurio | none |
-| 3 — Catalog/governance sync | OpenMetadata | + OpenLineage export |
-| 4 — Contract interchange | ODCS, Data Contract CLI | dbt `schema.yml` export, dbt model/source-table import, dbt manifest model/source-table import, and ODCS local-file import/export are implemented; remote polling remains deferred |
-| 4b (new) — Domain-specific interchange | — | FHIR R4 StructureDefinition export and local-file import are implemented; Patient/Observation/Encounter profile bases have hardened element mapping with representative cardinality and direct slice coverage; Modelable-only fields are mapped to FHIR extension slices with companion Extension StructureDefinitions; representative HL7 FHIR Validator smoke is implemented; deep nested slice conformance remains deferred |
-| 5 — Event/API/runtime targets | Avro, OpenAPI, AsyncAPI, runtime stack | Avro, Protobuf, and Scalable-oriented gRPC generation are implemented as deterministic local artifacts. Avro import hardening, descriptor-binary semantic diffing, explicit field-number pinning, enum reservations, and runtime registration remain follow-ups. Other candidates: Iceberg/Delta schema, analytics tracking plans, and GraphQL SDL |
+| Core local artifacts | JSON Schema, Markdown, TypeScript and other language targets | Add targets only against concrete consumers |
+| Artifact registry | Apicurio JSON Schema publish/pull | Additional registries remain adapters |
+| Catalog/lineage | OpenMetadata local export; OpenLineage local export and Marquez sync | Live OpenMetadata sync is deferred |
+| Contract interchange | ODCS and dbt local import/export | Remote tracked-spec polling is deferred |
+| Domain-specific interchange | FHIR R4 profile import/export | Deeper nested slice coverage remains incremental |
+| Event/API contracts | Avro, Protobuf, gRPC, OpenAPI, event-sink contracts | Runtime brokers/materializers remain outside core; AsyncAPI is deferred |
+
 
 ## 6. Non-goals
 
 - Executing dbt, running a FHIR server, or collecting OpenLineage runtime
-  events — these are runtime/execution concerns, consistent with
-  [architecture.md](architecture.md) §2.6 and the deferred
-  Incorporate Yet" list in
-  boundary in this document.
+  events — these are runtime/execution concerns outside the core product
+  boundary in [architecture.md](architecture.md).
 - Redesigning the core `.mdl` type system or projection model to match dbt's
   or FHIR's type systems. All mapping happens in emitters/importers, not in
   the IDL or normalized graph.
@@ -370,9 +367,8 @@ This slots into the existing phased plan from
 
 ## 7. Open decisions
 
-- Whether future ecosystem targets remain first-party or move to third-party
-  plugins, pending the plugin-registry decision already open in
-  [compiler-reference.md](compiler-reference.md) §11.
+- Which future ecosystem targets warrant first-party maintenance versus a
+  native WASM extension; no executable plugin discovery registry is planned.
 - Which warehouse dialect's `data_type` vocabulary the dbt emitter targets by
   default (or whether it omits `data_type` until `contract.enforced` is
   requested).
