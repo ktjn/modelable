@@ -2,7 +2,9 @@
 
 > **Status:** Shipped integration reference plus non-committed research.
 > This document is not a roadmap; candidate work becomes committed only when
-> promoted into [ROADMAP.md](../ROADMAP.md). Shipped: dbt `schema.yml` export/import, FHIR R4
+> promoted into [ROADMAP.md](../ROADMAP.md).
+>
+> Shipped: dbt `schema.yml` export/import, FHIR R4
 > `StructureDefinition` export/import, ODCS export/import, OpenMetadata and
 > OpenLineage local export and Marquez lineage sync, `modelable attach`/`modelable spec` drift review
 > for dbt/FHIR/ODCS, and `modelable publish apicurio`/`modelable pull
@@ -329,7 +331,7 @@ from a Modelable workspace, reusing the Markdown emitter.
 | Tool / standard | What it is | Why relevant to Modelable | Suggested alignment | Status |
 |---|---|---|---|---|
 | **OpenLineage** | Open standard for lineage events (job/run/dataset/column facets); adopted by Airflow, Spark, dbt, OpenMetadata, and major cloud catalogs | Modelable's internal lineage graph can be exported as OpenLineage `ColumnLineageDatasetFacet` events, letting catalogs that already consume OpenLineage ingest Modelable lineage without a bespoke integration | Local `modelable compile --target openlineage` emits deterministic design-time events with schema and column-lineage facets; `modelable sync --lineage marquez` posts those events to a Marquez-compatible `/api/v1/lineage` endpoint; runtime event collection remains deferred | Implemented |
-| **Open Data Contract Standard (ODCS) / Data Contract CLI** | Vendor-neutral data contract interchange format | dbt model contracts and FHIR profiles have partial overlap with ODCS fields (owner, classification, quality) | Local ODCS import preserves key, required, PII, owner, classification, version, and Modelable exact type hints for `attach`/`spec` and `generate --from`, including normalized string boolean flags and `customProperties` emitted by `compile --target odcs`; `modelable compile --target odcs` exports ODCS v3.1.0 YAML for models and projections; Data Contract CLI lint validation is implemented in local and CI gates | 4 |
+| **Open Data Contract Standard (ODCS) / Data Contract CLI** | Vendor-neutral data contract interchange format | dbt model contracts and FHIR profiles have partial overlap with ODCS fields (owner, classification, quality) | Local ODCS import preserves key, required, PII, owner, classification, version, and Modelable exact type hints for `attach`/`spec` and `generate --from`, including normalized string boolean flags and `customProperties` emitted by `compile --target odcs`; `modelable compile --target odcs` exports ODCS v3.1.0 YAML for models and projections; Data Contract CLI lint validation is implemented in local and CI gates | Implemented |
 | **Apache Iceberg / Delta Lake (table formats)** | Open table formats with schema evolution (add/rename/widen columns with stable field IDs) | Schema evolution semantics (stable column IDs, additive-only safe changes) closely mirror Modelable's additive/breaking model and the field-ID concern already flagged for Protobuf | Potential `--target iceberg-schema` emitter reusing the same field-ID stability mechanism proposed for Protobuf | Candidate |
 | **Snowplow / Segment tracking plans** | Versioned event-schema governance for product analytics | "Event model + classification + versioning" maps closely to Modelable's `event` kind and `@classification` | Potential compile target for analytics/event-tracking teams | Candidate |
 | **OMOP CDM** | Common Data Model for healthcare observational research (alternative to FHIR for analytics use cases) | Worth a follow-up evaluation if FHIR's operational profile model proves too heavyweight for analytics-only healthcare domains | Evaluate only if a concrete healthcare-analytics consumer emerges; do not build speculatively | Evaluate on demand |
