@@ -312,7 +312,7 @@ def test_release_prep_is_manual_dispatch_with_version_input() -> None:
 
     steps = workflow["jobs"]["prepare"]["steps"]
     assert any(
-        step.get("uses") == "astral-sh/setup-uv@v10.0.1"
+        step.get("uses") == "astral-sh/setup-uv@v10.1.0"
         and step.get("with", {}).get("cache-dependency-glob") == "cli/uv.lock"
         for step in steps
     )
