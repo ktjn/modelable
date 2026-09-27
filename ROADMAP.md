@@ -130,6 +130,29 @@ identity to one signing product.
 
 **Dependency:** build on the OCI digest/provenance work above.
 
+
+### P1 — Formal verification of stateful semantic invariants
+
+**Goal:** use bounded TLA+/TLC models to verify stateful architectural invariants
+without introducing a second semantic implementation or runtime dependency.
+
+Implementation is specified in
+[docs/tla-formal-verification.md](docs/tla-formal-verification.md).
+
+- [ ] Add the bounded declaration lifecycle/usage/compatibility model.
+- [ ] Check immutability, exact resolution, retirement safety, and explicit
+  compatibility invariants with TLC.
+- [ ] Add pinned, bounded formal-verification CI with actionable counterexample
+  traces.
+- [ ] Map formal transitions/invariants back to production boundaries and
+  regression tests.
+- [ ] Add package-resolution verification when OCI distribution implementation
+  begins.
+
+**Done when:** PR CI exhaustively checks the committed finite models, violations
+produce useful counterexample traces, and TLA+ remains development-only with no
+production runtime dependency.
+
 ## Continuous engineering gates
 
 These are invariants, not finishable programme phases.
