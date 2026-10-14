@@ -2,7 +2,7 @@
 
 > **Status:** Shipped integration reference plus non-committed research.
 > This document is not a roadmap; candidate work becomes committed only when
-> promoted into [ROADMAP.md](../ROADMAP.md).
+> promoted into [ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md).
 >
 > Shipped: dbt `schema.yml` export/import, FHIR R4
 > `StructureDefinition` export/import, ODCS export/import, OpenMetadata and

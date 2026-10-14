@@ -3,7 +3,7 @@
 > **Status:** Current architecture with the historical Phases 1–8 shipped
 > within the bounded host-plugin scope described below. Completed delivery
 > plans are archived; forward-looking product work lives only in
-> [ROADMAP.md](../ROADMAP.md).
+> [ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md).
 
 ## 1. Purpose
 
