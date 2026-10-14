@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -156,6 +157,14 @@ def test_validation_workflow_is_build_only() -> None:
     assert "npm run check:budgets" in build_script
     for forbidden in ("ruff", "mypy", "pytest", "npm test", "test:e2e", "docker pull"):
         assert forbidden not in build_script
+
+
+def test_build_pins_selectolax_before_deprecated_parser_backend() -> None:
+    pyproject = tomllib.loads((REPOSITORY_ROOT / "cli" / "pyproject.toml").read_text(encoding="utf-8"))
+    expected = "selectolax>=0.3.21,<0.4"
+
+    assert expected in pyproject["build-system"]["requires"]
+    assert expected in pyproject["project"]["dependencies"]
 
 
 def test_versioned_pre_push_hook_runs_local_gate() -> None:
