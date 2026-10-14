@@ -50,19 +50,40 @@ Docker is required for generated-language compiler smoke tests.
 
 ## Development Flow and Gates
 
-To maintain quality and stability, all contributions must pass through the
-following gates:
+The repository keeps GitHub Actions focused on the browser build. Run the
+complete validation gate locally before pushing; the versioned pre-push hook
+can enforce this automatically.
+
+Install the hook once per checkout:
+
+```powershell
+git config core.hooksPath .githooks
+```
+
+Run the same gate manually when needed:
+
+```powershell
+uv run python .github/scripts/run_browser_playground.py
+```
+
+The gate also runs the ODCS, OpenMetadata, OpenLineage, and FHIR smoke tests.
+Docker must be available for the container-backed checks, and
+`MODELABLE_FHIR_VALIDATOR_JAR` must point to the HL7 validator jar. The VS Code
+gate additionally runs `npm run check`, `npm run build`, `npm test`, and
+`npm run package` from `vscode/`.
+
+Do not push after a failed or incomplete gate, and do not bypass the hook with
+`--no-verify`. Repository administrators must protect `main`, disable direct
+pushes, and require the GitHub Build status check before merging a PR.
+
+The contribution gates are:
 
 1. **Local CI**: Before opening a pull request, you must run the local gate
-   commands (see [Development setup](#development-setup)). Run the non-mutating
-   `ruff check .` and `ruff format --check .` commands after applying fixes so
-   the final working tree is verified with the same checks used by CI. Any
-   changed code must pass all tests locally.
-2. **GitHub Verification**: All pull requests must pass the automated GitHub
-   Actions CI before they can be merged. The Validate workflow is split by
-   changed surface, so GitHub runs the CLI, VS Code, and external-smoke jobs
-   relevant to the files changed in the PR. Verify that all required status
-   checks are green on the PR.
+   commands above. It runs CLI lint, formatting, mypy, tests, web checks,
+   coverage and dependency-audit ratchets, browser unit tests, the web build,
+   E2E tests, bundle-budget checks, and VS Code extension tests.
+2. **GitHub Build**: The Build workflow compiles the browser distribution and
+   checks its bundle budgets. It does not replace the local validation gate.
 3. **Dependency Freshness**: Keep project dependencies up to date with their
    latest stable versions. When adding or updating dependencies, ensure you
    are using the latest compatible versions available.

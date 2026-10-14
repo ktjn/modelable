@@ -139,10 +139,7 @@ def test_docs_workflow_main_push_can_deploy() -> None:
 
 def test_validation_workflow_uses_current_actions() -> None:
     assert _workflow_action_names("validate.yml") == {
-        "actions/cache",
         "actions/checkout",
-        "actions/download-artifact",
-        "actions/setup-java",
         "actions/setup-node",
         "actions/upload-artifact",
         "astral-sh/setup-uv",
@@ -150,150 +147,27 @@ def test_validation_workflow_uses_current_actions() -> None:
     _assert_workflow_actions_are_pinned("validate.yml")
 
 
-def test_validation_workflow_is_split_and_path_gated() -> None:
+def test_validation_workflow_is_build_only() -> None:
     workflow = _workflow("validate.yml")
-    jobs = workflow["jobs"]
-    expected_surfaces = {"cli", "vscode", "odcs", "openmetadata", "openlineage", "fhir", "browser"}
+    assert set(workflow["jobs"]) == {"build"}
 
-    assert set(jobs["changes"]["outputs"]) == expected_surfaces
-    detection_steps = [
-        step
-        for step in jobs["changes"]["steps"]
-        if "run" in step and ".github/scripts/detect_validate_surfaces.py" in step["run"]
-    ]
-    assert len(detection_steps) == 1
-
-    for surface in expected_surfaces:
-        if surface == "browser":
-            assert jobs["browser-build"]["needs"] == "changes"
-            assert jobs["browser-build"]["if"] == "needs.changes.outputs.browser == 'true'"
-            assert jobs["browser-e2e"]["needs"] == "browser-build"
-        else:
-            assert jobs[surface]["needs"] == "changes"
-            assert jobs[surface]["if"] == f"needs.changes.outputs.{surface} == 'true'"
+    build_script = "\n".join(str(step.get("run", "")) for step in workflow["jobs"]["build"]["steps"])
+    assert "npm run build" in build_script
+    assert "npm run check:budgets" in build_script
+    for forbidden in ("ruff", "mypy", "pytest", "npm test", "test:e2e", "docker pull"):
+        assert forbidden not in build_script
 
 
-def test_validation_workflow_handles_history_without_a_merge_base() -> None:
-    workflow = _workflow("validate.yml")
-    detection_step = next(
-        step
-        for step in workflow["jobs"]["changes"]["steps"]
-        if "run" in step and ".github/scripts/detect_validate_surfaces.py" in step["run"]
-    )
-    script = detection_step["run"]
-
-    assert "git merge-base FETCH_HEAD HEAD" in script
-    assert 'git merge-base "${{ github.event.before }}" HEAD' in script
-    assert "git ls-tree -r --name-only HEAD > changed-files.txt" in script
-
-
-def test_validation_workflow_uses_distinct_uv_cache_suffixes() -> None:
-    workflow = _workflow("validate.yml")
-    jobs = workflow["jobs"]
-    expected_suffixes = {
-        "cli": "cli",
-        "odcs": "odcs",
-        "openmetadata": "openmetadata",
-        "openlineage": "openlineage",
-        "fhir": "fhir",
-        "vscode": "vscode",
-        "browser-build": "browser",
-    }
-
-    for job_name, expected_suffix in expected_suffixes.items():
-        setup_uv_steps = [
-            step for step in jobs[job_name]["steps"] if str(step.get("uses", "")).startswith("astral-sh/setup-uv@")
-        ]
-        assert len(setup_uv_steps) == 1
-        assert setup_uv_steps[0]["with"]["cache-dependency-glob"] == "cli/uv.lock"
-        assert setup_uv_steps[0]["with"]["cache-suffix"] == expected_suffix
-
-
-def test_validation_workflow_runs_complete_browser_playground_gate() -> None:
-    workflow = _workflow("validate.yml")
-
-    build_steps = workflow["jobs"]["browser-build"]["steps"]
-    build_commands = "\n".join(step["run"] for step in build_steps if "run" in step)
-    assert any(
-        step.get("uses") == "actions/setup-node@v7.0.0" and step.get("with", {}).get("node-version") == 26
-        for step in build_steps
-    )
-    assert "uv python install 3.14" in build_commands
-    assert "uv sync --extra dev --frozen" in build_commands
-    assert "npm ci" in build_commands
-    assert "npm run build" in build_commands
-    assert any(
-        step.get("uses") == "actions/upload-artifact@v7.0.1" and step.get("with", {}).get("name") == "browser-dist"
-        for step in build_steps
-    )
-
-    e2e_steps = workflow["jobs"]["browser-e2e"]["steps"]
-    e2e_commands = "\n".join(step["run"] for step in e2e_steps if "run" in step)
-    assert "npx playwright install --with-deps" in e2e_commands
-    assert "npx playwright test --project" in e2e_commands
-    # Firefox is temporarily out of the matrix (see the comment in validate.yml);
-    # restore ["chromium", "firefox"] here when it is re-enabled.
-    assert workflow["jobs"]["browser-e2e"]["strategy"]["matrix"]["browser"] == ["chromium"]
-    assert any(
-        step.get("uses") == "actions/download-artifact@v8.0.1" and step.get("with", {}).get("name") == "browser-dist"
-        for step in e2e_steps
-    )
-    assert any(
-        step.get("uses") == "actions/upload-artifact@v7.0.1"
-        and step.get("if") == "${{ failure() }}"
-        and step.get("with", {}).get("path") == "web/output/playwright"
-        for step in e2e_steps
-    )
-
-
-def test_validation_workflow_runs_cli_dependency_audit() -> None:
-    workflow = _workflow("validate.yml")
-    cli_commands = "\n".join(step["run"] for step in workflow["jobs"]["cli"]["steps"] if "run" in step)
-
-    assert "uv export --no-emit-project --format requirements-txt -o audit-requirements.txt" in cli_commands
-    assert "uv run --with pip-audit pip-audit --strict --progress-spinner off -r audit-requirements.txt" in cli_commands
-
-
-def test_validation_workflow_runs_mypy_baseline_ratchet() -> None:
-    workflow = _workflow("validate.yml")
-    cli_commands = "\n".join(step["run"] for step in workflow["jobs"]["cli"]["steps"] if "run" in step)
-
-    assert "check_mypy_baseline.py --baseline mypy-baseline.txt" in cli_commands
-    assert "uv run mypy src/modelable --no-error-summary --show-error-codes" in cli_commands
-
-
-def test_validation_workflow_runs_coverage_ratchet() -> None:
-    workflow = _workflow("validate.yml")
-    cli_steps = workflow["jobs"]["cli"]["steps"]
-    cli_commands = "\n".join(step["run"] for step in cli_steps if "run" in step)
-
-    assert "check_coverage_ratchet.py" in cli_commands
-    assert "--coverage-xml coverage.xml" in cli_commands
-    assert "--baseline coverage-baseline.txt" in cli_commands
-
-    test_step_index = next(
-        index
-        for index, step in enumerate(cli_steps)
-        if "run" in step and "pytest --tb=short --cov=modelable" in step["run"]
-    )
-    ratchet_step_index = next(
-        index for index, step in enumerate(cli_steps) if "run" in step and "check_coverage_ratchet.py" in step["run"]
-    )
-    assert ratchet_step_index > test_step_index
-
-
-def test_validation_workflow_publishes_cli_coverage_report() -> None:
-    workflow = _workflow("validate.yml")
-    cli_steps = workflow["jobs"]["cli"]["steps"]
-    cli_commands = "\n".join(step["run"] for step in cli_steps if "run" in step)
-
-    assert "uv run pytest --tb=short --cov=modelable --cov-report=term-missing --cov-report=xml" in cli_commands
-    assert any(
-        step.get("uses") == "actions/upload-artifact@v7.0.1"
-        and step.get("with", {}).get("name") == "cli-coverage-xml"
-        and step.get("with", {}).get("path") == "cli/coverage.xml"
-        for step in cli_steps
-    )
+def test_versioned_pre_push_hook_runs_local_gate() -> None:
+    hook = REPOSITORY_ROOT / ".githooks" / "pre-push"
+    assert hook.exists()
+    content = hook.read_text(encoding="utf-8")
+    assert "git diff --quiet" in content
+    assert "git diff --cached --quiet" in content
+    assert "git status --porcelain --untracked-files=all" in content
+    assert "refs/heads/" in content
+    assert "git rev-parse HEAD" in content
+    assert "run_browser_playground.py" in content
 
 
 def test_release_prep_workflow_uses_current_actions() -> None:
