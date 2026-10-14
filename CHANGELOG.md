@@ -16,6 +16,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Pin the Selectolax compatibility range used by the documentation index
+  builder so fresh Python 3.14 builds do not import its removed parser backend.
+
 ## [1.15.1] - 2026-09-08
 
 ### Added

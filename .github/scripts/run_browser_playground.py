@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -28,14 +29,110 @@ COMMANDS = (
             "--show-error-codes",
         ),
     ),
-    ("cli", ("uv", "run", "pytest", "--tb=short")),
+    (
+        "cli",
+        (
+            "uv",
+            "run",
+            "pytest",
+            "--tb=short",
+            "--cov=modelable",
+            "--cov-report=term-missing",
+            "--cov-report=xml",
+        ),
+    ),
+    (
+        "cli",
+        (
+            "uv",
+            "run",
+            "python",
+            "../.github/scripts/check_coverage_ratchet.py",
+            "--coverage-xml",
+            "coverage.xml",
+            "--baseline",
+            "coverage-baseline.txt",
+        ),
+    ),
+    (
+        "cli",
+        (
+            "uv",
+            "export",
+            "--no-emit-project",
+            "--format",
+            "requirements-txt",
+            "-o",
+            "audit-requirements.txt",
+        ),
+    ),
+    (
+        "cli",
+        (
+            "uv",
+            "run",
+            "--with",
+            "pip-audit",
+            "pip-audit",
+            "--strict",
+            "--progress-spinner",
+            "off",
+            "-r",
+            "audit-requirements.txt",
+        ),
+    ),
     ("web", ("npm", "ci")),
     ("web", ("npm", "run", "check")),
     ("web", ("npm", "test")),
     ("web", ("npm", "run", "build")),
+    ("web", ("npm", "exec", "--", "playwright", "install", "chromium")),
     ("web", ("npm", "run", "test:e2e")),
     ("web", ("npm", "run", "check:budgets")),
+    ("vscode", ("npm", "ci")),
+    ("vscode", ("npm", "run", "check")),
+    ("vscode", ("npm", "run", "build")),
+    ("vscode", ("npm", "test")),
+    ("vscode", ("npm", "run", "package")),
 )
+
+
+def external_commands() -> tuple[tuple[str, tuple[str, ...], dict[str, str]], ...]:
+    fhir_jar = os.environ.get("MODELABLE_FHIR_VALIDATOR_JAR")
+    if not fhir_jar:
+        raise RuntimeError(
+            "MODELABLE_FHIR_VALIDATOR_JAR must point to validator_cli.jar before running the local gate"
+        )
+    return (
+        (
+            "cli",
+            (
+                "uv",
+                "run",
+                "--with",
+                "datacontract-cli",
+                "pytest",
+                "tests/test_emit_odcs.py",
+                "--tb=short",
+                "-q",
+            ),
+            {"MODELABLE_DATACONTRACT_CLI": "1"},
+        ),
+        (
+            "cli",
+            ("uv", "run", "pytest", "tests/test_openmetadata_testcontainers.py", "--tb=short", "-q"),
+            {"MODELABLE_OPENMETADATA_TESTCONTAINERS": "1"},
+        ),
+        (
+            "cli",
+            ("uv", "run", "pytest", "tests/test_openlineage_testcontainers.py", "--tb=short", "-q"),
+            {"MODELABLE_OPENLINEAGE_TESTCONTAINERS": "1"},
+        ),
+        (
+            "cli",
+            ("uv", "run", "pytest", "tests/test_fhir_validator.py", "--tb=short", "-q"),
+            {"MODELABLE_FHIR_VALIDATOR": "1", "MODELABLE_FHIR_VALIDATOR_JAR": fhir_jar},
+        ),
+    )
 
 CommandRunner = Callable[..., object]
 COMMAND_TIMEOUT_SECONDS = 20 * 60
@@ -56,6 +153,7 @@ def run_commands(
     runner: CommandRunner = subprocess.run,
     npm_executable: str | None = None,
     skip_install: bool = False,
+    include_external: bool = True,
     command_timeout_seconds: float = COMMAND_TIMEOUT_SECONDS,
 ) -> None:
     npm = resolve_npm_executable() if npm_executable is None else npm_executable
@@ -69,6 +167,17 @@ def run_commands(
             check=True,
             timeout=command_timeout_seconds,
         )
+    if include_external:
+        for directory, command, command_env in external_commands():
+            environment = os.environ.copy()
+            environment.update(command_env)
+            runner(
+                list(command),
+                cwd=repo_root / directory,
+                check=True,
+                timeout=command_timeout_seconds,
+                env=environment,
+            )
 
 
 def _parse_args(argv: Sequence[str]) -> argparse.Namespace:

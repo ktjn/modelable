@@ -1,0 +1,27 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "pre-push: working tree must be clean before running the local gate" >&2
+  exit 1
+fi
+if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+  echo "pre-push: working tree must have no untracked files before running the local gate" >&2
+  exit 1
+fi
+
+head_sha=$(git rev-parse HEAD)
+while read -r local_ref local_sha _remote_ref _remote_sha; do
+  case "$local_ref" in
+    refs/heads/*)
+      if [ "$local_sha" != "$head_sha" ]; then
+        echo "pre-push: local gate must run from the commit being pushed" >&2
+        exit 1
+      fi
+      ;;
+  esac
+done
+
+exec uv run --project "$repo_root/cli" python "$repo_root/.github/scripts/run_browser_playground.py"

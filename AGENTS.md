@@ -15,7 +15,12 @@ uv run pytest --tb=short
 
 The mypy baseline check is a *ratchet*, not a plain type check: it fails on any error line not already in `mypy-baseline.txt`, matched by exact file:line. If you change line counts above existing errors in a file (e.g. inserting a helper function), their line numbers shift and the ratchet reports them as "new" even though nothing new was actually introduced. Before assuming real new debt, diff the reported errors against the old baseline entries for that file — if the messages match and the total count is unchanged, it's a pure shift: regenerate the baseline (rerun mypy on the whole tree, take only lines containing `: error:`, normalize path separators to `/`, sort, and write back with the file's existing header comment). If the count or messages differ, fix the actual typing issue instead of baselining it.
 
-CI runs all four checks (`validate.yml`); passing pytest locally is not sufficient — always run the other three before pushing.
+Before pushing, install the versioned hook with `git config core.hooksPath .githooks`
+and let it run `.github/scripts/run_browser_playground.py`. Do not push after a
+failed or incomplete local gate, and do not bypass it with `--no-verify`.
+GitHub Actions runs the browser build only; it is not a substitute for local
+validation. `main` must remain protected and PR-only, with the GitHub Build
+status check required before merge.
 
 ## Codegen output changes
 

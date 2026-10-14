@@ -30,13 +30,70 @@ EXPECTED_NPM_CMD_CALLS = [
             "--show-error-codes",
         ),
     ),
-    ("cli", ("uv", "run", "pytest", "--tb=short")),
+    (
+        "cli",
+        (
+            "uv",
+            "run",
+            "pytest",
+            "--tb=short",
+            "--cov=modelable",
+            "--cov-report=term-missing",
+            "--cov-report=xml",
+        ),
+    ),
+    (
+        "cli",
+        (
+            "uv",
+            "run",
+            "python",
+            "../.github/scripts/check_coverage_ratchet.py",
+            "--coverage-xml",
+            "coverage.xml",
+            "--baseline",
+            "coverage-baseline.txt",
+        ),
+    ),
+    (
+        "cli",
+        (
+            "uv",
+            "export",
+            "--no-emit-project",
+            "--format",
+            "requirements-txt",
+            "-o",
+            "audit-requirements.txt",
+        ),
+    ),
+    (
+        "cli",
+        (
+            "uv",
+            "run",
+            "--with",
+            "pip-audit",
+            "pip-audit",
+            "--strict",
+            "--progress-spinner",
+            "off",
+            "-r",
+            "audit-requirements.txt",
+        ),
+    ),
     ("web", ("npm.cmd", "ci")),
     ("web", ("npm.cmd", "run", "check")),
     ("web", ("npm.cmd", "test")),
     ("web", ("npm.cmd", "run", "build")),
+    ("web", ("npm.cmd", "exec", "--", "playwright", "install", "chromium")),
     ("web", ("npm.cmd", "run", "test:e2e")),
     ("web", ("npm.cmd", "run", "check:budgets")),
+    ("vscode", ("npm.cmd", "ci")),
+    ("vscode", ("npm.cmd", "run", "check")),
+    ("vscode", ("npm.cmd", "run", "build")),
+    ("vscode", ("npm.cmd", "test")),
+    ("vscode", ("npm.cmd", "run", "package")),
 ]
 
 
@@ -61,6 +118,7 @@ def test_runs_every_command_in_order_with_platform_safe_argv() -> None:
         repo_root=SCRIPT.parents[2],
         runner=fake_run,
         npm_executable="npm.cmd",
+        include_external=False,
     )
 
     expected = [
@@ -70,7 +128,7 @@ def test_runs_every_command_in_order_with_platform_safe_argv() -> None:
     assert calls == expected
 
 
-def test_skip_install_omits_only_npm_ci() -> None:
+def test_skip_install_omits_all_npm_ci_commands() -> None:
     module = _load_runner()
     calls: list[tuple[str, ...]] = []
 
@@ -82,11 +140,12 @@ def test_skip_install_omits_only_npm_ci() -> None:
         runner=fake_run,
         npm_executable="npm",
         skip_install=True,
+        include_external=False,
     )
 
     assert ("npm", "ci") not in calls
-    assert calls[-1] == ("npm", "run", "check:budgets")
-    assert len(calls) == len(module.COMMANDS) - 1
+    assert calls[-1] == ("npm", "run", "package")
+    assert len(calls) == len(module.COMMANDS) - 2
 
 
 def test_stops_immediately_when_a_command_fails() -> None:
@@ -103,6 +162,7 @@ def test_stops_immediately_when_a_command_fails() -> None:
             repo_root=SCRIPT.parents[2],
             runner=fake_run,
             npm_executable="npm.cmd",
+            include_external=False,
         )
 
     expected = [
@@ -126,10 +186,11 @@ def test_passes_configured_timeout_to_each_command() -> None:
         runner=fake_run,
         npm_executable="npm",
         skip_install=True,
+        include_external=False,
         command_timeout_seconds=1.5,
     )
 
-    assert timeouts == [1.5] * (len(module.COMMANDS) - 1)
+    assert timeouts == [1.5] * (len(module.COMMANDS) - 2)
 
 
 def test_resolves_npm_cmd_with_shutil_which_on_windows(
@@ -147,3 +208,17 @@ def test_resolves_npm_cmd_with_shutil_which_on_windows(
 
     assert module.resolve_npm_executable() == "C:\\Program Files\\nodejs\\npm.cmd"
     assert lookups == ["npm.cmd"]
+
+
+def test_external_commands_require_validator_and_set_smoke_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _load_runner()
+    monkeypatch.setenv("MODELABLE_FHIR_VALIDATOR_JAR", "C:\\tools\\validator_cli.jar")
+
+    commands = module.external_commands()
+
+    assert len(commands) == 4
+    assert commands[0][2] == {"MODELABLE_DATACONTRACT_CLI": "1"}
+    assert commands[-1][2] == {
+        "MODELABLE_FHIR_VALIDATOR": "1",
+        "MODELABLE_FHIR_VALIDATOR_JAR": "C:\\tools\\validator_cli.jar",
+    }
