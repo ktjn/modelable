@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling", "searchable>=2.0.1", "selectolax>=0.3.21,<0.4", "pyyaml>=6.0.3"]
+requires = ["hatchling", "searchable>=2.0.1", "selectolax>=0.3.21,<1.1", "pyyaml>=6.0.3"]
 build-backend = "hatchling.build"
 
 [project]
@@ -37,7 +37,7 @@ classifiers = [
 dependencies = [
     "click>=8.1",
     "lark>=1.1",
-    "pydantic==2.13.5",
+    "pydantic==2.14.1",
     "rich>=13.0",
     "jsonschema>=4.23",
     "referencing>=0.35",
@@ -45,7 +45,7 @@ dependencies = [
     "psycopg[binary]>=3.2",
     "pyyaml>=6.0.3",
     "searchable>=2.0.1",
-    "selectolax>=0.3.21,<0.4",
+    "selectolax>=0.3.21,<1.1",
     "openapi-spec-validator>=0.7",
     "wasmtime>=48.0.0",
 ]
