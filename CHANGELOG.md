@@ -10,6 +10,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Raise the VS Code extension's `engines.vscode` to `^1.140.0` so the published
+  package matches the `@types/vscode` API surface it is compiled against.
 - Correct `modelable capabilities` to report composite-key language semantics as
   implemented; generation targets that do not support composite keys continue
   to reject them explicitly through target capability negotiation.
