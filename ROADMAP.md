@@ -57,7 +57,9 @@ The following are complete product capabilities, not roadmap work:
 - built-in extension descriptors plus a pinned, least-capability native WASM
   extension host;
 - browser/native compiler parity, Playground, VS Code language services, and
-  conversational authoring/compilation.
+  conversational authoring/compilation;
+- a side-effect-free release packaging preflight (wheel, sdist, VSIX, manifest,
+  checksums) shared by the local validation gate and release CI.
 
 Conversational Compilation Management remains a supported shipped surface. Its
 completed design is archived at
@@ -91,28 +93,6 @@ reproducibility.
 **Done when:** a local package can be packed, pushed, pulled by immutable digest,
 verified, locked, and consumed offline with the same semantic/package digest as
 the original.
-
-### P0 — Release artifact preflight parity
-
-**Goal:** anything the release workflow packages must already have been packaged
-successfully in pull-request CI.
-
-The v1.15.0 release exposed a concrete gap: normal validation did not package
-the VS Code extension, so an `@types/vscode` / `engines.vscode` mismatch was
-discovered only during release.
-
-- [ ] Package the Python wheel and sdist in validation CI.
-- [ ] Run the same VSIX packaging/preflight command used by release CI.
-- [ ] Build/package the static browser artifact using the release dependency
-  versions and asset checks.
-- [ ] Validate the release artifact inventory/manifest without publishing.
-- [ ] Keep preflight side-effect free: no registry upload, tag, release, or
-  deployment operation.
-- [ ] Fail validation when release-only packaging constraints diverge from the
-  ordinary build/test path.
-
-**Done when:** release creation contains publishing/signing/deployment work, not
-new compilation or packaging validation.
 
 ### P1 — Package attestations and verification policy
 
@@ -183,8 +163,11 @@ These are invariants, not finishable programme phases.
     generation-affecting configuration carry immutable identity/provenance.
 11. **Security is part of extensibility.** No executable auto-discovery, ambient
     network, ambient filesystem, or secret material in semantic artifacts.
-12. **Release parity.** PR validation must exercise all packaging constraints
-    required to create release artifacts.
+12. **Release parity.** The validation gate packages and verifies release
+    artifacts (wheel, sdist, VSIX, manifest, checksums) with the same script
+    release CI runs, `.github/scripts/run_release_preflight.py`, so release
+    creation contains publishing/signing/deployment work rather than new
+    packaging validation.
 
 ## Parsed-but-deferred syntax
 

@@ -556,6 +556,11 @@ uv run ruff check .
 uv run python ../.github/scripts/check_mypy_baseline.py --baseline mypy-baseline.txt -- uv run mypy src/modelable --no-error-summary --show-error-codes
 uv run pytest tests/ -q --deselect tests/test_llm_provider_integration.py --deselect tests/test_codegen_docker_smoke.py
 
+# Packages the wheel, sdist, and VSIX, verifies a clean install, and writes
+# SHA256SUMS plus release-manifest.json without publishing. Requires the VSIX
+# from `npm run package` in vscode/ (the local gate builds it).
+uv run python ../.github/scripts/run_release_preflight.py
+
 cd .. && git add CHANGELOG.md cli/pyproject.toml cli/browser/pyproject.toml cli/uv.lock vscode/package.json vscode/package-lock.json
 git commit -m "Release <version>"
 git push -u origin release-<version>

@@ -70,7 +70,9 @@ The gate also runs the ODCS, OpenMetadata, OpenLineage, and FHIR smoke tests.
 Docker must be available for the container-backed checks, and
 `MODELABLE_FHIR_VALIDATOR_JAR` must point to the HL7 validator jar. The VS Code
 gate additionally runs `npm run check`, `npm run build`, `npm test`, and
-`npm run package` from `vscode/`.
+`npm run package` from `vscode/`. The final step packages release artifacts the
+same way release CI does — wheel, sdist, VSIX, manifest, and checksums — and
+verifies the inventory and digests without publishing anything.
 
 Do not push after a failed or incomplete gate, and do not bypass the hook with
 `--no-verify`. Repository administrators must protect `main`, disable direct
@@ -81,7 +83,8 @@ The contribution gates are:
 1. **Local CI**: Before opening a pull request, you must run the local gate
    commands above. It runs CLI lint, formatting, mypy, tests, web checks,
    coverage and dependency-audit ratchets, browser unit tests, the web build,
-   E2E tests, bundle-budget checks, and VS Code extension tests.
+   E2E tests, bundle-budget checks, VS Code extension tests, and release
+   artifact packaging/verification.
 2. **GitHub Build**: The Build workflow compiles the browser distribution and
    checks its bundle budgets. It does not replace the local validation gate.
 3. **Dependency Freshness**: Keep project dependencies up to date with their

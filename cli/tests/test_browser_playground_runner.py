@@ -94,6 +94,7 @@ EXPECTED_NPM_CMD_CALLS = [
     ("vscode", ("npm.cmd", "run", "build")),
     ("vscode", ("npm.cmd", "test")),
     ("vscode", ("npm.cmd", "run", "package")),
+    ("cli", ("uv", "run", "python", "../.github/scripts/run_release_preflight.py")),
 ]
 
 
@@ -144,7 +145,8 @@ def test_skip_install_omits_all_npm_ci_commands() -> None:
     )
 
     assert ("npm", "ci") not in calls
-    assert calls[-1] == ("npm", "run", "package")
+    assert ("npm", "run", "package") in calls
+    assert calls[-1] == ("uv", "run", "python", "../.github/scripts/run_release_preflight.py")
     assert len(calls) == len(module.COMMANDS) - 2
 
 
