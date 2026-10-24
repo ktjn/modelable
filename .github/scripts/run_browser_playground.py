@@ -93,6 +93,7 @@ COMMANDS = (
     ("vscode", ("npm", "run", "build")),
     ("vscode", ("npm", "test")),
     ("vscode", ("npm", "run", "package")),
+    ("cli", ("uv", "run", "python", "../.github/scripts/run_release_preflight.py")),
 )
 
 

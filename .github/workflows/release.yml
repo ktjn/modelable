@@ -77,14 +77,6 @@ jobs:
           echo "BUILD_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
           echo "package-version=${PACKAGE_VERSION}" >> "$GITHUB_OUTPUT"
 
-      - name: Build Python distributions
-        working-directory: cli
-        run: uv run python -m build
-
-      - name: Check Python distributions
-        working-directory: cli
-        run: uvx twine check dist/*
-
       - name: Build VS Code extension
         working-directory: vscode
         run: npm run package
@@ -93,27 +85,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mv "vscode/modelable-vscode-${EXTENSION_VERSION}.vsix" cli/dist/
-          uv venv cli/.release-venv --python 3.14
-          uv pip install --python cli/.release-venv/bin/python cli/dist/*.whl
-          cli/.release-venv/bin/modelable --version
-          cli/.release-venv/bin/modelable validate samples/mvp --strict
           args=(
-            --dist dist
             --commit-sha "${GITHUB_SHA}"
             --package-version "${PACKAGE_VERSION}"
+            --extension-version "${EXTENSION_VERSION}"
             --python-version "3.14"
             --build-timestamp "${BUILD_TIMESTAMP}"
             --repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
             --license-expression "Apache-2.0"
             --workflow-run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-            --extension-version "${EXTENSION_VERSION}"
           )
           if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
             args+=(--git-tag "${GITHUB_REF_NAME}")
           fi
-          cd cli
-          uv run python -m modelable.release "${args[@]}"
+          uv run --project cli python .github/scripts/run_release_preflight.py "${args[@]}"
 
       - name: Upload release dry-run artifact
         uses: actions/upload-artifact@v7.0.2

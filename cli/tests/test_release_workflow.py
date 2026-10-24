@@ -54,7 +54,7 @@ def test_release_workflow_contains_release_gates() -> None:
     assert "push:" in text and "tags:" in text
     assert "uv run pytest tests/ --tb=short" in text
     assert "uv run modelable validate ../samples/mvp --strict" in text
-    assert "python -m modelable.release" in text
+    assert "python .github/scripts/run_release_preflight.py" in text
     assert "SHA256SUMS" in text
     assert "release-manifest.json" in text
     assert "softprops/action-gh-release" in text

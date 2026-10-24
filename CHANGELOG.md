@@ -10,6 +10,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- The local validation gate now packages and verifies release artifacts — wheel,
+  sdist, VSIX, `SHA256SUMS`, and `release-manifest.json` — using the same
+  `.github/scripts/run_release_preflight.py` that release CI runs, so packaging
+  breakage surfaces before a release instead of during one.
 - Raise the VS Code extension's `engines.vscode` to `^1.140.0` so the published
   package matches the `@types/vscode` API surface it is compiled against.
 - Correct `modelable capabilities` to report composite-key language semantics as
