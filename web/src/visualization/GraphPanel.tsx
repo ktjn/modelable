@@ -129,6 +129,13 @@ function GraphPanelInner({
             ))}
         </div>
       ) : null}
+      <div className="graph-panel__navigation">
+        <Controls
+          orientation="horizontal"
+          fitViewOptions={fitViewOptions}
+          onFitView={onFitView}
+        />
+      </div>
       <div className="graph-panel__canvas" ref={containerRef}>
         {failure !== null && (
           <div className="graph-panel__error" role="alert">
@@ -161,11 +168,6 @@ function GraphPanelInner({
           maxZoom={2}
           proOptions={{ hideAttribution: true }}
         >
-          <Controls
-            orientation="horizontal"
-            fitViewOptions={fitViewOptions}
-            onFitView={onFitView}
-          />
           {showMiniMap ? (
             <MiniMap
               aria-hidden="true"

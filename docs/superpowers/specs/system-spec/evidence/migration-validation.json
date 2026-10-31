@@ -1,0 +1,135 @@
+{
+  "validator_revision": "b187e43628c7dc89935d17c2c382094ad37eb2eb",
+  "inventory": {
+    "stage": "inventory",
+    "valid": true,
+    "artifact_errors": []
+  },
+  "compilation": {
+    "stage": "verification",
+    "valid": true,
+    "artifact_errors": [],
+    "waivers": [
+      "compilation-category-gap"
+    ]
+  },
+  "compatibility_with_original": {
+    "valid": true,
+    "errors": []
+  },
+  "context": {
+    "capabilities": 4,
+    "data_models": 5,
+    "subject_bindings": 4
+  },
+  "impact": {
+    "components": [
+      "compilation-unit"
+    ],
+    "capabilities": [
+      "direct-compilation",
+      "preview-compilation",
+      "apply-compilation",
+      "discard-compilation"
+    ],
+    "data_models": [
+      "compilation-request",
+      "pending-compilation",
+      "compilation-confirmation",
+      "applied-compilation",
+      "direct-compilation-result"
+    ],
+    "requirements": [
+      "MOD-COMP-01",
+      "MOD-COMP-02",
+      "MOD-COMP-03",
+      "MOD-COMP-04",
+      "MOD-COMP-05",
+      "MOD-COMP-06",
+      "MOD-COMP-07",
+      "MOD-COMP-08",
+      "MOD-COMP-09",
+      "MOD-COMP-10"
+    ],
+    "invalidated_evidence": [
+      "ev-mod-comp-01",
+      "ev-mod-comp-02",
+      "ev-mod-comp-03",
+      "ev-mod-comp-04",
+      "ev-mod-comp-05",
+      "ev-mod-comp-06",
+      "ev-mod-comp-07",
+      "ev-mod-comp-08",
+      "ev-mod-comp-10-skipped"
+    ]
+  },
+  "negative_integrity_probes": {
+    "stale-source-revision": {
+      "rejected": true,
+      "errors": [
+        "[EV-04] Evidence 'ev-mod-comp-01' requires timestamp, verifier and matching subject version/source binding for 'direct-compilation'"
+      ]
+    },
+    "stale-contract-version": {
+      "rejected": true,
+      "errors": [
+        "[EV-04] Evidence 'ev-mod-comp-01' requires timestamp, verifier and matching subject version/source binding for 'direct-compilation'"
+      ]
+    },
+    "missing-subject-binding": {
+      "rejected": true,
+      "errors": [
+        "[EV-04] Evidence 'ev-mod-comp-01' requires timestamp, verifier and matching subject version/source binding for 'direct-compilation'"
+      ]
+    },
+    "changed-source-bytes": {
+      "rejected": true,
+      "errors": [
+        "artifacts: hash mismatch for 'cli/src/modelable/operations/compilation.py'"
+      ]
+    },
+    "changed-evidence-bytes": {
+      "rejected": true,
+      "errors": [
+        "artifacts: hash mismatch for 'docs/superpowers/specs/system-spec/evidence/characterization-current.txt'"
+      ]
+    }
+  },
+  "skipped_requirement_verified": false,
+  "release": {
+    "valid": false,
+    "EV-04": [],
+    "errors": [
+      "[RISK-02] Risk 'compilation-category-gap' waiver expired (verification)",
+      "[REQ-01] Missing verification categories: ['performance', 'scalability', 'observability']",
+      "[STAT-04] System 'modelable-compilation-slice' status 'specified' below 'verified'",
+      "[STAT-04] Capability 'direct-compilation' status 'specified' below 'verified'",
+      "[STAT-04] Capability 'preview-compilation' status 'specified' below 'verified'",
+      "[STAT-04] Capability 'apply-compilation' status 'specified' below 'verified'",
+      "[STAT-04] Capability 'discard-compilation' status 'specified' below 'verified'",
+      "[STAT-04] Component 'compilation-unit' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-01' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-02' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-03' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-04' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-05' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-06' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-07' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-08' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-09' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-10' status 'specified' below 'verified'",
+      "[EV-05] Evidence 'ev-mod-comp-10-skipped' has skipped checks: ['cli/tests/test_compilation_service.py::test_apply_rejects_changed_resolved_parent_even_with_same_bytes: directory symlinks are unavailable', 'cli/tests/test_compilation_service.py::test_preview_rejects_symlink_that_escapes_workspace: directory symlinks are unavailable']",
+      "[REQ-05] Requirement 'MOD-COMP-09@1.0' missing valid verification evidence",
+      "[REQ-04] Requirement 'MOD-COMP-10@1.0' has unresolved failing evidence",
+      "[RISK-04] Risk 'compilation-category-gap' has unverified mitigation 'MOD-COMP-09'",
+      "[RISK-08] Risk 'compilation-category-gap' waives 'verification-category'; no waivers permitted at release",
+      "[RISK-04] Risk 'windows-symlink-coverage-gap' has unverified mitigation 'MOD-COMP-10'"
+    ]
+  },
+  "limitations": [
+    "Hash checks establish exact-byte integrity, not semantic schema or dependency correspondence.",
+    "EV-04 source/version checks run at release; this report inspects them without bypassing other release failures.",
+    "Only three direct implementation files are source-bound; transitive dependencies and nested DTOs remain open.",
+    "MOD-COMP-10 contains two explicit skips and no passing evidence."
+  ]
+}

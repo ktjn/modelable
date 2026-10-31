@@ -866,6 +866,20 @@ button.view-tab--active:hover:not(:disabled) {
   container-type: inline-size;
 }
 
+/* Keep navigation outside the scrolling/overflowing graph surface. */
+.graph-panel__navigation {
+  display: flex;
+  flex-shrink: 0;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.graph-panel__navigation .react-flow__controls {
+  position: static;
+  margin: 0;
+}
+
 .graph-panel__canvas {
   flex: 1;
   min-height: 0;
