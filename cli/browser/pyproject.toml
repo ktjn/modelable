@@ -13,7 +13,7 @@ dependencies = [
   "jsonschema==4.26.0",
   "referencing==0.37.0",
   "pyyaml==6.0.3",
-  "searchable==2.0.1",
+  "searchable==2.1.1",
 ]
 
 [tool.hatch.build.targets.wheel]

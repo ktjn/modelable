@@ -159,9 +159,9 @@ def test_validation_workflow_is_build_only() -> None:
         assert forbidden not in build_script
 
 
-def test_build_pins_selectolax_before_deprecated_parser_backend() -> None:
+def test_build_pins_selectolax_to_lexbor_era_releases() -> None:
     pyproject = tomllib.loads((REPOSITORY_ROOT / "cli" / "pyproject.toml").read_text(encoding="utf-8"))
-    expected = "selectolax>=0.3.21,<0.4"
+    expected = "selectolax>=1.0.2,<1.1"
 
     assert expected in pyproject["build-system"]["requires"]
     assert expected in pyproject["project"]["dependencies"]
@@ -195,7 +195,7 @@ def test_release_prep_is_manual_dispatch_with_version_input() -> None:
 
     steps = workflow["jobs"]["prepare"]["steps"]
     assert any(
-        step.get("uses") == "astral-sh/setup-uv@v10.3.0"
+        step.get("uses") == "astral-sh/setup-uv@v10.3.2"
         and step.get("with", {}).get("cache-dependency-glob") == "cli/uv.lock"
         for step in steps
     )

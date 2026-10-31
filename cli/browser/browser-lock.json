@@ -14,10 +14,10 @@
     },
     {
       "name": "searchable",
-      "version": "2.0.1",
-      "fileName": "searchable-2.0.1-py3-none-any.whl",
-      "url": "https://files.pythonhosted.org/packages/b1/60/dae04f321e05d481f2b55a83b951193401fe818a89c61a3a2c307a3f80e4/searchable-2.0.1-py3-none-any.whl",
-      "sha256": "19830e40bebbb80c9aecb23caa5ad32af0783f89cdf4a76596ddb106b9f596a5"
+      "version": "2.1.1",
+      "fileName": "searchable-2.1.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/bf/9d/92e71836b388a9a02878676565292e9dd8ea5b6a2dd1f9dd98e111fbc237/searchable-2.1.1-py3-none-any.whl",
+      "sha256": "bd4e8dcb369175c94827ca96c11c0744df16484d40661ee37f51d5f857bd68ba"
     },
     {
       "name": "pyodide-http",

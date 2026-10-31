@@ -19,6 +19,9 @@ releases could contain breaking changes when called out explicitly.
 - Correct `modelable capabilities` to report composite-key language semantics as
   implemented; generation targets that do not support composite keys continue
   to reject them explicitly through target capability negotiation.
+- Update `searchable` to 2.1.1 and `selectolax` to 1.0.x (lexbor backend), and
+  `vscode-languageclient` to 11.0.0 in the VS Code extension.
+- Update `certifi` and `urllib3` to releases that fix known vulnerabilities.
 
 ### Fixed
 
