@@ -1,0 +1,13 @@
+........................................................................ [ 23%]
+............s...................................s....................... [ 47%]
+...........................sss.......................................... [ 71%]
+..................................................s..................... [ 95%]
+.............                                                            [100%]
+=========================== short test summary info ===========================
+SKIPPED [1] tests\test_compilation_service.py:422: directory symlinks are unavailable
+SKIPPED [1] tests\test_compilation_service.py:1136: directory symlinks are unavailable
+SKIPPED [1] tests\test_file_transaction.py:290: POSIX file metadata semantics
+SKIPPED [1] tests\test_file_transaction.py:308: POSIX file metadata semantics
+SKIPPED [1] tests\test_file_transaction.py:333: POSIX file metadata semantics
+SKIPPED [1] tests\test_lsp_conversation_service.py:486: platform cannot create symlinks: [WinError 1314] A required privilege is not held by the client: 'C:\\git\\modelable\\cli\\.venv\\error-boundaries-ed3c2629380547008aa9b465819de287\\test_registry_rejects_symlinke0\\outside-docs.json' -> 'C:\\git\\modelable\\cli\\.venv\\error-boundaries-ed3c2629380547008aa9b465819de287\\test_registry_rejects_symlinke0\\workspace\\docs-index\\docs\\outside-link.json'
+295 passed, 6 skipped in 51.69s

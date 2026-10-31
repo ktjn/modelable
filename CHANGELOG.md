@@ -12,6 +12,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Render known compilation transaction, lock and filesystem failures as CLI
+  errors, including written paths and cleanup details after a committed promotion.
+
 - Keep playground graph navigation controls above the canvas so dense Entity
   and Projection layouts cannot cover the zoom and fit buttons.
 

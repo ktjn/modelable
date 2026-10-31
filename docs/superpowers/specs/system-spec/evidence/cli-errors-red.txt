@@ -1,0 +1,44 @@
+FFFFF.                                                                   [100%]
+================================== FAILURES ===================================
+___ test_compile_renders_known_operational_errors[promotion-with-rollback] ____
+tests\test_cli_compilation_errors.py:41: in test_compile_renders_known_operational_errors
+    assert result.output.startswith("Error: ")
+E   AssertionError: assert False
+E    +  where False = <built-in method startswith of str object at 0x00007FFC3DF52790>('Error: ')
+E    +    where <built-in method startswith of str object at 0x00007FFC3DF52790> = ''.startswith
+E    +      where '' = <Result FileTransactionError('File transaction failed: promotion failed\nRollback errors:\n  - retained.backup: rollback denied')>.output
+________ test_compile_renders_known_operational_errors[workspace-lock] ________
+tests\test_cli_compilation_errors.py:41: in test_compile_renders_known_operational_errors
+    assert result.output.startswith("Error: ")
+E   AssertionError: assert False
+E    +  where False = <built-in method startswith of str object at 0x00007FFC3DF52790>('Error: ')
+E    +    where <built-in method startswith of str object at 0x00007FFC3DF52790> = ''.startswith
+E    +      where '' = <Result LockContentionError('workspace is busy')>.output
+_________ test_compile_renders_known_operational_errors[ledger-lock] __________
+tests\test_cli_compilation_errors.py:41: in test_compile_renders_known_operational_errors
+    assert result.output.startswith("Error: ")
+E   AssertionError: assert False
+E    +  where False = <built-in method startswith of str object at 0x00007FFC3DF52790>('Error: ')
+E    +    where <built-in method startswith of str object at 0x00007FFC3DF52790> = ''.startswith
+E    +      where '' = <Result RegistryIdLockContentionError('ledger is busy')>.output
+__________ test_compile_renders_known_operational_errors[filesystem] __________
+tests\test_cli_compilation_errors.py:41: in test_compile_renders_known_operational_errors
+    assert result.output.startswith("Error: ")
+E   AssertionError: assert False
+E    +  where False = <built-in method startswith of str object at 0x00007FFC3DF52790>('Error: ')
+E    +    where <built-in method startswith of str object at 0x00007FFC3DF52790> = ''.startswith
+E    +      where '' = <Result OSError('staging is unavailable')>.output
+_______ test_compile_reports_committed_paths_and_keeps_cleanup_details ________
+tests\test_cli_compilation_errors.py:57: in test_compile_reports_committed_paths_and_keeps_cleanup_details
+    assert result.output.startswith("Error: ")
+E   AssertionError: assert False
+E    +  where False = <built-in method startswith of str object at 0x00007FFC3DF52790>('Error: ')
+E    +    where <built-in method startswith of str object at 0x00007FFC3DF52790> = ''.startswith
+E    +      where '' = <Result FileTransactionCommittedError('File transaction committed, but cleanup was incomplete:\n  - C:\\Users\\ktjn\\A...a\\Local\\Temp\\pytest-of-ktjn\\pytest-5608\\test_compile_reports_committed0\\retained.backup: backup cleanup denied')>.output
+=========================== short test summary info ===========================
+FAILED tests/test_cli_compilation_errors.py::test_compile_renders_known_operational_errors[promotion-with-rollback]
+FAILED tests/test_cli_compilation_errors.py::test_compile_renders_known_operational_errors[workspace-lock]
+FAILED tests/test_cli_compilation_errors.py::test_compile_renders_known_operational_errors[ledger-lock]
+FAILED tests/test_cli_compilation_errors.py::test_compile_renders_known_operational_errors[filesystem]
+FAILED tests/test_cli_compilation_errors.py::test_compile_reports_committed_paths_and_keeps_cleanup_details
+5 failed, 1 passed in 2.54s

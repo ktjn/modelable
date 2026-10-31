@@ -22,7 +22,13 @@ from modelable.operations.compilation import (
     CompilationRequest,
     CompilationService,
 )
+from modelable.operations.file_transaction import (
+    FileTransactionCommittedError,
+    FileTransactionError,
+    LockContentionError,
+)
 from modelable.planner.protocol import PLAN_V1_SCHEMA
+from modelable.registry.ids import RegistryIdLockContentionError
 
 
 def register_compile_commands(cli_group: click.Group) -> None:
@@ -160,7 +166,18 @@ def compile(
             else:
                 console.print(message)
         sys.exit(1)
-    except CompilationError as error:
+    except FileTransactionCommittedError as error:
+        message = str(error)
+        if error.written_paths:
+            message += "\nWritten paths:\n" + "\n".join(f"- {path}" for path in error.written_paths)
+        raise click.ClickException(message) from error
+    except (
+        CompilationError,
+        FileTransactionError,
+        LockContentionError,
+        RegistryIdLockContentionError,
+        OSError,
+    ) as error:
         raise click.ClickException(str(error)) from error
 
     for event in result.events:
