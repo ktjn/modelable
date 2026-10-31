@@ -12,8 +12,9 @@
 - [x] Preserve committed writes/cleanup detail using the existing committed-error type; retain ordinary failure behavior.
 - [x] Add deterministic transport guard/stale/recovery characterization with filesystem postconditions.
 - [x] Record source-bound results, actual fault codes, recovery limits and compatibility/artifact checks.
-- [x] Feed discoveries into system-spec process guidance and prepare its scoped PR (#41).
-- [x] Run required precommit checks and prepare final-commit native-gate/PR delivery.
+- [x] Feed discoveries into system-spec process guidance and prepare its scoped PR (#41, now merged; readiness follow-up #42).
+- [x] Repair the demonstrated shared browser-readiness race and rerun all browser assertions without changing limits, timeouts or worker count.
+- [x] Rerun required precommit checks and prepare final-commit native-gate/PR delivery.
 
 ## Acceptance
 
@@ -29,3 +30,9 @@ Code-commit gate: Ruff format/check and mypy baseline passed; full Python suite 
 Fresh source-bound capture: Windows 238 passed, two skips; Linux four passed, zero skips. Verification/artifacts/inventory and declared-contract compatibility pass; four negative probes reject stale bindings, unexecuted cases, bad source hashes and passing-evidence supersession. Scoped metadata byte preservation passes forced-autocrlf index/checkout/archive checks. Native gate, push and remote CI remain incomplete until recorded in the delivery PR.
 
 Documentation/evidence-commit precheck: Ruff format/check and mypy baseline pass; Python 3,196 passed, 67 skipped, one rerun of the existing marked `test_concurrent_virgin_lock_parent_creation_enters_normal_contention`. Full diff checking retains one trailing-space diagnostic in the raw pytest assertion-separator output (`recovery-rpc-red.txt:9`); captured bytes are preserved. Final native gate/publication/CI remain tracked in the delivery PR.
+
+Native gate first attempt: Python/coverage/audit/web unit/build passed; browser E2E 40 passed, one opt-in skip, two failed. Traces show `waitForReady` completed the negative loading check before `main` existed; the failed snapshots still had `data-state=loading`. The simulator assertion observed a disabled button and the editing measurement observed a 238 ms startup task. Supporting repair: positively await `data-state=ready`, preserving existing 100 ms budget, timeout, worker count and assertions. The first gate blocked push; native delivery remains incomplete.
+
+Positive-readiness diagnostic: full browser suite 42 passed, one existing opt-in visual skip, at the normal eight workers. No budget, timeout or assertion was removed or relaxed.
+
+Readiness-support commit precheck: all four required commands passed; Python 3,196 passed, 67 skipped, one rerun of the same existing marked FileTransaction timing test. Full exact-commit native gate must be rerun before publication; no failed-gate push is permitted.
