@@ -1,0 +1,8 @@
+...............s...................................s.................... [ 30%]
+........................................................................ [ 60%]
+........................................................................ [ 90%]
+........................                                                 [100%]
+=========================== short test summary info ===========================
+SKIPPED [1] tests\test_compilation_service.py:422: directory symlinks are unavailable
+SKIPPED [1] tests\test_compilation_service.py:1136: directory symlinks are unavailable
+238 passed, 2 skipped in 47.98s

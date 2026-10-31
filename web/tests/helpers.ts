@@ -54,7 +54,7 @@ export async function replaceSource(page: Page, text: string): Promise<void> {
 }
 
 export async function waitForReady(page: Page): Promise<void> {
-  await expect(page.locator('main.workbench')).not.toHaveAttribute('data-state', 'loading', {
+  await expect(page.locator('main.workbench')).toHaveAttribute('data-state', 'ready', {
     timeout: 90_000,
   });
 }

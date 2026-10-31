@@ -12,6 +12,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Preserve committed compilation outcomes and written paths when final staging cleanup fails, including conversational apply.
+
 - Render known compilation transaction, lock and filesystem failures as CLI
   errors, including written paths and cleanup details after a committed promotion.
 

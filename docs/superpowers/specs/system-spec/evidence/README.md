@@ -1,8 +1,8 @@
 # Characterization evidence
 
-- Current capture: [characterization-current.txt](characterization-current.txt), **221 passed, 2 skipped** on Modelable 1.15.2 at `8de5b55bf07cff4a619c6ae25f2c3368290d310b`.
+- Historical capture: [characterization-current.txt](characterization-current.txt), **221 passed, 2 skipped** on Modelable 1.15.2 at `8de5b55bf07cff4a619c6ae25f2c3368290d310b`.
 - Exact command, environment, dependency/test hashes and skip names: [characterization-environment.json](characterization-environment.json).
-- Current schema/validator/source/artifact pins: [adoption.json](../adoption.json). Source/version bindings and per-record artifact hashes are in [compilation.yaml](../compilation.yaml).
+- Active schema/validator/source/artifact pins: [adoption.json](../adoption.json). Source/version bindings and per-record artifact hashes are in [compilation.yaml](../compilation.yaml).
 - [migration-validation.json](migration-validation.json): inventory/verification, contract compatibility, context/impact, negative integrity probes and expected release failures. Metadata output is supporting evidence, not product acceptance.
 - The historical Windows run skipped two directory-symlink cases. A separate Linux run now covers both against the original source: **2 passed, 0 skipped**. Its evidence supersedes only the MOD-COMP-10 partial record; Windows output and platform limits remain visible. The other eight records cover distinct named tests.
 - Historical files remain unchanged: `characterization.txt`, `symlink-coverage.txt`, `validation.json`, and [baseline.json](../baseline.json). Their original spec/schema paths refer to the initial capture at Git commit `5f48ed00`; the original schema is also retained as [schema-baseline.json](../schema-baseline.json).
@@ -25,3 +25,11 @@
 - [error-compatibility-probe.json](error-compatibility-probe.json) preserves both incompatible correction diagnostics without modifying the actual frozen specification.
 - The first required precommit suite reported 3,188 passed, 67 skipped and one rerun under the existing marked timing-test policy. This qualification is retained; it is not reported as a first-attempt clean run. The immutable-commit focused capture reported zero reruns.
 - [error-boundary-validation.json](error-boundary-validation.json) records source/artifact integrity, unchanged primary contracts and the remaining rework/acceptance limits. Native final-commit and remote CI outcomes belong in the delivery PR.
+
+## Current cleanup and transport recovery capture
+
+- [recovery-characterization.txt](recovery-characterization.txt), [JUnit](recovery-characterization.xml), [recovery-environment.json](recovery-environment.json): immutable `72de182a`, exact command/source/dependency environment, **238 passed, two Windows skips, zero reruns**.
+- [recovery-service-red.txt](recovery-service-red.txt) and [recovery-rpc-red.txt](recovery-rpc-red.txt): retained expected failures for the ordinary exception/domain-error misclassification after real promotion.
+- [recovery-linux.txt](recovery-linux.txt), [JUnit](recovery-linux.xml), [environment](recovery-linux-environment.json), [runner](recovery-linux-run.py): same code, two symlink cases plus two cleanup cases, **four passed, zero skipped**; controlled LF export, verified Git bytes, offline pinned dependency image and current read-only source mount.
+- [compilation-before-recovery.yaml](compilation-before-recovery.yaml) and [adoption-before-recovery.json](adoption-before-recovery.json): prior active records retained as historical. `supersedes` is reserved for failed evidence, not passing-to-passing refresh. Git-byte and exact-checkout conventions remain distinct.
+- [recovery-validation.json](recovery-validation.json): active bindings/artifacts, unchanged declared contracts/dataclass shapes, historical preservation and negative integrity probes; release and broader conformance remain open.

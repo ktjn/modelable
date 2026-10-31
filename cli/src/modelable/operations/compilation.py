@@ -297,7 +297,7 @@ class CompilationService:
         except BaseException:
             _remove_staging(staging_dir)
             raise
-        _remove_staging(staging_dir)
+        _remove_staging_after_success(staging_dir, result.written_paths)
         return result
 
     def _execute_direct_staged(
@@ -528,7 +528,7 @@ class CompilationService:
         except BaseException:
             _remove_staging(pending.staging_dir)
             raise
-        _remove_staging(pending.staging_dir)
+        _remove_staging_after_success(pending.staging_dir, applied.written_paths)
         return applied
 
 
@@ -1329,6 +1329,16 @@ def _remove_staging(path: Path) -> None:
         raise CompilationError(f"Compilation staging cleanup failed: {path}") from exc
     if path.exists():
         raise CompilationError(f"Compilation staging cleanup failed: {path}")
+
+
+def _remove_staging_after_success(path: Path, written_paths: tuple[Path, ...]) -> None:
+    try:
+        _remove_staging(path)
+    except Exception as cleanup_error:
+        raise FileTransactionCommittedError(
+            written_paths,
+            (RollbackError(path, cleanup_error),),
+        ) from cleanup_error
 
 
 def _remove_staging_after_commit(

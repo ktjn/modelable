@@ -1,7 +1,9 @@
 # Compilation error contracts and adapter outcomes
 
-- Scope: the Python compilation service, CLI, shared filesystem conversation, LSP request/serialization layer and VS Code participant. Source/revision/file pins and actual results are in [error-boundary-characterization.json](evidence/error-boundary-characterization.json).
-- Preserve the frozen [compilation contract](compilation.yaml), original source/evidence and the [dependency/ownership map](compilation-map.md). This review does not silently add failure modes or claim whole-product conformance.
+Historical completed review from PR #895. Current cleanup-outcome changes and renewed source evidence are in [compilation-recovery.md](../system-spec/compilation-recovery.md).
+
+- Scope: the Python compilation service, CLI, shared filesystem conversation, LSP request/serialization layer and VS Code participant. Source/revision/file pins and actual results are in [error-boundary-characterization.json](../system-spec/evidence/error-boundary-characterization.json).
+- Preserve the frozen [historical compilation contract](../system-spec/evidence/compilation-before-recovery.yaml), original source/evidence and the [dependency/ownership map](../system-spec/compilation-map.md). This review does not silently add failure modes or claim whole-product conformance.
 - Implemented change: known CLI operational failures now use the existing Click error format with exit 1. A committed-cleanup error includes committed written paths and cleanup detail. Existing rich diagnostics and Python service exception types stay unchanged; unexpected programming faults propagate.
 
 ## Observed error families
@@ -35,14 +37,14 @@ The existing committed-conversation test checks `kind="applied"`, written paths,
 ## Test-first remediation and bounded evidence
 
 - Six new CLI cases cover promotion/rollback detail, workspace and ledger contention, filesystem IO, committed cleanup, and unexpected-fault propagation.
-- Before implementation: **five failed, one passed** for the expected missing user-facing message. The unexpected-fault case already passed. [Original regression output](evidence/cli-errors-red.txt).
-- After repair: the CLI subset passed **69 tests**. Wider service/CLI/conversation/LSP/protocol/real-JSON-RPC characterization passed **295 tests, 6 skipped**; exact source, command, environment and skip reasons are retained in the capture. [Output](evidence/error-boundaries.txt).
+- Before implementation: **five failed, one passed** for the expected missing user-facing message. The unexpected-fault case already passed. [Original regression output](../system-spec/evidence/cli-errors-red.txt).
+- After repair: the CLI subset passed **69 tests**. Wider service/CLI/conversation/LSP/protocol/real-JSON-RPC characterization passed **295 tests, 6 skipped**; exact source, command, environment and skip reasons are retained in the capture. [Output](../system-spec/evidence/error-boundaries.txt).
 - Platform skips are explicit: two directory-symlink cases, three POSIX metadata cases and one LSP symlink case. The earlier suitable-host evidence for MOD-COMP-10 remains separate; these skips are not relabeled as passes.
 - The immutable code commit is captured before the documentation/evidence commit. File hashes distinguish exact checkout bytes from Git blob bytes; the later native gate verifies the final delivery commit independently.
 
 ## Frozen-catalog compatibility decision
 
-[Compatibility probe](evidence/error-compatibility-probe.json) copies the direct capability and adds the observed lock/IO families without changing the real specification:
+[Compatibility probe](../system-spec/evidence/error-compatibility-probe.json) copies the direct capability and adds the observed lock/IO families without changing the real specification:
 
 - At version 1.0, the probe reports `COMPAT-04` (added failure modes) and `COMPAT-08` (major version requirement).
 - At version 2.0, `COMPAT-04` remains. A major bump is not a compatibility bypass.
