@@ -3,8 +3,8 @@
 - Historical intake: 2026-10-31. Product baseline: `0fead2321bdef11c72b2746eb57f3a8b0e327c94` (Modelable 1.15.1).
 - Historical metamodel: system-specification `00188b037797fd37240dab9a0a11c431815e3ac9`; original schema retained as [schema-baseline.json](schema-baseline.json), original hashes/environment in [baseline.json](baseline.json). The manifest describes the original files at Modelable commit `5f48ed00`, not the migrated compilation/schema files.
 - Current compilation evidence: Modelable `8de5b55bf07cff4a619c6ae25f2c3368290d310b` (1.15.2), validator `b187e43628c7dc89935d17c2c382094ad37eb2eb`. Current [schema.json](schema.json), pins/hashes in [adoption.json](adoption.json), and [migration checks](evidence/migration-validation.json).
-- Status: whole-product inventory recorded; compilation behavior pinned for the bounded scope below, with explicit source/version and artifact bindings. Whole-product Levels 1â€“3 remain open.
-- Live onboarding TODO: inventory and bounded compilation discovery complete; characterization complete with two skips; full dependency/data mapping, symlink coverage, quality criteria, formal assessment and release review remain open.
+- Status: whole-product inventory recorded; compilation behavior pinned for the bounded scope below, with explicit source/version and artifact bindings. Whole-product Levels 1–3 remain open.
+- Live onboarding TODO: inventory and bounded compilation discovery recorded; [dependency/state map](compilation-map.md) covers 141 source modules and 19 declared dataclass shapes. The two missing symlink cases now pass on Linux. Shared IR/schema semantics, public error translation, classification, quality criteria, formal assessment and release review remain open.
 - This is internal development metadata. Product authority remains [architecture.md](../../../architecture.md), the existing capability catalog and native acceptance gates. The metadata changes no language, dependencies, installed skills or product commands. The accompanying native-gate repair moves graph controls above the canvas and makes browser characterization wait for the requested layout.
 - `modelable spec` tracks dbt/FHIR/ODCS imports; use system-specification's validator for these files.
 
@@ -15,15 +15,15 @@
 | Surface | Observed entrypoint / source | Persistence and dependencies |
 |---|---|---|
 | Semantic toolchain | `cli/src/modelable/{compiler,parser,validation,planner,emitters,registry,operations}` | Local workspaces, plans, generated artifacts, registry SQLite, allocation ledgers, optional snapshots; these remain together at coarse inventory granularity. |
-| Native CLI | `cli/pyproject.toml` â†’ `modelable.cli:cli`; `bin/modelable*` launchers | Registers compiler, query, registry, dependency, import, integration and optional LLM workflows. Review command-specific side effects before extraction. |
-| Language server | `commands/lsp.py` â†’ `lsp/server.py`; stdio | Shared language/semantic engine and native conversation service; in-memory per-workspace indexes and debounced diagnostics. |
+| Native CLI | `cli/pyproject.toml` → `modelable.cli:cli`; `bin/modelable*` launchers | Registers compiler, query, registry, dependency, import, integration and optional LLM workflows. Review command-specific side effects before extraction. |
+| Language server | `commands/lsp.py` → `lsp/server.py`; stdio | Shared language/semantic engine and native conversation service; in-memory per-workspace indexes and debounced diagnostics. |
 | Browser facade | `browser/api.py`, `browser/dispatch.py`, `cli/browser/pyproject.toml` | Same Python semantics through browser DTO/protocol adapters; browser wheel supports Python >=3.14,<3.15. Native package supports >=3.14. |
 | Playground | `web/src/main.tsx`, `compiler.worker.ts`, `web/package.json` | Pyodide worker, IndexedDB workspace, service-worker assets; WebLLM/Ollama optional. Source, derived results and AI metadata have different lifetimes. |
 | VS Code | `vscode/extension.js`, `vscode/package.json` | Launches configured Python/LSP process; explicit conversation preview/apply boundary. |
 | Build/release/docs jobs | `.github/workflows/{validate,docs,release-prep,release-tag,release,codeql}.yml` | Development/delivery units, not deployed product services. Existing gates stay authoritative. |
 
 - External-source names in YAML are categories observed in implementation/integration docs, not configured production endpoints. No live provider, registry, catalog or remote publication was exercised.
-- Streaming runtime/materializer are deferred product concepts per architecture Â§Â§7/18, not invented deployable services. No shipped MCP server was found in this checkout.
+- Streaming runtime/materializer are deferred product concepts per architecture §§7/18, not invented deployable services. No shipped MCP server was found in this checkout.
 - `tools/agentbuild` has local environment/cache remnants but no tracked files at this revision. The local-only `.agentbuild/` scratch exclusion is user-approved; scratch and native-gate logs stay outside product metadata.
 - The six inventory components are candidates for bounded discovery, not a claim that technology folders are final consistency boundaries.
 - Data discovery still needs compiler IR/workspace/diagnostics; plan v0/v1; registry schema/snapshots/usage/locks; browser source/artifact DTOs and IndexedDB workspace; conversation/audit state. Existing schemas remain authoritative; no public classification is inferred from a missing annotation.
@@ -52,7 +52,7 @@ $onboardingTemp = Join-Path (Get-Location) ('.venv/system-spec-pytest-' + [guid]
 .\.venv\Scripts\python.exe -m pytest tests/test_compilation_service.py tests/test_identity.py tests/test_plan_protocol.py tests/test_browser_api.py tests/test_capabilities.py tests/test_spec_tracking.py -n 0 -q -r s --tb=short --basetemp=$onboardingTemp -p no:cacheprovider
 ```
 
-The two skips are the changed-resolved-parent and escaping-directory-symlink cases in `test_compilation_service.py`; Windows directory symlink creation was unavailable. MOD-COMP-10 now has an explicit `passed: false` evidence record with both skipped check names/reasons; it remains unverified. The eight passing records cover the separate named tests above, not the skipped cases.
+The historical two skips are the changed-resolved-parent and escaping-directory-symlink cases in `test_compilation_service.py`; Windows directory symlink creation was unavailable. Both now ran against the same pinned source on a Linux container filesystem: **2 passed, 0 skipped**. The new MOD-COMP-10 evidence supersedes only the old partial record; historical Windows output remains unchanged. This closes the suitable-host execution requirement, not Windows symlink support or universal filesystem coverage. [Source/image/environment pins](evidence/symlink-linux-environment.json), [JUnit](evidence/symlink-linux.xml), and the [dependency/ownership review](compilation-map.md) retain the scope. The eight original passing records cover their separate named tests below.
 
 | Requirement | Source characterization in `cli/tests/test_compilation_service.py` |
 |---|---|
@@ -71,9 +71,9 @@ Additional suites characterize identity round-trips, plan protocol validation/mi
 |---|---|
 | Whole-product Level 0 | Intake recorded for inspected shipped surfaces; validate at inventory. Production topology outside this checkout has not been confirmed. |
 | Whole-product Level 1 | Open: complete dependency/ownership/interface mapping, classify data, trace remaining integration/state boundaries. |
-| Compilation Levels 1â€“2 | Bounded observed contract and passing characterization captured; validate at verification with one category waiver. This is partial adoption, not whole-product conformance. |
+| Compilation Levels 1–2 | Bounded observed contract and passing characterization captured; validate at verification with one category waiver. This is partial adoption, not whole-product conformance. |
 | Compilation coverage waiver | `compilation-category-gap` covers only this slice's missing performance/scalability/observability categories; expires after verification and blocks release. MOD-COMP-09 owns follow-up. |
-| Compilation residual gaps | MOD-COMP-10 symlink coverage; nested types, formal applicability and exceptional side-effect review remain open. |
+| Compilation dependency review | Bounded nested-record/import/state map recorded. Public error/adapter translation and crash/compensation review remain rework under MOD-COMP-09; shared IR/schema semantics and formal applicability are open. |
 | Release / Level 3 | Not accepted. The onboarding PR #891 passed the full native gate, including browser and live integration checks. Current delivery results belong in this migration PR; those gates do not close missing slice categories, skipped cases, formal applicability or browser/WebGPU manual acceptance. |
 
 Prepared/reviewed by Codex from source and local test output; maintainers own acceptance and remediation scheduling. A schema/metadata pass is supporting evidence only. Formal review is applicable to transaction locking/freshness/rollback; existing tests are not a proof and no product formal evidence is asserted.
@@ -106,10 +106,10 @@ $python = "$validator/.venv/Scripts/python.exe"
 | Metadata / local integrity | Inventory and compilation verification pass with `--check-artifacts --root .`; the existing category waiver remains. Top-level DTO field-name sets match source. |
 | Contract compatibility | Capability/data compatibility against the original compilation specification passes; no contract clauses or data fields changed. |
 | Evidence binding | Eight passing records match contract `1.0` and current source bindings. Release diagnostics contain no EV-04 mismatch. Five negative probes reject stale revisions/versions, missing bindings, and mismatched source/log hashes. |
-| Skipped evidence | MOD-COMP-10 is unverified; its explicit skipped record blocks release (EV-05). Skips are not characterization passes. |
+| Historical skipped evidence | At this migration capture, MOD-COMP-10 was unverified and its skipped record blocked release. The later suitable-host rerun supersedes that partial record; historical output is retained. |
 | Acceptance | Evidence-format migration verified within this slice. Maintainers own final acceptance; whole-product Levels 1–3 and compilation release remain open. |
 
-Detailed results and remaining release diagnostics: [migration-validation.json](evidence/migration-validation.json). Validation cannot prove Git authenticity, full dependency correspondence or criterion coverage. The existing restricted handling policy remains provisional; this migration does not close classification review. Next handoff: complete compilation's transitive type/ownership/side-effect map and obtain symlink coverage on a suitable host before expanding to registry/lock protocols and browser persistence.
+Detailed results and remaining release diagnostics: [migration-validation.json](evidence/migration-validation.json). Validation cannot prove Git authenticity, full dependency correspondence or criterion coverage. The existing restricted handling policy remains provisional; this migration does not close classification review. Current follow-up: the bounded [compilation map](compilation-map.md) and suitable-host symlink evidence are recorded. Next reconcile public helper/adapter error boundaries and lock/compensation obligations, then expand shared registry protocols and browser persistence. The original migration manifest is retained as [adoption-before-dependency-map.json](evidence/adoption-before-dependency-map.json). Current validation: [dependency-validation.json](evidence/dependency-validation.json).
 
 ## Feedback to system-spec
 
@@ -125,3 +125,5 @@ Suggestions and reproductions are recorded in the sibling system-specification r
 Migration feedback: use one repository-relative provenance file plus an optional selector, bind additional artifacts separately, and retain historical validator decisions when upgrading. Optional artifact checks validate bytes and paths; they do not validate command selectors, dependencies or whole-product acceptance.
 
 Native-gate repair: delivery exposed a pre-existing dense-graph/control overlap that the old test could miss by sampling the previous mode. The repair separates controls from the canvas and retains the original zoom/no-overlap assertions, with explicit layout readiness and zoom/fit interaction checks. Compilation source/test pins remain unchanged; the UI repair is outside that Python slice. Final exact-commit native-gate results are recorded in the PR.
+
+Dependency discovery preserves the five modeled top-level DTOs and current contract versions. Static imports do not imply runtime calls or deployed providers: OCI is unsupported, `AffectedDefinition` is a shared editor-module record, and `protoc` is a separate local tool boundary. Git exports for Linux capture explicitly disable autocrlf and select LF; exported implementation/test bytes are checked against Git blobs before execution. The completed [migration plan](../../plans/archived/system-spec-evidence-migration.md) is archived; the onboarding specification remains active.

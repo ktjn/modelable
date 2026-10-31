@@ -193,7 +193,7 @@ requirements:
       - Complete transitive type/ownership mapping, production failure review and formal applicability assessment.
   - id: MOD-COMP-10
     version: "1.0"
-    status: specified
+    status: verified
     target: preview-compilation
     kind: non-functional
     category: security
@@ -205,10 +205,10 @@ risks:
     mitigated_by: [MOD-COMP-09]
     waives: verification-category
     expires: verification
-  - id: windows-symlink-coverage-gap
-    target: preview-compilation
+  - id: compilation-failure-review-gap
+    target: modelable-compilation-slice
     treatment: mitigation
-    mitigated_by: [MOD-COMP-10]
+    mitigated_by: [MOD-COMP-09]
 evidence:
   - id: ev-mod-comp-01
     requirement_id: MOD-COMP-01
@@ -334,6 +334,33 @@ evidence:
     verifier: CPython 3.14.5; pytest 9.1.1; Windows
     bounds: Only the two named directory-symlink cases; neither executed. The eight
       passing evidence records cover other named tests.
+
+  - id: ev-mod-comp-10-linux
+    requirement_id: MOD-COMP-10
+    requirement_version: '1.0'
+    method: test
+    passed: true
+    provenance: docs/superpowers/specs/system-spec/evidence/symlink-linux.xml
+    subject_id: preview-compilation
+    subject_version: '1.0'
+    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/symlink-linux.txt: 192aa4a12495831e39bb2501d7e30642d1903c48d703f568bea5ba7c025866ff
+      docs/superpowers/specs/system-spec/evidence/symlink-linux.xml: ef9615158ea9a63821d595aa36bb5a77fafd29110e156e28117e105ccd536430
+      docs/superpowers/specs/system-spec/evidence/symlink-linux-environment.json: 9392a4a10cdfd8bf07978e302a04470089ebaf9e731e430af67ddfb3429b5fad
+      docs/superpowers/specs/system-spec/evidence/symlink-linux.Dockerfile: 2bfe404c5cf44c46593912ccd260561a0d661d6e025675c65e6362a7a1b835ae
+      docs/superpowers/specs/system-spec/evidence/symlink-linux-run.py: 85426f57679981c501c57432cff48051d619b87ad8911f226e934eb93c0a420b
+    skipped: []
+    timestamp: '2026-10-31'
+    verifier: CPython 3.14.5; pytest 9.1.1; Linux Docker filesystem; two named cases,
+      zero skips
+    bounds: Changed resolved parent and escaping directory symlink cases only; source
+      and tests extracted from Git revision 8de5b55b with controlled LF export. Does
+      not establish Windows symlink support or universal filesystem conformance.
+    supersedes: ev-mod-comp-10-skipped
+    supersession_reason: Both previously unexecuted cases now passed on a symlink-capable
+      Linux filesystem against the same pinned source. Historical Windows skip output
+      remains retained.
 
 subject_bindings:
   direct-compilation:

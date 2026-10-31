@@ -1,0 +1,89 @@
+{
+  "discovery_revision": "3379c7c633f8b2690a4668cdb57abb5a07b9029d",
+  "runtime_revision": "8de5b55bf07cff4a619c6ae25f2c3368290d310b",
+  "verification": {
+    "valid": true,
+    "artifact_errors": [],
+    "waivers": [
+      "compilation-category-gap"
+    ]
+  },
+  "compatibility": {
+    "valid": true,
+    "errors": []
+  },
+  "context": {
+    "capabilities": 4,
+    "data_models": 5,
+    "subject_bindings": 4
+  },
+  "declared_dataclass_field_sets": {
+    "matched": 19
+  },
+  "symlink_requirement": {
+    "verified": true,
+    "historical_partial_retained": true,
+    "superseded_record": "ev-mod-comp-10-skipped",
+    "passed": 2,
+    "skipped": 0,
+    "platform_scope": "Linux Docker filesystem, original pinned source only"
+  },
+  "negative_probes": {
+    "linux-evidence-missing": {
+      "rejected": true,
+      "errors": [
+        "[EV-05] Evidence 'ev-mod-comp-10-skipped' has skipped checks: ['cli/tests/test_compilation_service.py::test_apply_rejects_changed_resolved_parent_even_with_same_bytes: directory symlinks are unavailable', 'cli/tests/test_compilation_service.py::test_preview_rejects_symlink_that_escapes_workspace: directory symlinks are unavailable']"
+      ]
+    },
+    "linux-case-skipped": {
+      "rejected": true,
+      "errors": [
+        "[EV-05] Evidence 'ev-mod-comp-10-linux' has skipped checks: ['injected unexecuted case']",
+        "[REQ-05] Requirement 'MOD-COMP-10@1.0' missing valid verification evidence"
+      ]
+    },
+    "linux-source-stale": {
+      "rejected": true,
+      "errors": [
+        "[EV-04] Evidence 'ev-mod-comp-10-linux' requires timestamp, verifier and matching subject version/source binding for 'preview-compilation'"
+      ]
+    },
+    "linux-log-hash-stale": {
+      "rejected": true,
+      "errors": [
+        "artifacts: hash mismatch for 'docs/superpowers/specs/system-spec/evidence/symlink-linux.txt'"
+      ]
+    }
+  },
+  "release": {
+    "valid": false,
+    "errors": [
+      "[RISK-02] Risk 'compilation-category-gap' waiver expired (verification)",
+      "[REQ-01] Missing verification categories: ['performance', 'scalability', 'observability']",
+      "[STAT-04] System 'modelable-compilation-slice' status 'specified' below 'verified'",
+      "[STAT-04] Capability 'direct-compilation' status 'specified' below 'verified'",
+      "[STAT-04] Capability 'preview-compilation' status 'specified' below 'verified'",
+      "[STAT-04] Capability 'apply-compilation' status 'specified' below 'verified'",
+      "[STAT-04] Capability 'discard-compilation' status 'specified' below 'verified'",
+      "[STAT-04] Component 'compilation-unit' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-01' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-02' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-03' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-04' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-05' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-06' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-07' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-08' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-09' status 'specified' below 'verified'",
+      "[REQ-05] Requirement 'MOD-COMP-09@1.0' missing valid verification evidence",
+      "[RISK-04] Risk 'compilation-category-gap' has unverified mitigation 'MOD-COMP-09'",
+      "[RISK-08] Risk 'compilation-category-gap' waives 'verification-category'; no waivers permitted at release",
+      "[RISK-04] Risk 'compilation-failure-review-gap' has unverified mitigation 'MOD-COMP-09'"
+    ]
+  },
+  "open_review": [
+    "Public error/adapter catalog and lock/compensation/crash review under MOD-COMP-09",
+    "Shared IR/facet/plan schema semantics and classification review",
+    "Measured performance/scalability/observability requirements, formal applicability and whole-product/release acceptance"
+  ]
+}

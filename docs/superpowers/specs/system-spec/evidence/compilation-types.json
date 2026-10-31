@@ -1,0 +1,236 @@
+{
+  "modelable.operations.compilation.CompilationRequest": {
+    "source_path": "cli/src/modelable/operations/compilation.py",
+    "line": 139,
+    "fields": {
+      "source": "Path",
+      "target": "str",
+      "out_dir": "Path | None",
+      "registry_path": "str",
+      "snapshot_path": "Path | None",
+      "registry_ids_path": "Path",
+      "allow_orphaned_registry_ids": "bool",
+      "enum_numbers_path": "Path",
+      "domains": "tuple[str, ...]",
+      "descriptor_set": "bool",
+      "package": "str | None",
+      "overlay_path": "Path | None",
+      "usage_manifest": "bool"
+    }
+  },
+  "modelable.operations.compilation.CompilationPolicy": {
+    "source_path": "cli/src/modelable/operations/compilation.py",
+    "line": 156,
+    "fields": {
+      "restrict_to_workspace": "bool",
+      "write_audit": "bool"
+    }
+  },
+  "modelable.operations.compilation.FileFingerprint": {
+    "source_path": "cli/src/modelable/operations/compilation.py",
+    "line": 166,
+    "fields": {
+      "path": "Path",
+      "content_hash": "str",
+      "size": "int",
+      "resolved_parent": "Path"
+    }
+  },
+  "modelable.operations.compilation.CompilationFilePreview": {
+    "source_path": "cli/src/modelable/operations/compilation.py",
+    "line": 174,
+    "fields": {
+      "category": "Literal['registry_ids', 'enum_numbers', 'registry', 'plan', 'artifact', 'descriptor', 'manifest']",
+      "destination": "Path",
+      "staged_path": "Path",
+      "status": "Literal['created', 'changed', 'unchanged']",
+      "media_type": "str",
+      "ref": "str | None",
+      "before_hash": "str | None",
+      "after_hash": "str",
+      "before_size": "int",
+      "after_size": "int",
+      "before_text": "str | None",
+      "after_text": "str | None",
+      "diff_text": "str | None",
+      "resolved_parent": "Path"
+    }
+  },
+  "modelable.operations.compilation.RegistryIdChange": {
+    "source_path": "cli/src/modelable/operations/compilation.py",
+    "line": 192,
+    "fields": {
+      "ref": "str",
+      "registry_id": "int"
+    }
+  },
+  "modelable.operations.compilation.PendingCompilation": {
+    "source_path": "cli/src/modelable/operations/compilation.py",
+    "line": 198,
+    "fields": {
+      "action_id": "str",
+      "request": "CompilationRequest",
+      "workspace_root": "Path",
+      "staging_dir": "Path",
+      "files": "tuple[CompilationFilePreview, ...]",
+      "source_fingerprints": "tuple[FileFingerprint, ...]",
+      "affected_definitions": "tuple[AffectedDefinition, ...]",
+      "registry_id_changes": "tuple[RegistryIdChange, ...]",
+      "registry_ids_before": "dict[str, int]",
+      "warnings": "tuple[str, ...]",
+      "manifest_fingerprint": "str",
+      "preview_timestamp": "str",
+      "audit_resolved_parent": "Path"
+    }
+  },
+  "modelable.operations.compilation.CompilationConfirmation": {
+    "source_path": "cli/src/modelable/operations/compilation.py",
+    "line": 219,
+    "fields": {
+      "session_id": "str",
+      "action_id": "str",
+      "manifest_fingerprint": "str",
+      "surface": "Literal['cli-chat', 'vscode-chat']",
+      "provider": "str | None",
+      "model": "str | None"
+    }
+  },
+  "modelable.operations.compilation.AppliedCompilation": {
+    "source_path": "cli/src/modelable/operations/compilation.py",
+    "line": 229,
+    "fields": {
+      "action_id": "str",
+      "written_paths": "tuple[Path, ...]",
+      "affected_definitions": "tuple[AffectedDefinition, ...]",
+      "files": "tuple[CompilationFilePreview, ...]",
+      "audit_path": "Path"
+    }
+  },
+  "modelable.operations.compilation.CompilationEvent": {
+    "source_path": "cli/src/modelable/operations/compilation.py",
+    "line": 238,
+    "fields": {
+      "level": "Literal['ok', 'warning', 'info']",
+      "message": "str",
+      "path": "Path | None",
+      "content_hash": "str | None"
+    }
+  },
+  "modelable.operations.compilation.DirectCompilationResult": {
+    "source_path": "cli/src/modelable/operations/compilation.py",
+    "line": 246,
+    "fields": {
+      "written_paths": "tuple[Path, ...]",
+      "events": "tuple[CompilationEvent, ...]"
+    }
+  },
+  "modelable.operations.compilation_audit.CompilationAuditDestination": {
+    "source_path": "cli/src/modelable/operations/compilation_audit.py",
+    "line": 9,
+    "fields": {
+      "status": "Literal['created', 'changed', 'unchanged']",
+      "path": "str",
+      "size": "int",
+      "content_hash": "str"
+    }
+  },
+  "modelable.operations.compilation_audit.CompilationAuditRecord": {
+    "source_path": "cli/src/modelable/operations/compilation_audit.py",
+    "line": 25,
+    "fields": {
+      "action_id": "str",
+      "session_id": "str",
+      "preview_timestamp": "str",
+      "confirmation_timestamp": "str",
+      "confirmation_surface": "Literal['cli-chat', 'vscode-chat']",
+      "provider": "str | None",
+      "model": "str | None",
+      "plan": "dict[str, object]",
+      "affected_definitions": "tuple[str, ...]",
+      "destinations": "tuple[CompilationAuditDestination, ...]",
+      "registry_id_allocations": "tuple[tuple[str, int], ...]",
+      "warnings": "tuple[str, ...]",
+      "manifest_fingerprint": "str",
+      "outcome": "Literal['applied']",
+      "schema_version": "int"
+    }
+  },
+  "modelable.operations.file_transaction.StagedFile": {
+    "source_path": "cli/src/modelable/operations/file_transaction.py",
+    "line": 16,
+    "fields": {
+      "destination": "Path",
+      "staged_path": "Path",
+      "content_hash": "str"
+    }
+  },
+  "modelable.operations.file_transaction.RollbackError": {
+    "source_path": "cli/src/modelable/operations/file_transaction.py",
+    "line": 31,
+    "fields": {
+      "path": "Path",
+      "error": "Exception"
+    }
+  },
+  "modelable.llm.workspace_editor.AffectedDefinition": {
+    "source_path": "cli/src/modelable/llm/workspace_editor.py",
+    "line": 98,
+    "fields": {
+      "ref": "str",
+      "status": "str",
+      "reason": "str"
+    }
+  },
+  "modelable.emitters.base.EmittedArtifact": {
+    "source_path": "cli/src/modelable/emitters/base.py",
+    "line": 13,
+    "fields": {
+      "target": "str",
+      "ref": "str",
+      "artifact_id": "str",
+      "path": "PurePath",
+      "content": "ArtifactContent",
+      "content_hash": "str",
+      "warnings": "list[str]"
+    }
+  },
+  "modelable.compiler.workspace.WorkspaceSource": {
+    "source_path": "cli/src/modelable/compiler/workspace.py",
+    "line": 63,
+    "fields": {
+      "path": "Path | None",
+      "uri": "str",
+      "text": "str",
+      "mdl": "MdlFile",
+      "errors": "list[Diagnostic]",
+      "content_hash": "str",
+      "warnings": "list[Diagnostic]"
+    }
+  },
+  "modelable.compiler.workspace.Workspace": {
+    "source_path": "cli/src/modelable/compiler/workspace.py",
+    "line": 74,
+    "fields": {
+      "sources": "list[WorkspaceSource]",
+      "mdl": "MdlFile",
+      "errors": "list[Diagnostic]",
+      "warnings": "list[Diagnostic]",
+      "facets": "tuple[Facet, ...]",
+      "facet_registry": "FacetRegistry | None"
+    }
+  },
+  "modelable.diagnostics.model.Diagnostic": {
+    "source_path": "cli/src/modelable/diagnostics/model.py",
+    "line": 10,
+    "fields": {
+      "code": "str",
+      "message": "str",
+      "severity": "DiagnosticSeverity",
+      "path": "str",
+      "line": "int | None",
+      "column": "int | None",
+      "end_line": "int | None",
+      "end_column": "int | None"
+    }
+  }
+}
