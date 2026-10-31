@@ -17,3 +17,11 @@
 - [symlink-linux.Dockerfile](symlink-linux.Dockerfile) and [symlink-linux-run.py](symlink-linux-run.py): retained build recipe and runner. Prepare the fresh Git-export context as described in the map; source bytes must match the controlled export before executing tests.
 - Git export is explicitly `core.autocrlf=false`, `core.eol=lf`; source and test SHA-256 values are verified against Git blobs. Windows source-binding hashes retain their separate exact-checkout-byte convention. Never infer line endings from the host or archive name.
 - [adoption-before-dependency-map.json](adoption-before-dependency-map.json) preserves the previous manifest; [dependency-validation.json](dependency-validation.json) records current compatibility, bindings, supersession and remaining release failures.
+
+## Error-boundary follow-up
+
+- [error-boundary-characterization.json](error-boundary-characterization.json) pins the immutable CLI code commit, exact command/environment, twenty-one source/test files, checkout/Git-byte hashes, results and limits.
+- [cli-errors-red.txt](cli-errors-red.txt) retains the five expected preimplementation failures and one passing unexpected-fault case. [error-boundaries.txt](error-boundaries.txt) / [JUnit](error-boundaries.xml) retain 295 passed and six platform skips after the fix, including existing conversation and real JSON-RPC coverage.
+- [error-compatibility-probe.json](error-compatibility-probe.json) preserves both incompatible correction diagnostics without modifying the actual frozen specification.
+- The first required precommit suite reported 3,188 passed, 67 skipped and one rerun under the existing marked timing-test policy. This qualification is retained; it is not reported as a first-attempt clean run. The immutable-commit focused capture reported zero reruns.
+- [error-boundary-validation.json](error-boundary-validation.json) records source/artifact integrity, unchanged primary contracts and the remaining rework/acceptance limits. Native final-commit and remote CI outcomes belong in the delivery PR.

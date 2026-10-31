@@ -1,0 +1,72 @@
+{
+  "recorded_date": "2026-10-31",
+  "source_revision": "53594b4b009d142c8156e81dc56bc0c7360bf7d2",
+  "validator_sha256": "fd773d80d64938a66f0300a0067c86fbd014531bc5feef3933c35463723e3795",
+  "schema_sha256": "68575c37f4adf8449e2ae1978ad78038c7c383ccef7953e7ce4b473aa1ed71ea",
+  "integrity": {
+    "reviewed_source_test_files": 21,
+    "capture_artifacts": 4,
+    "git_checkout_correspondence": "Verified after explicit CRLF/LF normalization; distinct hashes retained.",
+    "prior_manifest_artifacts": 18,
+    "original_core_source_bindings": "All three unchanged"
+  },
+  "verification": {
+    "valid": true,
+    "errors": [],
+    "artifact_errors": []
+  },
+  "frozen_contract": {
+    "unchanged_from_merged_main": true,
+    "compatibility_errors": [],
+    "catalog_disposition": "Rework under MOD-COMP-09; validation is not catalog-completeness evidence."
+  },
+  "correction_probe": {
+    "same_version_correction": [
+      "[COMPAT-04] Added failure modes: ['LockContentionError', 'OSError', 'RegistryIdLockContentionError']",
+      "[COMPAT-08] Breaking change requires major version bump (1.0 -> 1.0)"
+    ],
+    "major_version_correction": [
+      "[COMPAT-04] Added failure modes: ['LockContentionError', 'OSError', 'RegistryIdLockContentionError']"
+    ]
+  },
+  "focused_result": {
+    "tests": 301,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 6,
+    "passed": 295,
+    "reruns": 0
+  },
+  "release": {
+    "valid": false,
+    "errors": [
+      "[RISK-02] Risk 'compilation-category-gap' waiver expired (verification)",
+      "[REQ-01] Missing verification categories: ['performance', 'scalability', 'observability']",
+      "[STAT-04] System 'modelable-compilation-slice' status 'specified' below 'verified'",
+      "[STAT-04] Capability 'direct-compilation' status 'specified' below 'verified'",
+      "[STAT-04] Capability 'preview-compilation' status 'specified' below 'verified'",
+      "[STAT-04] Capability 'apply-compilation' status 'specified' below 'verified'",
+      "[STAT-04] Capability 'discard-compilation' status 'specified' below 'verified'",
+      "[STAT-04] Component 'compilation-unit' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-01' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-02' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-03' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-04' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-05' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-06' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-07' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-08' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-09' status 'specified' below 'verified'",
+      "[REQ-05] Requirement 'MOD-COMP-09@1.0' missing valid verification evidence",
+      "[RISK-04] Risk 'compilation-category-gap' has unverified mitigation 'MOD-COMP-09'",
+      "[RISK-08] Risk 'compilation-category-gap' waives 'verification-category'; no waivers permitted at release",
+      "[RISK-04] Risk 'compilation-failure-review-gap' has unverified mitigation 'MOD-COMP-09'"
+    ]
+  },
+  "open_review": [
+    "Corrected Python failure catalog and consumer disposition",
+    "Exact transport failure mappings and preview-cache/server-pending recovery",
+    "Classification, shared IR semantics, measured quality categories, formal lock/compensation/crash applicability and whole-product acceptance"
+  ],
+  "delivery": "Final-commit native gate and remote CI are recorded independently in the delivery PR."
+}

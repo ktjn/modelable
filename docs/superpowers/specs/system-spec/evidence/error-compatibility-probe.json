@@ -1,0 +1,11 @@
+{
+  "scope": "Probe only; frozen capability YAML is unchanged.",
+  "same_version_correction": [
+    "[COMPAT-04] Added failure modes: ['LockContentionError', 'OSError', 'RegistryIdLockContentionError']",
+    "[COMPAT-08] Breaking change requires major version bump (1.0 -> 1.0)"
+  ],
+  "major_version_correction": [
+    "[COMPAT-04] Added failure modes: ['LockContentionError', 'OSError', 'RegistryIdLockContentionError']"
+  ],
+  "decision": "Preserve the frozen baseline; record missing operational failures as contract rework and review consumer impact. A major bump does not make an incompatible failure-set change compatible."
+}
