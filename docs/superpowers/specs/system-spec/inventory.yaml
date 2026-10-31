@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=./schema.json
+# Observed intake at Modelable 0fead232; dependency/data discovery is incomplete.
+system:
+  id: modelable-product
+  version: "1.15.1"
+  status: draft
+  external_sources:
+    - user-mdl-workspaces
+    - modelable-config-and-facet-sidecars
+    - local-registry-snapshots-and-locks
+    - optional-oci-registries
+    - optional-apicurio-json-schema-registry
+    - optional-marquez-lineage-endpoint
+    - optional-dbt-fhir-odcs-specifications
+    - optional-llm-provider-endpoints
+    - browser-local-workspace-storage
+capabilities:
+  - {id: local-contract-toolchain, version: "1.0", status: draft}
+  - {id: native-command-workflows, version: "1.0", status: draft}
+  - {id: desktop-language-and-conversation, version: "1.0", status: draft}
+  - {id: browser-compiler-api, version: "1.0", status: draft}
+  - {id: playground-workspace, version: "1.0", status: draft}
+  - {id: vscode-model-authoring, version: "1.0", status: draft}
+components:
+  - id: semantic-toolchain
+    version: "1.15.1"
+    provides: [local-contract-toolchain]
+    source_paths:
+      - cli/src/modelable/compiler
+      - cli/src/modelable/parser
+      - cli/src/modelable/validation
+      - cli/src/modelable/planner
+      - cli/src/modelable/emitters
+      - cli/src/modelable/registry
+      - cli/src/modelable/operations
+  - id: native-cli
+    version: "1.15.1"
+    provides: [native-command-workflows]
+    requires: [local-contract-toolchain]
+    source_paths: [cli/src/modelable/cli.py, cli/src/modelable/commands, cli/src/modelable/llm, cli/src/modelable/specs]
+  - id: desktop-language-server
+    version: "1.15.1"
+    provides: [desktop-language-and-conversation]
+    requires: [local-contract-toolchain]
+    source_paths: [cli/src/modelable/lsp, cli/src/modelable/language]
+  - id: browser-facade
+    version: "1.15.1"
+    provides: [browser-compiler-api]
+    requires: [local-contract-toolchain]
+    source_paths: [cli/src/modelable/browser, cli/browser]
+  - id: browser-playground
+    version: "1.15.1"
+    provides: [playground-workspace]
+    requires: [browser-compiler-api]
+    source_paths: [web/src, web/package.json]
+  - id: vscode-extension
+    version: "1.15.1"
+    provides: [vscode-model-authoring]
+    requires: [desktop-language-and-conversation]
+    source_paths: [vscode/extension.js, vscode/package.json]
+requirements:
+  - id: MOD-ADOPT-01
+    version: "1.0"
+    target: modelable-product
+    category: functional
+    criteria:
+      - Complete ownership and dependency discovery before accepting whole-product architecture.
+      - Map native integrations, registry side effects, browser storage and all public protocol schemas.
+      - Preserve docs/architecture.md and modelable capabilities as existing product authorities.
+  - id: MOD-ADOPT-02
+    version: "1.0"
+    target: modelable-product
+    category: functional
+    criteria:
+      - Expand characterization beyond compilation before accepting whole-product behavioral conformance.
+      - Review every verification category and applicable formal models with current evidence before release.
+risks:
+  - {id: incomplete-architecture-discovery, target: modelable-product, treatment: mitigation, mitigated_by: [MOD-ADOPT-01]}
+  - {id: incomplete-product-characterization, target: modelable-product, treatment: mitigation, mitigated_by: [MOD-ADOPT-02]}
+evidence: []
