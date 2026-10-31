@@ -38,7 +38,7 @@ EXPECTED_DEPENDENCIES = [
     "pydantic==2.12.5",
     "pyyaml==6.0.3",
     "referencing==0.37.0",
-    "searchable==2.0.1",
+    "searchable==2.1.1",
 ]
 
 

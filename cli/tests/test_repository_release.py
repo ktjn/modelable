@@ -59,10 +59,10 @@ def test_searchable_dependency_has_published_api_floor() -> None:
     pyproject = tomllib.loads((REPOSITORY_ROOT / "cli" / "pyproject.toml").read_text(encoding="utf-8"))
     dependencies = pyproject["project"]["dependencies"]
 
-    assert "searchable>=2.0.1" in dependencies
+    assert "searchable>=2.1.1" in dependencies
 
     lock_text = (REPOSITORY_ROOT / "cli" / "uv.lock").read_text(encoding="utf-8")
-    assert 'name = "searchable"\nversion = "2.0.1"' in lock_text
+    assert 'name = "searchable"\nversion = "2.1.1"' in lock_text
 
 
 def test_browser_lock_matches_uv_lock_searchable_versions() -> None:
