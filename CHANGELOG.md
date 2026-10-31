@@ -10,6 +10,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+### Fixed
+
+## [1.15.2] - 2026-10-31
+
+### Added
+
+### Changed
+
 - The local validation gate now packages and verifies release artifacts — wheel,
   sdist, VSIX, `SHA256SUMS`, and `release-manifest.json` — using the same
   `.github/scripts/run_release_preflight.py` that release CI runs, so packaging
