@@ -5,7 +5,7 @@
 - Current compilation evidence: Modelable `8de5b55bf07cff4a619c6ae25f2c3368290d310b` (1.15.2), validator `b187e43628c7dc89935d17c2c382094ad37eb2eb`. Current [schema.json](schema.json), pins/hashes in [adoption.json](adoption.json), and [migration checks](evidence/migration-validation.json).
 - Status: whole-product inventory recorded; compilation behavior pinned for the bounded scope below, with explicit source/version and artifact bindings. Whole-product Levels 1â€“3 remain open.
 - Live onboarding TODO: inventory and bounded compilation discovery complete; characterization complete with two skips; full dependency/data mapping, symlink coverage, quality criteria, formal assessment and release review remain open.
-- This is internal development metadata. Product authority remains [architecture.md](../../../architecture.md), the existing capability catalog and native acceptance gates. No runtime, language, dependencies, installed skills or product commands change.
+- This is internal development metadata. Product authority remains [architecture.md](../../../architecture.md), the existing capability catalog and native acceptance gates. The metadata changes no language, dependencies, installed skills or product commands. The accompanying native-gate repair moves graph controls above the canvas and makes browser characterization wait for the requested layout.
 - `modelable spec` tracks dbt/FHIR/ODCS imports; use system-specification's validator for these files.
 
 ## Inventory and discovery
@@ -123,3 +123,5 @@ Suggestions and reproductions are recorded in the sibling system-specification r
 6. Model schema/dependency/evidence file bindings and skipped tests; retain native gates.
 
 Migration feedback: use one repository-relative provenance file plus an optional selector, bind additional artifacts separately, and retain historical validator decisions when upgrading. Optional artifact checks validate bytes and paths; they do not validate command selectors, dependencies or whole-product acceptance.
+
+Native-gate repair: delivery exposed a pre-existing dense-graph/control overlap that the old test could miss by sampling the previous mode. The repair separates controls from the canvas and retains the original zoom/no-overlap assertions, with explicit layout readiness and zoom/fit interaction checks. Compilation source/test pins remain unchanged; the UI repair is outside that Python slice. Final exact-commit native-gate results are recorded in the PR.

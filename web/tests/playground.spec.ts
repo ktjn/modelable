@@ -878,6 +878,12 @@ test('graph keeps dense modes readable and clear of navigation overlays', async 
   for (const mode of ['Entity', 'Projection'] as const) {
     await toolbar.getByRole('button', { name: mode }).click();
     await expect(nodes.first()).toBeVisible({ timeout: 30_000 });
+    // Entity layout runs downwards; projection layout runs rightwards.
+    // Wait for the requested layout rather than the previous mode's nodes.
+    const targetHandle = mode === 'Entity' ? 'top' : 'left';
+    await expect(
+      graphSection.locator(`.react-flow__handle-${targetHandle}`).first(),
+    ).toBeVisible();
     await expect.poll(() => graphZoom(page)).toBeGreaterThanOrEqual(0.8);
 
     const overlays = [
@@ -906,6 +912,12 @@ test('graph keeps dense modes readable and clear of navigation overlays', async 
       ).toBe(false);
     }
   }
+
+  const fittedZoom = await graphZoom(page);
+  await graphSection.locator('.react-flow__controls-zoomin').click();
+  await expect.poll(() => graphZoom(page)).toBeGreaterThan(fittedZoom);
+  await graphSection.locator('.react-flow__controls-fitview').click();
+  await expect.poll(() => graphZoom(page)).toBeCloseTo(fittedZoom, 3);
 });
 
 test('graph uses ultrawide space with compact responsive navigation', async ({

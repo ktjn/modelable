@@ -12,6 +12,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Keep playground graph navigation controls above the canvas so dense Entity
+  and Projection layouts cannot cover the zoom and fit buttons.
+
 ## [1.15.2] - 2026-10-31
 
 ### Added
