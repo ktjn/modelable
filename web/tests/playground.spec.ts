@@ -70,6 +70,15 @@ function generateButton(page: Page) {
     .getByRole('button', { name: 'Generate' });
 }
 
+async function generateWorkspace(page: Page): Promise<void> {
+  await generateButton(page).click();
+  // Wait for the requested operation, not just the Output tab. Compiler
+  // performance budgets remain enforced by the dedicated conformance test.
+  await expect(page.getByRole('status')).toContainText('Generation complete', {
+    timeout: 10_000,
+  });
+}
+
 async function createWorkspaceFile(
   page: Page,
   path: string,
@@ -159,12 +168,14 @@ test('initializes locally and supports the complete editor workflow', async ({
     'true',
   );
   await replaceSource(page, invalidSource);
+  await expect(sourceOutput(page)).toHaveText(invalidSource);
   await actions[0].click();
   await expect(page.getByTestId('diagnostics')).toContainText('PARSE', {
     timeout: 10_000,
   });
 
   await replaceSource(page, validCompact);
+  await expect(sourceOutput(page)).toHaveText(validCompact);
   await actions[1].click();
   await expect
     .poll(() => page.locator('.source-editor .view-line').count())
@@ -180,7 +191,7 @@ test('initializes locally and supports the complete editor workflow', async ({
     .poll(() => page.locator('.source-editor .view-line').count())
     .toBeGreaterThan(1);
 
-  await actions[2].click();
+  await generateWorkspace(page);
   await page.getByRole('tab', { name: 'Output' }).click();
   const scratchArtifact = artifactList(page)
     .getByRole('button')
@@ -207,7 +218,7 @@ test('initializes locally and supports the complete editor workflow', async ({
     buffer: Buffer.from(importedSource),
   });
   await expect(sourceOutput(page)).toContainText(/domain\s*imported/);
-  await actions[2].click();
+  await generateWorkspace(page);
   await page.getByRole('tab', { name: 'Output' }).click();
   const importedArtifact = artifactList(page)
     .getByRole('button')

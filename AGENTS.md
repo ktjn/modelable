@@ -44,6 +44,16 @@ over it directly.
 
 Design docs and implementation plans (created via the `writing-plans`/brainstorming workflow) live in `docs/superpowers/specs/` and `docs/superpowers/plans/`. Once a plan's implementation has merged to `main`, move both the plan and any spec it implements into `docs/superpowers/specs/archived/` and `docs/superpowers/plans/archived/` (same filename, just relocated) in the same PR or a prompt follow-up — don't leave completed plans sitting alongside active ones. Only plans/specs for work still in progress (or not yet started) belong in the top-level `plans/`/`specs/` directories.
 
+## System-spec onboarding
+
+The observed inventory, bounded compilation contracts, source/schema pins,
+characterization evidence and open adoption gates live in
+[docs/superpowers/specs/system-spec/README.md](docs/superpowers/specs/system-spec/README.md).
+Read that record before changing the adopted compilation slice. Validate its
+YAML with the pinned system-specification metamodel; retain the native gates
+above. Report newly discovered facts and model gaps back to system-specification
+as described in the onboarding record. Whole-product conformance remains open.
+
 ## Web AI/chat changes
 
 `web/src/ai/**`, `App.tsx`'s conversation wiring, or the Python conversation

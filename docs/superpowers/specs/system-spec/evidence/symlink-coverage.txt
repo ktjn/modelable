@@ -1,0 +1,5 @@
+ss                                                                       [100%]
+=========================== short test summary info ===========================
+SKIPPED [1] tests\test_compilation_service.py:422: directory symlinks are unavailable
+SKIPPED [1] tests\test_compilation_service.py:1136: directory symlinks are unavailable
+2 skipped in 1.29s

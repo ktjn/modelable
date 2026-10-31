@@ -1,0 +1,70 @@
+{
+  "inventory.yaml": {
+    "stage": "inventory",
+    "valid": true,
+    "errors": []
+  },
+  "compilation.yaml": {
+    "stage": "verification",
+    "valid": true,
+    "errors": []
+  },
+  "context": {
+    "component": "compilation-unit",
+    "capabilities": 4,
+    "data_models": 5
+  },
+  "impact": {
+    "components": [
+      "compilation-unit"
+    ],
+    "capabilities": [
+      "direct-compilation",
+      "preview-compilation",
+      "apply-compilation",
+      "discard-compilation"
+    ],
+    "data_models": [
+      "compilation-request",
+      "pending-compilation",
+      "compilation-confirmation",
+      "applied-compilation",
+      "direct-compilation-result"
+    ],
+    "requirements": [
+      "MOD-COMP-01",
+      "MOD-COMP-02",
+      "MOD-COMP-03",
+      "MOD-COMP-04",
+      "MOD-COMP-05",
+      "MOD-COMP-06",
+      "MOD-COMP-07",
+      "MOD-COMP-08",
+      "MOD-COMP-09",
+      "MOD-COMP-10"
+    ],
+    "invalidated_evidence": [
+      "ev-mod-comp-01",
+      "ev-mod-comp-02",
+      "ev-mod-comp-03",
+      "ev-mod-comp-04",
+      "ev-mod-comp-05",
+      "ev-mod-comp-06",
+      "ev-mod-comp-07",
+      "ev-mod-comp-08"
+    ]
+  },
+  "release_diagnostic": {
+    "expected_failure": true,
+    "EV-04": [
+      "[EV-04] Evidence 'ev-mod-comp-01' requires timestamp, verifier and subject_revision matching 'direct-compilation' version",
+      "[EV-04] Evidence 'ev-mod-comp-02' requires timestamp, verifier and subject_revision matching 'preview-compilation' version",
+      "[EV-04] Evidence 'ev-mod-comp-03' requires timestamp, verifier and subject_revision matching 'apply-compilation' version",
+      "[EV-04] Evidence 'ev-mod-comp-04' requires timestamp, verifier and subject_revision matching 'apply-compilation' version",
+      "[EV-04] Evidence 'ev-mod-comp-05' requires timestamp, verifier and subject_revision matching 'apply-compilation' version",
+      "[EV-04] Evidence 'ev-mod-comp-06' requires timestamp, verifier and subject_revision matching 'preview-compilation' version",
+      "[EV-04] Evidence 'ev-mod-comp-07' requires timestamp, verifier and subject_revision matching 'discard-compilation' version",
+      "[EV-04] Evidence 'ev-mod-comp-08' requires timestamp, verifier and subject_revision matching 'apply-compilation' version"
+    ]
+  }
+}
