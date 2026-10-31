@@ -1,0 +1,12 @@
+   Building modelable @ file:///C:/git/modelable/cli
+      Built modelable @ file:///C:/git/modelable/cli
+Uninstalled 1 package in 5ms
+Installed 1 package in 7ms
+...............s...................................s.................... [ 32%]
+........................................................................ [ 64%]
+........................................................................ [ 96%]
+.......                                                                  [100%]
+=========================== short test summary info ===========================
+SKIPPED [1] tests\test_compilation_service.py:422: directory symlinks are unavailable
+SKIPPED [1] tests\test_compilation_service.py:1136: directory symlinks are unavailable
+221 passed, 2 skipped in 27.15s

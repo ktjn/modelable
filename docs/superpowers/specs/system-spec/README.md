@@ -1,8 +1,9 @@
 # Modelable system-spec onboarding
 
-- Date: 2026-10-31. Product baseline: `0fead2321bdef11c72b2746eb57f3a8b0e327c94` (Modelable 1.15.1).
-- Metamodel baseline: system-specification `00188b037797fd37240dab9a0a11c431815e3ac9`; schema vendored as [schema.json](schema.json). Hashes and environment: [baseline.json](baseline.json).
-- Status: whole-product inventory recorded; compilation behavior pinned for the bounded scope below. Whole-product Levels 1â€“3 remain open.
+- Historical intake: 2026-10-31. Product baseline: `0fead2321bdef11c72b2746eb57f3a8b0e327c94` (Modelable 1.15.1).
+- Historical metamodel: system-specification `00188b037797fd37240dab9a0a11c431815e3ac9`; original schema retained as [schema-baseline.json](schema-baseline.json), original hashes/environment in [baseline.json](baseline.json). The manifest describes the original files at Modelable commit `5f48ed00`, not the migrated compilation/schema files.
+- Current compilation evidence: Modelable `8de5b55bf07cff4a619c6ae25f2c3368290d310b` (1.15.2), validator `b187e43628c7dc89935d17c2c382094ad37eb2eb`. Current [schema.json](schema.json), pins/hashes in [adoption.json](adoption.json), and [migration checks](evidence/migration-validation.json).
+- Status: whole-product inventory recorded; compilation behavior pinned for the bounded scope below, with explicit source/version and artifact bindings. Whole-product Levels 1â€“3 remain open.
 - Live onboarding TODO: inventory and bounded compilation discovery complete; characterization complete with two skips; full dependency/data mapping, symlink coverage, quality criteria, formal assessment and release review remain open.
 - This is internal development metadata. Product authority remains [architecture.md](../../../architecture.md), the existing capability catalog and native acceptance gates. No runtime, language, dependencies, installed skills or product commands change.
 - `modelable spec` tracks dbt/FHIR/ODCS imports; use system-specification's validator for these files.
@@ -23,7 +24,7 @@
 
 - External-source names in YAML are categories observed in implementation/integration docs, not configured production endpoints. No live provider, registry, catalog or remote publication was exercised.
 - Streaming runtime/materializer are deferred product concepts per architecture Â§Â§7/18, not invented deployable services. No shipped MCP server was found in this checkout.
-- `tools/agentbuild` has local environment/cache remnants but no tracked files at this revision. Existing untracked `.agentbuild/` is untouched and outside the product onboarding scope.
+- `tools/agentbuild` has local environment/cache remnants but no tracked files at this revision. The local-only `.agentbuild/` scratch exclusion is user-approved; scratch and native-gate logs stay outside product metadata.
 - The six inventory components are candidates for bounded discovery, not a claim that technology folders are final consistency boundaries.
 - Data discovery still needs compiler IR/workspace/diagnostics; plan v0/v1; registry schema/snapshots/usage/locks; browser source/artifact DTOs and IndexedDB workspace; conversation/audit state. Existing schemas remain authoritative; no public classification is inferred from a missing annotation.
 
@@ -38,20 +39,20 @@
 - A post-commit cleanup failure is distinct from a rolled-back promotion. A failing return does not always mean no files changed.
 - Types in `fields` reproduce top-level dataclass annotations. Nested types, protocol defaults, helper exceptions and external OCI/descriptor-tool effects still require complete mapping; this is not a replacement generated schema.
 - `restricted` is a conservative onboarding handling policy for the five DTOs, **not an observed product classification**. Data may contain user source text, previews and paths; classification review remains open.
-- Modeled capability/data versions `1.0` identify this observed contract description, not separately published product APIs. Evidence records the actual source commit, not these numeric model versions.
+- Modeled capability/data versions `1.0` identify this observed contract description, not separately published product APIs. Evidence pairs `subject_version: "1.0"` with the actual source commit, matched by `subject_bindings`. Source hashes cover the three operation files; transitive dependencies remain an open mapping obligation.
 
 ## Characterization and gate record
 
-Observed run: **221 passed, 2 skipped in 29.35s**, CPython 3.14.5, pytest 9.1.1, Windows. [Output](evidence/characterization.txt) and source/test hashes are retained.
+Current run: **221 passed, 2 skipped in 27.15s**, CPython 3.14.5, pytest 9.1.1, Windows. [Output](evidence/characterization-current.txt), [exact command/environment/test and dependency hashes](evidence/characterization-environment.json), and [artifact manifest](adoption.json). Original run (**221 passed, 2 skipped in 29.35s**) and its [output](evidence/characterization.txt) remain historical evidence.
 
 Run from `cli/` with a fresh, unused temp directory (do not point pytest at an existing valuable directory):
 
 ```powershell
 $onboardingTemp = Join-Path (Get-Location) ('.venv/system-spec-pytest-' + [guid]::NewGuid().ToString('N'))
-.\.venv\Scripts\python.exe -m pytest tests/test_compilation_service.py tests/test_identity.py tests/test_plan_protocol.py tests/test_browser_api.py tests/test_capabilities.py tests/test_spec_tracking.py -n 0 -q --tb=short --basetemp=$onboardingTemp -p no:cacheprovider
+.\.venv\Scripts\python.exe -m pytest tests/test_compilation_service.py tests/test_identity.py tests/test_plan_protocol.py tests/test_browser_api.py tests/test_capabilities.py tests/test_spec_tracking.py -n 0 -q -r s --tb=short --basetemp=$onboardingTemp -p no:cacheprovider
 ```
 
-The two skips are the changed-resolved-parent and escaping-directory-symlink cases in `test_compilation_service.py`; Windows directory symlink creation was unavailable. MOD-COMP-10 retains that gap with no passing evidence.
+The two skips are the changed-resolved-parent and escaping-directory-symlink cases in `test_compilation_service.py`; Windows directory symlink creation was unavailable. MOD-COMP-10 now has an explicit `passed: false` evidence record with both skipped check names/reasons; it remains unverified. The eight passing records cover the separate named tests above, not the skipped cases.
 
 | Requirement | Source characterization in `cli/tests/test_compilation_service.py` |
 |---|---|
@@ -73,30 +74,46 @@ Additional suites characterize identity round-trips, plan protocol validation/mi
 | Compilation Levels 1â€“2 | Bounded observed contract and passing characterization captured; validate at verification with one category waiver. This is partial adoption, not whole-product conformance. |
 | Compilation coverage waiver | `compilation-category-gap` covers only this slice's missing performance/scalability/observability categories; expires after verification and blocks release. MOD-COMP-09 owns follow-up. |
 | Compilation residual gaps | MOD-COMP-10 symlink coverage; nested types, formal applicability and exceptional side-effect review remain open. |
-| Release / Level 3 | Not accepted. No full local product gate, browser/WebGPU manual run, external formal model run or live integration execution was performed. |
+| Release / Level 3 | Not accepted. The onboarding PR #891 passed the full native gate, including browser and live integration checks. Current delivery results belong in this migration PR; those gates do not close missing slice categories, skipped cases, formal applicability or browser/WebGPU manual acceptance. |
 
 Prepared/reviewed by Codex from source and local test output; maintainers own acceptance and remediation scheduling. A schema/metadata pass is supporting evidence only. Formal review is applicable to transaction locking/freshness/rollback; existing tests are not a proof and no product formal evidence is asserted.
 
 ## Validation and bounded work
 
-Packaging of system-spec is still a proposal. Use the pinned sibling checkout for now; commands below assume the two repositories are siblings and run from `system-specification/reference-implementation/`:
+The toolkit wheel/CLI and offline export are implemented. This capture still uses the exact pinned sibling validator to retain commit-level provenance; package version `0.1.0` alone does not identify that source revision. Run from the Modelable repository root:
 
 ```powershell
-.\.venv\Scripts\python.exe metamodel.py ../../modelable/docs/superpowers/specs/system-spec/inventory.yaml --stage inventory
-.\.venv\Scripts\python.exe metamodel.py ../../modelable/docs/superpowers/specs/system-spec/compilation.yaml --stage verification
-.\.venv\Scripts\python.exe metamodel.py ../../modelable/docs/superpowers/specs/system-spec/compilation.yaml --context compilation-unit
-.\.venv\Scripts\python.exe metamodel.py ../../modelable/docs/superpowers/specs/system-spec/compilation.yaml --impact apply-compilation
+$validator = '../system-specification/reference-implementation'
+$python = "$validator/.venv/Scripts/python.exe"
+& $python "$validator/metamodel.py" docs/superpowers/specs/system-spec/inventory.yaml --stage inventory --check-artifacts --root .
+& $python "$validator/metamodel.py" docs/superpowers/specs/system-spec/compilation.yaml --stage verification --check-artifacts --root .
+& $python "$validator/metamodel.py" docs/superpowers/specs/system-spec/compilation.yaml --context compilation-unit
+& $python "$validator/metamodel.py" docs/superpowers/specs/system-spec/compilation.yaml --impact apply-compilation
 ```
 
-- Before validation, check the metamodel revision/schema hash against `baseline.json`; the vendored schema supports editor authoring, not semantic invariant execution.
+- Confirm the sibling Git revision and validator/schema hashes against `adoption.json` before validating. Hashes use exact worktree bytes, including checkout line endings; a different checkout may require reviewed recapture rather than silently accepting new hashes.
+- Paths in `source_paths`, provenance and artifact maps are relative to `--root`, including the full `docs/superpowers/specs/system-spec/` prefix for logs. Provenance names one file, optionally followed by a `::selector`; logs and environment records have separate `artifacts` hashes.
 - Before changing a contract, retain a baseline, run impact/context, trace nested dependencies, and use `--compat` after the edit. Matching prose sets cannot prove semantic compatibility.
 - Record rerun source/dependency/environment revisions; invalidate affected evidence instead of reusing this run after code changes.
-- Native format/lint/type/test/browser gates from [AGENTS.md](../../../../AGENTS.md) remain mandatory before commits/pushes. This docs-only onboarding does not change those gates.
-- Suggested next handoff: finish compilation's transitive data/side-effect map and run the two symlink cases on a suitable host, then expand to registry/lock protocols and browser persistence.
+- Native format/lint/type/test/browser gates from [AGENTS.md](../../../../AGENTS.md) remain mandatory before commits/pushes.
+
+### Evidence migration decision
+
+| Check / precise scope | Observation / decision |
+|---|---|
+| Historical preservation | Original baseline, run and metadata validation remain unchanged; original schema retained separately. Git commit `5f48ed00` preserves the original specification. |
+| Current characterization | 221 passed, 2 skipped on 1.15.2; the three bound operation files and six test files are unchanged from the initial capture. |
+| Metadata / local integrity | Inventory and compilation verification pass with `--check-artifacts --root .`; the existing category waiver remains. Top-level DTO field-name sets match source. |
+| Contract compatibility | Capability/data compatibility against the original compilation specification passes; no contract clauses or data fields changed. |
+| Evidence binding | Eight passing records match contract `1.0` and current source bindings. Release diagnostics contain no EV-04 mismatch. Five negative probes reject stale revisions/versions, missing bindings, and mismatched source/log hashes. |
+| Skipped evidence | MOD-COMP-10 is unverified; its explicit skipped record blocks release (EV-05). Skips are not characterization passes. |
+| Acceptance | Evidence-format migration verified within this slice. Maintainers own final acceptance; whole-product Levels 1–3 and compilation release remain open. |
+
+Detailed results and remaining release diagnostics: [migration-validation.json](evidence/migration-validation.json). Validation cannot prove Git authenticity, full dependency correspondence or criterion coverage. The existing restricted handling policy remains provisional; this migration does not close classification review. Next handoff: complete compilation's transitive type/ownership/side-effect map and obtain symlink coverage on a suitable host before expanding to registry/lock protocols and browser persistence.
 
 ## Feedback to system-spec
 
-Suggestions and reproductions are recorded in the sibling system-specification repository at `feedback/modelable-onboarding.md` against the same pinned baseline:
+Suggestions and reproductions are recorded in the sibling system-specification repository at [`archive/feedback/modelable-onboarding.md`](https://github.com/ktjn/system-specification/blob/main/archive/feedback/modelable-onboarding.md). Findings 1–6 describe the original baseline; system-specification PR #30 implemented their supporting process/model changes:
 
 1. Add explicit scope/adoption and external-boundary records rather than implying inventory means full product acceptance.
 2. Separate existing authority/catalog imports from system-spec intake; document that `modelable spec` is a different command family.
@@ -104,3 +121,5 @@ Suggestions and reproductions are recorded in the sibling system-specification r
 4. Separate subject version from source revision in evidence validation.
 5. Represent multi-phase local operations and committed-with-cleanup-error outcomes.
 6. Model schema/dependency/evidence file bindings and skipped tests; retain native gates.
+
+Migration feedback: use one repository-relative provenance file plus an optional selector, bind additional artifacts separately, and retain historical validator decisions when upgrading. Optional artifact checks validate bytes and paths; they do not validate command selectors, dependencies or whole-product acceptance.

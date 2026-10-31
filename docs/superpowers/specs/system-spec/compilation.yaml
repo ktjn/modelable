@@ -59,7 +59,7 @@ capabilities:
       errors: {CompilationError: python-exception}
 components:
   - id: compilation-unit
-    version: "1.15.1"
+    version: "1.15.2"
     status: specified
     provides: [direct-compilation, preview-compilation, apply-compilation, discard-compilation]
     owns_data: [compilation-request, pending-compilation, compilation-confirmation, applied-compilation, direct-compilation-result]
@@ -215,78 +215,143 @@ evidence:
     requirement_version: "1.0"
     method: test
     passed: true
-    provenance: evidence/characterization.txt; cli/tests/test_compilation_service.py::test_execute_direct_writes_registry_plans_and_rust_artifacts
+    provenance: cli/tests/test_compilation_service.py::test_execute_direct_writes_registry_plans_and_rust_artifacts
     subject_id: direct-compilation
-    subject_revision: 0fead2321bdef11c72b2746eb57f3a8b0e327c94
+    subject_version: "1.0"
+    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    artifacts: &characterization-artifacts
+      docs/superpowers/specs/system-spec/evidence/characterization-current.txt: 8de6688dad28a3bb24e3291aafb08854d2a4fe26663de071cd91ac38ab563c88
+      docs/superpowers/specs/system-spec/evidence/characterization-environment.json: aaa032a3966d46f74dc03a774c62b15a1f5e4a1f75d10fe5f1d4018e2c1ec080
+      cli/tests/test_compilation_service.py: 3afb08957c1aba03d38dc9a6a71f8f9cc11db6e677247a807e2136a0d78f50eb
+      cli/tests/test_identity.py: 2f48e98b3cfc1f2468ccf48973759b8c4d47fd7663e285c0b7e9803f42b6de9a
+      cli/tests/test_plan_protocol.py: 83910924c73df0297482d44d11418756b14f1f0c98d54bea7ff306c279625401
+      cli/tests/test_browser_api.py: 52f5dd56f23296ed9b0d292131e4a420af4a62d32de498a59583ac9d46c0754f
+      cli/tests/test_capabilities.py: 42bbce6b4f5e8a6569918f5a15df43b6810e8541ad655f540e6a6e80f82b9bce
+      cli/tests/test_spec_tracking.py: b8955fa13a1c286f6da53e02cc13b51031a994186ecb387288afc27415d71c7e
     timestamp: 2026-10-31
-    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite
+    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite at 1.15.2
   - id: ev-mod-comp-02
     requirement_id: MOD-COMP-02
     requirement_version: "1.0"
     method: test
     passed: true
-    provenance: evidence/characterization.txt; cli/tests/test_compilation_service.py::test_preview_stages_exact_files_without_mutating_workspace
+    provenance: cli/tests/test_compilation_service.py::test_preview_stages_exact_files_without_mutating_workspace
     subject_id: preview-compilation
-    subject_revision: 0fead2321bdef11c72b2746eb57f3a8b0e327c94
+    subject_version: "1.0"
+    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    artifacts: *characterization-artifacts
     timestamp: 2026-10-31
-    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite
+    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite at 1.15.2
   - id: ev-mod-comp-03
     requirement_id: MOD-COMP-03
     requirement_version: "1.0"
     method: test
     passed: true
-    provenance: evidence/characterization.txt; cli/tests/test_compilation_service.py::test_apply_promotes_stage_without_recompiling
+    provenance: cli/tests/test_compilation_service.py::test_apply_promotes_stage_without_recompiling
     subject_id: apply-compilation
-    subject_revision: 0fead2321bdef11c72b2746eb57f3a8b0e327c94
+    subject_version: "1.0"
+    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    artifacts: *characterization-artifacts
     timestamp: 2026-10-31
-    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite
+    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite at 1.15.2
   - id: ev-mod-comp-04
     requirement_id: MOD-COMP-04
     requirement_version: "1.0"
     method: test
     passed: true
-    provenance: evidence/characterization.txt; cli/tests/test_compilation_service.py::test_waiting_apply_rechecks_freshness_under_workspace_lock
+    provenance: cli/tests/test_compilation_service.py::test_waiting_apply_rechecks_freshness_under_workspace_lock
     subject_id: apply-compilation
-    subject_revision: 0fead2321bdef11c72b2746eb57f3a8b0e327c94
+    subject_version: "1.0"
+    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    artifacts: *characterization-artifacts
     timestamp: 2026-10-31
-    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite
+    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite at 1.15.2
   - id: ev-mod-comp-05
     requirement_id: MOD-COMP-05
     requirement_version: "1.0"
     method: test
     passed: true
-    provenance: evidence/characterization.txt; cli/tests/test_compilation_service.py::test_audit_promotion_failure_rolls_back_compilation_files
+    provenance: cli/tests/test_compilation_service.py::test_audit_promotion_failure_rolls_back_compilation_files
     subject_id: apply-compilation
-    subject_revision: 0fead2321bdef11c72b2746eb57f3a8b0e327c94
+    subject_version: "1.0"
+    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    artifacts: *characterization-artifacts
     timestamp: 2026-10-31
-    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite
+    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite at 1.15.2
   - id: ev-mod-comp-06
     requirement_id: MOD-COMP-06
     requirement_version: "1.0"
     method: test
     passed: true
-    provenance: evidence/characterization.txt; cli/tests/test_compilation_service.py::test_preview_rejects_prohibited_output_paths
+    provenance: cli/tests/test_compilation_service.py::test_preview_rejects_prohibited_output_paths
     subject_id: preview-compilation
-    subject_revision: 0fead2321bdef11c72b2746eb57f3a8b0e327c94
+    subject_version: "1.0"
+    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    artifacts: *characterization-artifacts
     timestamp: 2026-10-31
-    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite
+    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite at 1.15.2
   - id: ev-mod-comp-07
     requirement_id: MOD-COMP-07
     requirement_version: "1.0"
     method: test
     passed: true
-    provenance: evidence/characterization.txt; cli/tests/test_compilation_service.py::test_discard_is_idempotent_and_surfaces_incomplete_cleanup
+    provenance: cli/tests/test_compilation_service.py::test_discard_is_idempotent_and_surfaces_incomplete_cleanup
     subject_id: discard-compilation
-    subject_revision: 0fead2321bdef11c72b2746eb57f3a8b0e327c94
+    subject_version: "1.0"
+    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    artifacts: *characterization-artifacts
     timestamp: 2026-10-31
-    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite
+    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite at 1.15.2
   - id: ev-mod-comp-08
     requirement_id: MOD-COMP-08
     requirement_version: "1.0"
     method: test
     passed: true
-    provenance: evidence/characterization.txt; cli/tests/test_compilation_service.py::test_apply_writes_exact_stage_and_private_audit
+    provenance: cli/tests/test_compilation_service.py::test_apply_writes_exact_stage_and_private_audit
     subject_id: apply-compilation
-    subject_revision: 0fead2321bdef11c72b2746eb57f3a8b0e327c94
+    subject_version: "1.0"
+    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    artifacts: *characterization-artifacts
     timestamp: 2026-10-31
-    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite
+    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite at 1.15.2
+
+  - id: ev-mod-comp-10-skipped
+    requirement_id: MOD-COMP-10
+    requirement_version: '1.0'
+    method: test
+    passed: false
+    provenance: docs/superpowers/specs/system-spec/evidence/characterization-current.txt
+    subject_id: preview-compilation
+    subject_version: '1.0'
+    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    artifacts: *characterization-artifacts
+    skipped:
+    - 'cli/tests/test_compilation_service.py::test_apply_rejects_changed_resolved_parent_even_with_same_bytes:
+      directory symlinks are unavailable'
+    - 'cli/tests/test_compilation_service.py::test_preview_rejects_symlink_that_escapes_workspace:
+      directory symlinks are unavailable'
+    timestamp: '2026-10-31'
+    verifier: CPython 3.14.5; pytest 9.1.1; Windows
+    bounds: Only the two named directory-symlink cases; neither executed. The eight
+      passing evidence records cover other named tests.
+
+subject_bindings:
+  direct-compilation:
+    version: '1.0'
+    revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    artifacts: &compilation-source
+      cli/src/modelable/operations/compilation.py: 35dc26900f6c69a984c78e44acfcf3d0ae4bd6169d1a8cf120ca79d1600af636
+      cli/src/modelable/operations/file_transaction.py: 628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794
+      cli/src/modelable/operations/compilation_audit.py: bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f
+  preview-compilation:
+    version: '1.0'
+    revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    artifacts: *compilation-source
+  apply-compilation:
+    version: '1.0'
+    revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    artifacts: *compilation-source
+  discard-compilation:
+    version: '1.0'
+    revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    artifacts: *compilation-source
