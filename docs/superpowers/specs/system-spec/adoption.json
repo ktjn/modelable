@@ -1,6 +1,6 @@
 {
   "recorded_date": "2026-10-31",
-  "source_revision": "8de5b55bf07cff4a619c6ae25f2c3368290d310b",
+  "source_revision": "72de182a47e1c045f586be73a2c3a79b68f9130b",
   "product_version": "1.15.2",
   "system_spec_revision": "b187e43628c7dc89935d17c2c382094ad37eb2eb",
   "validator_sha256": "fd773d80d64938a66f0300a0067c86fbd014531bc5feef3933c35463723e3795",
@@ -11,7 +11,7 @@
     "modelable_commit_containing_original_artifacts": "5f48ed00654ed336bcce96acc954e7a7ebfe423c"
   },
   "source_sha256": {
-    "cli/src/modelable/operations/compilation.py": "35dc26900f6c69a984c78e44acfcf3d0ae4bd6169d1a8cf120ca79d1600af636",
+    "cli/src/modelable/operations/compilation.py": "b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3",
     "cli/src/modelable/operations/file_transaction.py": "628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794",
     "cli/src/modelable/operations/compilation_audit.py": "bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f"
   },
@@ -20,7 +20,7 @@
     "cli/pyproject.toml": "1e83d0f2722bc192a7d7bb4c323c3019e5d3480867331b460d7c048a34801c74"
   },
   "artifact_sha256": {
-    "compilation.yaml": "eb35b4f727f6f2aa3cea367d1258fe9ee99f675a32975ce2465caa44d8518486",
+    "compilation.yaml": "3b47c893c05b9ec39816ac3c464e1e0e4d17f652debee684c2f8be9150401525",
     "inventory.yaml": "bd3627fe6aa59b6b4ecbed0c5f26235eb2768217057e705f04b225d9f7cb968e",
     "schema.json": "68575c37f4adf8449e2ae1978ad78038c7c383ccef7953e7ce4b473aa1ed71ea",
     "schema-baseline.json": "3ae1d114cf78793e8573f97995a74befa56c6c9f9de45e547f5282e8af745d22",
@@ -37,22 +37,35 @@
     "evidence/compilation-imports.tsv": "cab1f367338a1ed516d276825f2203b6dc23a354d97bb682b431aa67a2629d17",
     "evidence/compilation-types.json": "31fb11fb7a5380ee4da11302b16e67b1d0b54465e5d2b0e8b26f644cad190653",
     "evidence/adoption-before-dependency-map.json": "6e2cbcaca1b482959fb5213e2c83c754e1695245a12cd0c403c900f21174cc29",
-    "evidence/dependency-validation.json": "7bfc5338c4a593f6694dd759e5daad734f08389d013994fb24ed00bd3ec8580a"
+    "evidence/dependency-validation.json": "7bfc5338c4a593f6694dd759e5daad734f08389d013994fb24ed00bd3ec8580a",
+    "evidence/recovery-characterization.txt": "9a3d1bf8633de67dc2e2575d471514e2d32c472bf70f6ba45a957e4360f033bd",
+    "evidence/recovery-characterization.xml": "1ce8bf6c760582068ea96458e6663e45533c1154ea3beb519196378d2baae3d5",
+    "evidence/recovery-service-red.txt": "74ada22f262613f722261b3fe919520a37ad0c7504756153c175f603e1636a1f",
+    "evidence/recovery-rpc-red.txt": "59358fd77312c29742f64de4952102ef8e67ce014c723bbd9505b8b368c0eca7",
+    "evidence/recovery-linux.txt": "63f9c228586ed046d2850cfd1641530658a07ef0532e5f4408a7be6019ca9ccf",
+    "evidence/recovery-linux.xml": "a15a4b806081c159d94a48098571df3302105fc386ae5e349f7b67e7a88e2f96",
+    "evidence/recovery-linux-environment.json": "8a45d7213d95c75ec98fd1fd3be804a58e9efd83deabff7883cb7263158761a0",
+    "evidence/recovery-linux-run.py": "72e0451e7f40a8ec5905f924cbec0305d6b58972faf8267b10b267ab98963c51",
+    "evidence/recovery-environment.json": "0d2e060d4f7699760f050cc4467069d2efce649302714bbf27d3a6548ccf06ef",
+    "evidence/adoption-before-recovery.json": "17871aba228a5fb23c2f3d7e7e8cad89fcfbd2d545ef14824e817069f6638d4e",
+    "evidence/compilation-before-recovery.yaml": "eb35b4f727f6f2aa3cea367d1258fe9ee99f675a32975ce2465caa44d8518486",
+    "compilation-recovery.md": "4f3d8507e379c87b2fdb6a3e970eb472ea56632543f379ea169880fe51b9f85a",
+    "evidence/recovery-validation.json": "fcd703e5809076897bf8c0372669cbd44587e69b4c950b09b30d94dd9eb02ab3"
   },
   "scope": "Current bounded compilation evidence only; inventory.yaml and baseline.json preserve the original whole-product observation.",
   "classification_policy": "Existing restricted handling policy retained; observed product classification and full data mapping remain open.",
   "result": {
-    "passed": 221,
+    "passed": 238,
     "failed": 0,
     "skipped": 2
   },
   "skipped": [
-    "cli/tests/test_compilation_service.py::test_apply_rejects_changed_resolved_parent_even_with_same_bytes: directory symlinks are unavailable",
-    "cli/tests/test_compilation_service.py::test_preview_rejects_symlink_that_escapes_workspace: directory symlinks are unavailable"
+    "SKIPPED [1] tests\\test_compilation_service.py:422: directory symlinks are unavailable",
+    "SKIPPED [1] tests\\test_compilation_service.py:1136: directory symlinks are unavailable"
   ],
   "byte_convention": "SHA-256 of exact worktree bytes including checkout line endings",
   "dto_field_sets_match_source": true,
-  "historical_adoption": "evidence/adoption-before-dependency-map.json",
+  "historical_adoption": "evidence/adoption-before-recovery.json",
   "supplemental_runs": [
     {
       "requirement_id": "MOD-COMP-10",
@@ -61,7 +74,18 @@
       "passed": 2,
       "skipped": 0,
       "source_revision": "8de5b55bf07cff4a619c6ae25f2c3368290d310b",
-      "platform": "Linux Docker filesystem"
+      "platform": "Linux Docker filesystem",
+      "historical": true
+    },
+    {
+      "requirement_id": "MOD-COMP-10",
+      "evidence_id": "ev-mod-comp-10-recovery-linux",
+      "environment": "evidence/recovery-linux-environment.json",
+      "passed": 4,
+      "skipped": 0,
+      "source_revision": "72de182a47e1c045f586be73a2c3a79b68f9130b",
+      "platform": "Linux Docker filesystem",
+      "scope": "Two symlink cases and two cleanup regressions; only the named symlink cases establish MOD-COMP-10."
     }
   ]
 }

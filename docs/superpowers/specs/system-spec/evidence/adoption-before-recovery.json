@@ -1,0 +1,67 @@
+{
+  "recorded_date": "2026-10-31",
+  "source_revision": "8de5b55bf07cff4a619c6ae25f2c3368290d310b",
+  "product_version": "1.15.2",
+  "system_spec_revision": "b187e43628c7dc89935d17c2c382094ad37eb2eb",
+  "validator_sha256": "fd773d80d64938a66f0300a0067c86fbd014531bc5feef3933c35463723e3795",
+  "schema_sha256": "68575c37f4adf8449e2ae1978ad78038c7c383ccef7953e7ce4b473aa1ed71ea",
+  "historical_baseline": {
+    "manifest": "baseline.json",
+    "schema": "schema-baseline.json",
+    "modelable_commit_containing_original_artifacts": "5f48ed00654ed336bcce96acc954e7a7ebfe423c"
+  },
+  "source_sha256": {
+    "cli/src/modelable/operations/compilation.py": "35dc26900f6c69a984c78e44acfcf3d0ae4bd6169d1a8cf120ca79d1600af636",
+    "cli/src/modelable/operations/file_transaction.py": "628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794",
+    "cli/src/modelable/operations/compilation_audit.py": "bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f"
+  },
+  "dependency_sha256": {
+    "cli/uv.lock": "8853fca6ec2ed6a94e9461bfe775cb418d0743c00fc7600b3ee3eb8500652b34",
+    "cli/pyproject.toml": "1e83d0f2722bc192a7d7bb4c323c3019e5d3480867331b460d7c048a34801c74"
+  },
+  "artifact_sha256": {
+    "compilation.yaml": "eb35b4f727f6f2aa3cea367d1258fe9ee99f675a32975ce2465caa44d8518486",
+    "inventory.yaml": "bd3627fe6aa59b6b4ecbed0c5f26235eb2768217057e705f04b225d9f7cb968e",
+    "schema.json": "68575c37f4adf8449e2ae1978ad78038c7c383ccef7953e7ce4b473aa1ed71ea",
+    "schema-baseline.json": "3ae1d114cf78793e8573f97995a74befa56c6c9f9de45e547f5282e8af745d22",
+    "evidence/characterization-current.txt": "8de6688dad28a3bb24e3291aafb08854d2a4fe26663de071cd91ac38ab563c88",
+    "evidence/characterization-environment.json": "aaa032a3966d46f74dc03a774c62b15a1f5e4a1f75d10fe5f1d4018e2c1ec080",
+    "evidence/migration-validation.json": "610b9b415c66a577029056a7b16badd359f8e2f5a16652b805c93a170fb5fc41",
+    "evidence/symlink-linux.txt": "192aa4a12495831e39bb2501d7e30642d1903c48d703f568bea5ba7c025866ff",
+    "evidence/symlink-linux.xml": "ef9615158ea9a63821d595aa36bb5a77fafd29110e156e28117e105ccd536430",
+    "evidence/symlink-linux-environment.json": "9392a4a10cdfd8bf07978e302a04470089ebaf9e731e430af67ddfb3429b5fad",
+    "evidence/symlink-linux.Dockerfile": "2bfe404c5cf44c46593912ccd260561a0d661d6e025675c65e6362a7a1b835ae",
+    "evidence/symlink-linux-run.py": "85426f57679981c501c57432cff48051d619b87ad8911f226e934eb93c0a420b",
+    "compilation-map.md": "307fdb9a9f3ad1c931b21adb78cdf4c497d77acc987cad4f1bd3c3b7cb4623b2",
+    "compilation-discovery.json": "f4ad2e5147ae47a50f30a7cdd8d6cc8b1344d991f38355517699177ddc9ae243",
+    "evidence/compilation-imports.tsv": "cab1f367338a1ed516d276825f2203b6dc23a354d97bb682b431aa67a2629d17",
+    "evidence/compilation-types.json": "31fb11fb7a5380ee4da11302b16e67b1d0b54465e5d2b0e8b26f644cad190653",
+    "evidence/adoption-before-dependency-map.json": "6e2cbcaca1b482959fb5213e2c83c754e1695245a12cd0c403c900f21174cc29",
+    "evidence/dependency-validation.json": "7bfc5338c4a593f6694dd759e5daad734f08389d013994fb24ed00bd3ec8580a"
+  },
+  "scope": "Current bounded compilation evidence only; inventory.yaml and baseline.json preserve the original whole-product observation.",
+  "classification_policy": "Existing restricted handling policy retained; observed product classification and full data mapping remain open.",
+  "result": {
+    "passed": 221,
+    "failed": 0,
+    "skipped": 2
+  },
+  "skipped": [
+    "cli/tests/test_compilation_service.py::test_apply_rejects_changed_resolved_parent_even_with_same_bytes: directory symlinks are unavailable",
+    "cli/tests/test_compilation_service.py::test_preview_rejects_symlink_that_escapes_workspace: directory symlinks are unavailable"
+  ],
+  "byte_convention": "SHA-256 of exact worktree bytes including checkout line endings",
+  "dto_field_sets_match_source": true,
+  "historical_adoption": "evidence/adoption-before-dependency-map.json",
+  "supplemental_runs": [
+    {
+      "requirement_id": "MOD-COMP-10",
+      "evidence_id": "ev-mod-comp-10-linux",
+      "environment": "evidence/symlink-linux-environment.json",
+      "passed": 2,
+      "skipped": 0,
+      "source_revision": "8de5b55bf07cff4a619c6ae25f2c3368290d310b",
+      "platform": "Linux Docker filesystem"
+    }
+  ]
+}

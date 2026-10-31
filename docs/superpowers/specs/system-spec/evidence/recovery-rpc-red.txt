@@ -1,0 +1,14 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_committed_cleanup_failure_is_applied_over_json_rpc_and_cannot_be_reapplied[cleanup] _
+cli\tests\test_lsp_compilation_recovery.py:90: in test_committed_cleanup_failure_is_applied_over_json_rpc_and_cannot_be_reapplied
+    assert_published(preview, applied)
+cli\tests\test_lsp_compilation_recovery.py:72: in assert_published
+    assert applied.kind == "applied"
+E   AssertionError: assert 'error' == 'applied'
+E     
+E     - applied
+E     + error
+=========================== short test summary info ===========================
+FAILED cli\tests\test_lsp_compilation_recovery.py::test_committed_cleanup_failure_is_applied_over_json_rpc_and_cannot_be_reapplied[cleanup]
+1 failed in 2.93s

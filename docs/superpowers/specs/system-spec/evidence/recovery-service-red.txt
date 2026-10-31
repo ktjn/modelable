@@ -1,0 +1,22 @@
+FF                                                                       [100%]
+================================== FAILURES ===================================
+_ test_successful_promotion_keeps_committed_outcome_when_staging_cleanup_fails[direct] _
+cli\tests\test_compilation_cleanup_outcome.py:54: in test_successful_promotion_keeps_committed_outcome_when_staging_cleanup_fails
+    service.execute_direct(request)
+cli\src\modelable\operations\compilation.py:300: in execute_direct
+    _remove_staging(staging_dir)
+cli\tests\test_compilation_cleanup_outcome.py:48: in fail_cleanup
+    raise failure
+E   modelable.operations.compilation.CompilationError: injected staging cleanup failure
+_ test_successful_promotion_keeps_committed_outcome_when_staging_cleanup_fails[apply] _
+cli\tests\test_compilation_cleanup_outcome.py:56: in test_successful_promotion_keeps_committed_outcome_when_staging_cleanup_fails
+    service.apply(
+cli\src\modelable\operations\compilation.py:531: in apply
+    _remove_staging(pending.staging_dir)
+cli\tests\test_compilation_cleanup_outcome.py:48: in fail_cleanup
+    raise failure
+E   modelable.operations.compilation.CompilationError: injected staging cleanup failure
+=========================== short test summary info ===========================
+FAILED cli\tests\test_compilation_cleanup_outcome.py::test_successful_promotion_keeps_committed_outcome_when_staging_cleanup_fails[direct]
+FAILED cli\tests\test_compilation_cleanup_outcome.py::test_successful_promotion_keeps_committed_outcome_when_staging_cleanup_fails[apply]
+2 failed in 1.59s

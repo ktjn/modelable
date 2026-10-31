@@ -1,0 +1,151 @@
+{
+  "source_revision": "72de182a47e1c045f586be73a2c3a79b68f9130b",
+  "verification": {
+    "valid": true,
+    "errors": [],
+    "artifact_errors": []
+  },
+  "inventory": {
+    "valid": true,
+    "errors": []
+  },
+  "compatibility": {
+    "declared_capability_data_fields_identical": true,
+    "errors": [],
+    "limit": "Semantic exception correction still requires consumer awareness; catalog completeness and unknown external consumers remain review obligations."
+  },
+  "source_integrity": {
+    "captured_source_test_files": 30,
+    "prior_discovery": {
+      "discovery_revision": "3379c7c633f8b2690a4668cdb57abb5a07b9029d",
+      "total_modules": 141,
+      "unchanged_modules": 140,
+      "changed_modules": [
+        "cli/src/modelable/operations/compilation.py"
+      ],
+      "changed_module_imports": "AST import nodes unchanged",
+      "declared_dataclass_shapes_matched": 19
+    },
+    "core_bindings": "All four capabilities bind the new revision and exact current three-file hashes."
+  },
+  "historical_preservation": {
+    "specification": "evidence/compilation-before-recovery.yaml",
+    "manifest": "evidence/adoption-before-recovery.json",
+    "prior_manifest_spec_hash_matches": "Exact retained Git LF bytes",
+    "supersedes_policy": "Only the failed original Windows symlink record is superseded; previous passes are archived.",
+    "byte_restoration": "Historical artifact bytes were accepted only when normalized Git content and retained exact SHA-256 both matched; one log has eight CRLF and four LF endings."
+  },
+  "git_byte_round_trip": {
+    "attribute": "docs/superpowers/specs/system-spec/** -text",
+    "forced_core_autocrlf": true,
+    "verified_artifacts": [
+      "docs/superpowers/specs/system-spec/compilation.yaml",
+      "docs/superpowers/specs/system-spec/inventory.yaml",
+      "docs/superpowers/specs/system-spec/schema.json",
+      "docs/superpowers/specs/system-spec/schema-baseline.json",
+      "docs/superpowers/specs/system-spec/evidence/characterization-current.txt",
+      "docs/superpowers/specs/system-spec/evidence/characterization-environment.json",
+      "docs/superpowers/specs/system-spec/evidence/migration-validation.json",
+      "docs/superpowers/specs/system-spec/evidence/symlink-linux.txt",
+      "docs/superpowers/specs/system-spec/evidence/symlink-linux.xml",
+      "docs/superpowers/specs/system-spec/evidence/symlink-linux-environment.json",
+      "docs/superpowers/specs/system-spec/evidence/symlink-linux.Dockerfile",
+      "docs/superpowers/specs/system-spec/evidence/symlink-linux-run.py",
+      "docs/superpowers/specs/system-spec/compilation-map.md",
+      "docs/superpowers/specs/system-spec/compilation-discovery.json",
+      "docs/superpowers/specs/system-spec/evidence/compilation-imports.tsv",
+      "docs/superpowers/specs/system-spec/evidence/compilation-types.json",
+      "docs/superpowers/specs/system-spec/evidence/adoption-before-dependency-map.json",
+      "docs/superpowers/specs/system-spec/evidence/dependency-validation.json",
+      "docs/superpowers/specs/system-spec/evidence/recovery-characterization.txt",
+      "docs/superpowers/specs/system-spec/evidence/recovery-characterization.xml",
+      "docs/superpowers/specs/system-spec/evidence/recovery-service-red.txt",
+      "docs/superpowers/specs/system-spec/evidence/recovery-rpc-red.txt",
+      "docs/superpowers/specs/system-spec/evidence/recovery-linux.txt",
+      "docs/superpowers/specs/system-spec/evidence/recovery-linux.xml",
+      "docs/superpowers/specs/system-spec/evidence/recovery-linux-environment.json",
+      "docs/superpowers/specs/system-spec/evidence/recovery-linux-run.py",
+      "docs/superpowers/specs/system-spec/evidence/recovery-environment.json",
+      "docs/superpowers/specs/system-spec/evidence/adoption-before-recovery.json",
+      "docs/superpowers/specs/system-spec/evidence/compilation-before-recovery.yaml",
+      "docs/superpowers/specs/system-spec/compilation-recovery.md"
+    ],
+    "index_checkout_archive_hashes_matched": true,
+    "scope": "Captured inputs listed here; this validation output and enclosing manifest are finalized afterwards. Implementation checkout hashes remain host-specific."
+  },
+  "windows": {
+    "tests": 240,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 2,
+    "passed": 238,
+    "reruns": 0
+  },
+  "linux": {
+    "exit_code": 0,
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "negative_probes": {
+    "stale-source-revision": {
+      "stage": "release",
+      "additional_errors": [
+        "[EV-04] Evidence 'ev-mod-comp-01-recovery' requires timestamp, verifier and matching subject version/source binding for 'direct-compilation'"
+      ]
+    },
+    "linux-case-unexecuted": {
+      "stage": "release",
+      "additional_errors": [
+        "[EV-05] Evidence 'ev-mod-comp-10-recovery-linux' has skipped checks: ['injected unexecuted case']",
+        "[REQ-05] Requirement 'MOD-COMP-10@1.0' missing valid verification evidence"
+      ]
+    },
+    "stale-implementation-hash": {
+      "check": "artifacts",
+      "errors": [
+        "artifacts: hash mismatch for 'cli/src/modelable/operations/compilation.py'"
+      ]
+    },
+    "passing-capture-misuses-supersedes": {
+      "stage": "verification",
+      "errors": [
+        "[EV-02] Evidence 'ev-mod-comp-05-staging-cleanup' must be passing and supersede a failed record of the same requirement",
+        "[EV-03] Evidence 'ev-mod-comp-05-staging-cleanup' supersedes without supersession_reason"
+      ]
+    }
+  },
+  "release": {
+    "valid": false,
+    "errors": [
+      "[RISK-02] Risk 'compilation-category-gap' waiver expired (verification)",
+      "[REQ-01] Missing verification categories: ['performance', 'scalability', 'observability']",
+      "[STAT-04] System 'modelable-compilation-slice' status 'specified' below 'verified'",
+      "[STAT-04] Capability 'direct-compilation' status 'specified' below 'verified'",
+      "[STAT-04] Capability 'preview-compilation' status 'specified' below 'verified'",
+      "[STAT-04] Capability 'apply-compilation' status 'specified' below 'verified'",
+      "[STAT-04] Capability 'discard-compilation' status 'specified' below 'verified'",
+      "[STAT-04] Component 'compilation-unit' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-01' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-02' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-03' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-04' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-05' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-06' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-07' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-08' status 'specified' below 'verified'",
+      "[STAT-04] Requirement 'MOD-COMP-09' status 'specified' below 'verified'",
+      "[REQ-05] Requirement 'MOD-COMP-09@1.0' missing valid verification evidence",
+      "[RISK-04] Risk 'compilation-category-gap' has unverified mitigation 'MOD-COMP-09'",
+      "[RISK-08] Risk 'compilation-category-gap' waives 'verification-category'; no waivers permitted at release",
+      "[RISK-04] Risk 'compilation-failure-review-gap' has unverified mitigation 'MOD-COMP-09'"
+    ]
+  },
+  "remaining": [
+    "Residual staging cleanup ownership and remaining adapter failure/recovery coverage",
+    "Public helper/IO failure catalog and consumer disposition under MOD-COMP-09",
+    "Classification, shared IR semantics, measured quality categories, formal locking/compensation/crash applicability and whole-product acceptance"
+  ],
+  "delivery": "Exact final-commit native gate, publication and remote CI are tracked independently in the PR."
+}

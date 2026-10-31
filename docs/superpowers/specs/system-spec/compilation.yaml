@@ -210,111 +210,7 @@ risks:
     treatment: mitigation
     mitigated_by: [MOD-COMP-09]
 evidence:
-  - id: ev-mod-comp-01
-    requirement_id: MOD-COMP-01
-    requirement_version: "1.0"
-    method: test
-    passed: true
-    provenance: cli/tests/test_compilation_service.py::test_execute_direct_writes_registry_plans_and_rust_artifacts
-    subject_id: direct-compilation
-    subject_version: "1.0"
-    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
-    artifacts: &characterization-artifacts
-      docs/superpowers/specs/system-spec/evidence/characterization-current.txt: 8de6688dad28a3bb24e3291aafb08854d2a4fe26663de071cd91ac38ab563c88
-      docs/superpowers/specs/system-spec/evidence/characterization-environment.json: aaa032a3966d46f74dc03a774c62b15a1f5e4a1f75d10fe5f1d4018e2c1ec080
-      cli/tests/test_compilation_service.py: 3afb08957c1aba03d38dc9a6a71f8f9cc11db6e677247a807e2136a0d78f50eb
-      cli/tests/test_identity.py: 2f48e98b3cfc1f2468ccf48973759b8c4d47fd7663e285c0b7e9803f42b6de9a
-      cli/tests/test_plan_protocol.py: 83910924c73df0297482d44d11418756b14f1f0c98d54bea7ff306c279625401
-      cli/tests/test_browser_api.py: 52f5dd56f23296ed9b0d292131e4a420af4a62d32de498a59583ac9d46c0754f
-      cli/tests/test_capabilities.py: 42bbce6b4f5e8a6569918f5a15df43b6810e8541ad655f540e6a6e80f82b9bce
-      cli/tests/test_spec_tracking.py: b8955fa13a1c286f6da53e02cc13b51031a994186ecb387288afc27415d71c7e
-    timestamp: 2026-10-31
-    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite at 1.15.2
-  - id: ev-mod-comp-02
-    requirement_id: MOD-COMP-02
-    requirement_version: "1.0"
-    method: test
-    passed: true
-    provenance: cli/tests/test_compilation_service.py::test_preview_stages_exact_files_without_mutating_workspace
-    subject_id: preview-compilation
-    subject_version: "1.0"
-    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
-    artifacts: *characterization-artifacts
-    timestamp: 2026-10-31
-    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite at 1.15.2
-  - id: ev-mod-comp-03
-    requirement_id: MOD-COMP-03
-    requirement_version: "1.0"
-    method: test
-    passed: true
-    provenance: cli/tests/test_compilation_service.py::test_apply_promotes_stage_without_recompiling
-    subject_id: apply-compilation
-    subject_version: "1.0"
-    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
-    artifacts: *characterization-artifacts
-    timestamp: 2026-10-31
-    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite at 1.15.2
-  - id: ev-mod-comp-04
-    requirement_id: MOD-COMP-04
-    requirement_version: "1.0"
-    method: test
-    passed: true
-    provenance: cli/tests/test_compilation_service.py::test_waiting_apply_rechecks_freshness_under_workspace_lock
-    subject_id: apply-compilation
-    subject_version: "1.0"
-    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
-    artifacts: *characterization-artifacts
-    timestamp: 2026-10-31
-    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite at 1.15.2
-  - id: ev-mod-comp-05
-    requirement_id: MOD-COMP-05
-    requirement_version: "1.0"
-    method: test
-    passed: true
-    provenance: cli/tests/test_compilation_service.py::test_audit_promotion_failure_rolls_back_compilation_files
-    subject_id: apply-compilation
-    subject_version: "1.0"
-    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
-    artifacts: *characterization-artifacts
-    timestamp: 2026-10-31
-    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite at 1.15.2
-  - id: ev-mod-comp-06
-    requirement_id: MOD-COMP-06
-    requirement_version: "1.0"
-    method: test
-    passed: true
-    provenance: cli/tests/test_compilation_service.py::test_preview_rejects_prohibited_output_paths
-    subject_id: preview-compilation
-    subject_version: "1.0"
-    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
-    artifacts: *characterization-artifacts
-    timestamp: 2026-10-31
-    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite at 1.15.2
-  - id: ev-mod-comp-07
-    requirement_id: MOD-COMP-07
-    requirement_version: "1.0"
-    method: test
-    passed: true
-    provenance: cli/tests/test_compilation_service.py::test_discard_is_idempotent_and_surfaces_incomplete_cleanup
-    subject_id: discard-compilation
-    subject_version: "1.0"
-    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
-    artifacts: *characterization-artifacts
-    timestamp: 2026-10-31
-    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite at 1.15.2
-  - id: ev-mod-comp-08
-    requirement_id: MOD-COMP-08
-    requirement_version: "1.0"
-    method: test
-    passed: true
-    provenance: cli/tests/test_compilation_service.py::test_apply_writes_exact_stage_and_private_audit
-    subject_id: apply-compilation
-    subject_version: "1.0"
-    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
-    artifacts: *characterization-artifacts
-    timestamp: 2026-10-31
-    verifier: CPython 3.14.5; pytest 9.1.1; Windows; focused suite at 1.15.2
-
+  # Prior passing records are archived; supersedes is reserved for failed evidence.
   - id: ev-mod-comp-10-skipped
     requirement_id: MOD-COMP-10
     requirement_version: '1.0'
@@ -324,7 +220,15 @@ evidence:
     subject_id: preview-compilation
     subject_version: '1.0'
     subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
-    artifacts: *characterization-artifacts
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/characterization-current.txt: 8de6688dad28a3bb24e3291aafb08854d2a4fe26663de071cd91ac38ab563c88
+      docs/superpowers/specs/system-spec/evidence/characterization-environment.json: aaa032a3966d46f74dc03a774c62b15a1f5e4a1f75d10fe5f1d4018e2c1ec080
+      cli/tests/test_compilation_service.py: 3afb08957c1aba03d38dc9a6a71f8f9cc11db6e677247a807e2136a0d78f50eb
+      cli/tests/test_identity.py: 2f48e98b3cfc1f2468ccf48973759b8c4d47fd7663e285c0b7e9803f42b6de9a
+      cli/tests/test_plan_protocol.py: 83910924c73df0297482d44d11418756b14f1f0c98d54bea7ff306c279625401
+      cli/tests/test_browser_api.py: 52f5dd56f23296ed9b0d292131e4a420af4a62d32de498a59583ac9d46c0754f
+      cli/tests/test_capabilities.py: 42bbce6b4f5e8a6569918f5a15df43b6810e8541ad655f540e6a6e80f82b9bce
+      cli/tests/test_spec_tracking.py: b8955fa13a1c286f6da53e02cc13b51031a994186ecb387288afc27415d71c7e
     skipped:
     - 'cli/tests/test_compilation_service.py::test_apply_rejects_changed_resolved_parent_even_with_same_bytes:
       directory symlinks are unavailable'
@@ -334,8 +238,139 @@ evidence:
     verifier: CPython 3.14.5; pytest 9.1.1; Windows
     bounds: Only the two named directory-symlink cases; neither executed. The eight
       passing evidence records cover other named tests.
-
-  - id: ev-mod-comp-10-linux
+  - id: ev-mod-comp-01-recovery
+    requirement_id: MOD-COMP-01
+    requirement_version: '1.0'
+    method: test
+    passed: true
+    provenance: cli/tests/test_compilation_service.py::test_execute_direct_writes_registry_plans_and_rust_artifacts
+    subject_id: direct-compilation
+    subject_version: '1.0'
+    subject_revision: 72de182a47e1c045f586be73a2c3a79b68f9130b
+    artifacts: &id001
+      docs/superpowers/specs/system-spec/evidence/recovery-characterization.txt: 9a3d1bf8633de67dc2e2575d471514e2d32c472bf70f6ba45a957e4360f033bd
+      docs/superpowers/specs/system-spec/evidence/recovery-characterization.xml: 1ce8bf6c760582068ea96458e6663e45533c1154ea3beb519196378d2baae3d5
+      docs/superpowers/specs/system-spec/evidence/recovery-environment.json: 0d2e060d4f7699760f050cc4467069d2efce649302714bbf27d3a6548ccf06ef
+      cli/tests/support/lsp_compilation_fault_server.py: aec77bd1cc1e689f22e4db901aa53c60a981e896e981e326a66838099d417427
+      cli/tests/test_browser_api.py: 52f5dd56f23296ed9b0d292131e4a420af4a62d32de498a59583ac9d46c0754f
+      cli/tests/test_capabilities.py: 42bbce6b4f5e8a6569918f5a15df43b6810e8541ad655f540e6a6e80f82b9bce
+      cli/tests/test_cli.py: 0bb5e911b1033bcd66bba73c10fef144b57255d22c5d5d07cda9117fcfc306ed
+      cli/tests/test_cli_compilation_errors.py: f50ac380689c416c54999bd5b106fa3e8dbc42056a5f44c39b718531b1d3e820
+      cli/tests/test_cli_compile.py: e2a9fe5874dbeed018516257b26a4b3abcba01a64f60dbb78404770e48a46ebf
+      cli/tests/test_compilation_cleanup_outcome.py: 863139fcf35b724cc43829237a90f94ddaf955c04578f43b9b4d7b3191730534
+      cli/tests/test_compilation_service.py: 3afb08957c1aba03d38dc9a6a71f8f9cc11db6e677247a807e2136a0d78f50eb
+      cli/tests/test_conversation.py: 082d22811ede92d07b910f3543d1c3d2db79d7badadadbe7ef138796fc03460c
+      cli/tests/test_file_transaction.py: 135bcfa3c49ffb2500c8a4cce34f10dc9ea2dae76ad74e85fff476a0b8e58d8c
+      cli/tests/test_identity.py: 2f48e98b3cfc1f2468ccf48973759b8c4d47fd7663e285c0b7e9803f42b6de9a
+      cli/tests/test_lsp_compilation_recovery.py: cf36144d125ecb9dae13a01da27509008ab311957e656a07176972f64ad152fa
+      cli/tests/test_lsp_conversation_integration.py: c12c961659f6e0973ece7cb0047d1eec82f1d65094996cc6edc66de0c77b6092
+      cli/tests/test_lsp_conversation_protocol.py: 3888d4982328e8d5538e67bf93a85db64481932f68aa16c26fa99dae26f5dc23
+      cli/tests/test_lsp_conversation_service.py: 8f2d84ac9d233df90496308512f65c4730595d00276dd22918b9694906a83658
+      cli/tests/test_plan_protocol.py: 83910924c73df0297482d44d11418756b14f1f0c98d54bea7ff306c279625401
+      cli/tests/test_spec_tracking.py: b8955fa13a1c286f6da53e02cc13b51031a994186ecb387288afc27415d71c7e
+    timestamp: '2026-10-31'
+    verifier: CPython 3.14.5; pytest 9.1.1; Windows; 238 passed, 2 platform skips
+  - id: ev-mod-comp-02-recovery
+    requirement_id: MOD-COMP-02
+    requirement_version: '1.0'
+    method: test
+    passed: true
+    provenance: cli/tests/test_compilation_service.py::test_preview_stages_exact_files_without_mutating_workspace
+    subject_id: preview-compilation
+    subject_version: '1.0'
+    subject_revision: 72de182a47e1c045f586be73a2c3a79b68f9130b
+    artifacts: *id001
+    timestamp: '2026-10-31'
+    verifier: CPython 3.14.5; pytest 9.1.1; Windows; 238 passed, 2 platform skips
+  - id: ev-mod-comp-03-recovery
+    requirement_id: MOD-COMP-03
+    requirement_version: '1.0'
+    method: test
+    passed: true
+    provenance: cli/tests/test_compilation_service.py::test_apply_promotes_stage_without_recompiling
+    subject_id: apply-compilation
+    subject_version: '1.0'
+    subject_revision: 72de182a47e1c045f586be73a2c3a79b68f9130b
+    artifacts: *id001
+    timestamp: '2026-10-31'
+    verifier: CPython 3.14.5; pytest 9.1.1; Windows; 238 passed, 2 platform skips
+  - id: ev-mod-comp-04-recovery
+    requirement_id: MOD-COMP-04
+    requirement_version: '1.0'
+    method: test
+    passed: true
+    provenance: cli/tests/test_compilation_service.py::test_waiting_apply_rechecks_freshness_under_workspace_lock
+    subject_id: apply-compilation
+    subject_version: '1.0'
+    subject_revision: 72de182a47e1c045f586be73a2c3a79b68f9130b
+    artifacts: *id001
+    timestamp: '2026-10-31'
+    verifier: CPython 3.14.5; pytest 9.1.1; Windows; 238 passed, 2 platform skips
+  - id: ev-mod-comp-05-recovery
+    requirement_id: MOD-COMP-05
+    requirement_version: '1.0'
+    method: test
+    passed: true
+    provenance: cli/tests/test_compilation_service.py::test_audit_promotion_failure_rolls_back_compilation_files
+    subject_id: apply-compilation
+    subject_version: '1.0'
+    subject_revision: 72de182a47e1c045f586be73a2c3a79b68f9130b
+    artifacts: *id001
+    timestamp: '2026-10-31'
+    verifier: CPython 3.14.5; pytest 9.1.1; Windows; 238 passed, 2 platform skips
+  - id: ev-mod-comp-06-recovery
+    requirement_id: MOD-COMP-06
+    requirement_version: '1.0'
+    method: test
+    passed: true
+    provenance: cli/tests/test_compilation_service.py::test_preview_rejects_prohibited_output_paths
+    subject_id: preview-compilation
+    subject_version: '1.0'
+    subject_revision: 72de182a47e1c045f586be73a2c3a79b68f9130b
+    artifacts: *id001
+    timestamp: '2026-10-31'
+    verifier: CPython 3.14.5; pytest 9.1.1; Windows; 238 passed, 2 platform skips
+  - id: ev-mod-comp-07-recovery
+    requirement_id: MOD-COMP-07
+    requirement_version: '1.0'
+    method: test
+    passed: true
+    provenance: cli/tests/test_compilation_service.py::test_discard_is_idempotent_and_surfaces_incomplete_cleanup
+    subject_id: discard-compilation
+    subject_version: '1.0'
+    subject_revision: 72de182a47e1c045f586be73a2c3a79b68f9130b
+    artifacts: *id001
+    timestamp: '2026-10-31'
+    verifier: CPython 3.14.5; pytest 9.1.1; Windows; 238 passed, 2 platform skips
+  - id: ev-mod-comp-08-recovery
+    requirement_id: MOD-COMP-08
+    requirement_version: '1.0'
+    method: test
+    passed: true
+    provenance: cli/tests/test_compilation_service.py::test_apply_writes_exact_stage_and_private_audit
+    subject_id: apply-compilation
+    subject_version: '1.0'
+    subject_revision: 72de182a47e1c045f586be73a2c3a79b68f9130b
+    artifacts: *id001
+    timestamp: '2026-10-31'
+    verifier: CPython 3.14.5; pytest 9.1.1; Windows; 238 passed, 2 platform skips
+  - id: ev-mod-comp-05-staging-cleanup
+    requirement_id: MOD-COMP-05
+    requirement_version: '1.0'
+    method: test
+    passed: true
+    provenance: cli/tests/test_compilation_cleanup_outcome.py::test_successful_promotion_keeps_committed_outcome_when_staging_cleanup_fails
+    subject_id: apply-compilation
+    subject_version: '1.0'
+    subject_revision: 72de182a47e1c045f586be73a2c3a79b68f9130b
+    artifacts: *id001
+    timestamp: '2026-10-31'
+    verifier: CPython 3.14.5; pytest 9.1.1; direct/apply regressions and real stdio
+      JSON-RPC
+    bounds: Normal promotion followed by injected staging-removal failure retains committed
+      writes/cleanup cause. Real RPC apply is applied and rejects reapply; failed staging
+      remains. Not real OS or crash evidence.
+  - id: ev-mod-comp-10-recovery-linux
     requirement_id: MOD-COMP-10
     requirement_version: '1.0'
     method: test
@@ -343,42 +378,42 @@ evidence:
     provenance: docs/superpowers/specs/system-spec/evidence/symlink-linux.xml
     subject_id: preview-compilation
     subject_version: '1.0'
-    subject_revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    subject_revision: 72de182a47e1c045f586be73a2c3a79b68f9130b
     artifacts:
-      docs/superpowers/specs/system-spec/evidence/symlink-linux.txt: 192aa4a12495831e39bb2501d7e30642d1903c48d703f568bea5ba7c025866ff
-      docs/superpowers/specs/system-spec/evidence/symlink-linux.xml: ef9615158ea9a63821d595aa36bb5a77fafd29110e156e28117e105ccd536430
-      docs/superpowers/specs/system-spec/evidence/symlink-linux-environment.json: 9392a4a10cdfd8bf07978e302a04470089ebaf9e731e430af67ddfb3429b5fad
-      docs/superpowers/specs/system-spec/evidence/symlink-linux.Dockerfile: 2bfe404c5cf44c46593912ccd260561a0d661d6e025675c65e6362a7a1b835ae
-      docs/superpowers/specs/system-spec/evidence/symlink-linux-run.py: 85426f57679981c501c57432cff48051d619b87ad8911f226e934eb93c0a420b
+      docs/superpowers/specs/system-spec/evidence/recovery-linux.txt: 63f9c228586ed046d2850cfd1641530658a07ef0532e5f4408a7be6019ca9ccf
+      docs/superpowers/specs/system-spec/evidence/recovery-linux.xml: a15a4b806081c159d94a48098571df3302105fc386ae5e349f7b67e7a88e2f96
+      docs/superpowers/specs/system-spec/evidence/recovery-linux-environment.json: 8a45d7213d95c75ec98fd1fd3be804a58e9efd83deabff7883cb7263158761a0
+      docs/superpowers/specs/system-spec/evidence/recovery-linux-run.py: 72e0451e7f40a8ec5905f924cbec0305d6b58972faf8267b10b267ab98963c51
     skipped: []
     timestamp: '2026-10-31'
-    verifier: CPython 3.14.5; pytest 9.1.1; Linux Docker filesystem; two named cases,
-      zero skips
-    bounds: Changed resolved parent and escaping directory symlink cases only; source
-      and tests extracted from Git revision 8de5b55b with controlled LF export. Does
-      not establish Windows symlink support or universal filesystem conformance.
+    verifier: CPython 3.14.5; pytest 9.1.1; Linux Docker filesystem; 4 passed, zero
+      skips
+    bounds: Two named directory-symlink cases plus both staging-cleanup service regressions,
+      current immutable source with controlled LF export; pinned prior dependency image,
+      current source imported from read-only mount. No Windows privilege or universal
+      filesystem claim.
     supersedes: ev-mod-comp-10-skipped
-    supersession_reason: Both previously unexecuted cases now passed on a symlink-capable
-      Linux filesystem against the same pinned source. Historical Windows skip output
-      remains retained.
+    supersession_reason: Both named skipped cases now pass on Linux against the changed
+      source; earlier passing captures are retained in the frozen historical specification
+      and artifacts.
 
 subject_bindings:
   direct-compilation:
     version: '1.0'
-    revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    revision: 72de182a47e1c045f586be73a2c3a79b68f9130b
     artifacts: &compilation-source
-      cli/src/modelable/operations/compilation.py: 35dc26900f6c69a984c78e44acfcf3d0ae4bd6169d1a8cf120ca79d1600af636
+      cli/src/modelable/operations/compilation.py: b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3
       cli/src/modelable/operations/file_transaction.py: 628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794
       cli/src/modelable/operations/compilation_audit.py: bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f
   preview-compilation:
     version: '1.0'
-    revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    revision: 72de182a47e1c045f586be73a2c3a79b68f9130b
     artifacts: *compilation-source
   apply-compilation:
     version: '1.0'
-    revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    revision: 72de182a47e1c045f586be73a2c3a79b68f9130b
     artifacts: *compilation-source
   discard-compilation:
     version: '1.0'
-    revision: 8de5b55bf07cff4a619c6ae25f2c3368290d310b
+    revision: 72de182a47e1c045f586be73a2c3a79b68f9130b
     artifacts: *compilation-source

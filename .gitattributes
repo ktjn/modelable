@@ -1,3 +1,6 @@
 cli/tests/conformance/browser/*.mdl text eol=lf
 web/public/fixtures/*.mdl text eol=lf
 cli/tests/fixtures/offline-rust-consumer/vendor/** -text
+
+# Captured hashes bind exact metadata/log bytes, including mixed line endings.
+docs/superpowers/specs/system-spec/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

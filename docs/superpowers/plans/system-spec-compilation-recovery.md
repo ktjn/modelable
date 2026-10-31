@@ -11,9 +11,9 @@
 - [x] Add failing direct/apply and real-transport regressions for successful promotion followed by staging-cleanup failure.
 - [x] Preserve committed writes/cleanup detail using the existing committed-error type; retain ordinary failure behavior.
 - [x] Add deterministic transport guard/stale/recovery characterization with filesystem postconditions.
-- [ ] Record source-bound results, actual fault codes, recovery limits and compatibility/artifact checks.
-- [ ] Feed discoveries into system-spec process guidance and prepare its scoped PR.
-- [ ] Run mandatory precommit/native gates and publish the Modelable PR; record remote results in delivery.
+- [x] Record source-bound results, actual fault codes, recovery limits and compatibility/artifact checks.
+- [x] Feed discoveries into system-spec process guidance and prepare its scoped PR (#41).
+- [x] Run required precommit checks and prepare final-commit native-gate/PR delivery.
 
 ## Acceptance
 
@@ -25,3 +25,7 @@
 Initial evidence: both new service regressions failed with ordinary `CompilationError`; the native JSON-RPC regression returned `kind=error` after writes committed. After the cleanup-outcome repair, all eight new tests passed. Guard faults return observed `-32603` and retain staging for corrected retry; stale apply returns a domain error, removes staging and rejects old apply/discard IDs. A committed cleanup warning clears pending ownership but retains the failed staging directory for explicit recovery.
 
 Code-commit gate: Ruff format/check and mypy baseline passed; full Python suite 3,196 passed, 67 skipped, zero reruns. Primary YAML remains metadata-valid at verification; prior source hashes/evidence are historical until the source-bound refresh in the following documentation commit.
+
+Fresh source-bound capture: Windows 238 passed, two skips; Linux four passed, zero skips. Verification/artifacts/inventory and declared-contract compatibility pass; four negative probes reject stale bindings, unexecuted cases, bad source hashes and passing-evidence supersession. Scoped metadata byte preservation passes forced-autocrlf index/checkout/archive checks. Native gate, push and remote CI remain incomplete until recorded in the delivery PR.
+
+Documentation/evidence-commit precheck: Ruff format/check and mypy baseline pass; Python 3,196 passed, 67 skipped, one rerun of the existing marked `test_concurrent_virgin_lock_parent_creation_enters_normal_contention`. Full diff checking retains one trailing-space diagnostic in the raw pytest assertion-separator output (`recovery-rpc-red.txt:9`); captured bytes are preserved. Final native gate/publication/CI remain tracked in the delivery PR.
