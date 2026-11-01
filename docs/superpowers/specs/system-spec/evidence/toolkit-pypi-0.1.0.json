@@ -1,0 +1,144 @@
+{
+  "recorded_date": "2026-11-01",
+  "package": "system-spec-ref",
+  "version": "0.1.0",
+  "index": "https://pypi.org/simple",
+  "pypi_metadata": "https://pypi.org/pypi/system-spec-ref/json",
+  "project_urls": {
+    "Homepage": "https://github.com/ktjn/system-specification",
+    "Issues": "https://github.com/ktjn/system-specification/issues",
+    "Source": "https://github.com/ktjn/system-specification"
+  },
+  "wheel": {
+    "filename": "system_spec_ref-0.1.0-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/da/05/2df2e91945979fdd2e8d1dbcdae000bce128b398386b3167bec6d48bb9a2/system_spec_ref-0.1.0-py3-none-any.whl",
+    "sha256": "af360b98599fbdb716ee370ffbef47523cfb955fc91e39922e4de8b5e8e5cb29",
+    "uploaded": "2026-11-01T06:45:58.185261Z"
+  },
+  "installation": {
+    "command": [
+      "uv",
+      "tool",
+      "install",
+      "--index-url",
+      "https://pypi.org/simple",
+      "system-spec-ref==0.1.0"
+    ],
+    "packaged_files_verified": 47,
+    "result": "Installed tool available; every packaged module/resource byte matches the PyPI wheel.",
+    "python": "3.14.5 (main, May 10 2026, 20:29:46) [MSC v.1944 64 bit (AMD64)]",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "dependencies": {
+      "pydantic": "2.14.2",
+      "pydantic-core": "2.50.2",
+      "PyYAML": "6.0.3"
+    }
+  },
+  "export": {
+    "command": [
+      "system-spec",
+      "export",
+      "tools/system-spec"
+    ],
+    "root": "tools/system-spec",
+    "file_count": 44,
+    "sha256": {
+      "BROWNFIELD.md": "79f7a9f2abe4b4a68a729bbfd317008f9f12e25cab56293b0712745de1e83808",
+      "CONSTITUTION.md": "12d8102df141e89283ee4506bc93d1e1f59e7fa92a29daa86199b9d8cc2ac970",
+      "GREENFIELD.md": "19c0384018a0fcbdad26488ddb625a2e1fb84bb0f599a4377b58f9460bb0ed7b",
+      "LICENSE": "41df4a90d6485d856d5012c6cbf3f6312556dc63c3337d70e39f33d88cf523ef",
+      "PACKAGING.md": "a61a709c193a031579058715e8570ff80487b8302c1dfaa0e02748f5f8286817",
+      "packaging.yaml": "78ece5385247695b7585c7677aaccd4e42107524d026f85d486f49317e920722",
+      "PLAN.md": "1d697d90c0a3e4ac31e423e2fd9735cbe6414bcc06a4452ed0a5772250ddc319",
+      "README.md": "69e1b53a381d2d20129b709f870482c5dd24ace222b074028878328e2dfbd6a4",
+      "spec.md": "aa470277901128511b4e955697f0c13048c0f69d6caaa4deff6048a42c6d6d7c",
+      "WIRING.md": "a0c1aba3124c5ec6d791c9cc4121878a7192181a3924845edc4baa8166d6af2d",
+      "archive/BENCHMARK.md": "e93adacdc11a5b12f279e9989f7a9d28a2388da958005bdd36ff37843a797f38",
+      "archive/README.md": "559b34f42e43f0c669d42f27393e3ef8921250c75bc3f9d541f25f1d18660d48",
+      "archive/REVIEW.md": "fa5b315e2e55c10835fffb3d7b7a19d497fcbb6cff0ff1218db05afeb4de0bdb",
+      "reference-implementation/.dockerignore": "4409b253ac33acb862192f9cad8583ed3fe0bac938082a6cfa784d7cf0d185ef",
+      "reference-implementation/.gitignore": "4409b253ac33acb862192f9cad8583ed3fe0bac938082a6cfa784d7cf0d185ef",
+      "reference-implementation/corpus.yaml": "5961ffdd3e4937bb8b76aa478d2713a0c6ff52ffc8b5c72742f17e78c9f3591e",
+      "reference-implementation/Dockerfile": "f0326a7744a814643da97a5cc343202c934d1c1b7990bd62d6871c1e63135bb5",
+      "reference-implementation/example.yaml": "28f1ed6ecc72d47441e47d67efe8cafda3263f7a288043c696e82ddcaba196ad",
+      "reference-implementation/metamodel.als": "a6866efa4e83256366662a12cd8ca81a3d1dd0bb1f74f952501951e807fbb406",
+      "reference-implementation/metamodel.py": "7e87e60950b6ab7ef2fd4fc438e44f6651848661c2e206f7f12ec5741e1a277e",
+      "reference-implementation/old.yaml": "e1e38b5a09372b64ed1e866aa72777b3646abb1e3a0940665e1109d6dbc6e688",
+      "reference-implementation/pyproject.toml": "1a45c5a80ee5c9e84957258cd7de69fedfa6037036b08b152e39426ce6550ee6",
+      "reference-implementation/README.md": "f9ddda5a80ac8b1a1d3a2f1af119dfbba5ad1cc672f22c1047558cae1ae6e6e8",
+      "reference-implementation/schema.json": "68575c37f4adf8449e2ae1978ad78038c7c383ccef7953e7ce4b473aa1ed71ea",
+      "reference-implementation/test_metamodel.py": "31ab27131989c066aa103347ea03c02641551d965db51ba7d964f0d6cc212eb4",
+      "reference-implementation/test_onboarding.py": "5d00892a804c590ea1bbd690e15337e7095f156bb7adbd3e2d0a6682f780e9d9",
+      "reference-implementation/uv.lock": "9b0b11d628bfe287cb05aaf8be69d4705367bed04052b6d2d082eacfbe59750b",
+      "templates/BROWNFIELD-INTAKE.md": "4a5faa63e1bf575295aef29239f31cc0a06674030f1c6408d4086dee9619a8cb",
+      "examples/brownfield/level0.yaml": "cbcaa1914d0eeb681187dcabd8a5e11b5de87ba64ce7bc15e5b9a38484b4f0c6",
+      "examples/brownfield/level1.yaml": "204b0d01fae61fbfe8ebab3a935d9e3cb6892756eeb867f87922ab43ef0ad425",
+      "examples/brownfield/old.yaml": "0aeee73bde34c9016453fe901cdb5cc2a0b929fd80087864ef7d74136c92c310",
+      "examples/brownfield/README.md": "ec412db997e0b15b1f480ba16fc9e0b8ce192897a968c0f7a6b553654645b755",
+      "examples/brownfield/spec.yaml": "5709a18b8ad647567366e6006b5ae9347fb039cf8f3ce110bacb4ab2b741a52b",
+      "examples/greenfield/Inventory.als": "bddd33540d0071820f11d2954594125b3b757ea80462dc3eb2cbf8e70a6109f7",
+      "examples/greenfield/Inventory.cfg": "7341465e43a60cada3cd41af02e8022b1c84f572d737ce7c18fa407755bc1b54",
+      "examples/greenfield/Inventory.tla": "13c19af4312d1db2de1f42a72858cf8fb372123f9af843ae62e4a8a8898b3d31",
+      "examples/greenfield/README.md": "a0293c44e3225f5496d8258e4afeaabfddea30f48a60bbac215928d06b52cb0a",
+      "examples/greenfield/spec.yaml": "95a436c936e9d77069788515e12072c7357b3cd92ada7f80d32c01c58836d46a",
+      "archive/feedback/modelable-onboarding.md": "106f281e40e2c0437abccd4d5446aded38fde9d1bdae407f71b3b718420729b9",
+      "archive/feedback/observable-onboarding.md": "0de59479f965731a92bab8ce679fb3bb4eb061e7d854be73c6b959093b340785",
+      ".github/workflows/metamodel.yml": "4e3ab88fefef2bad0b1199fa04dcda5c3480fd8e2bb97e94d26f8d96ba5b05d8",
+      ".github/skills/alloy/SKILL.md": "33456df172695c4ffaedef418e5596ab7e6a32aea8ba618cdd47edc24c9fab81",
+      ".github/skills/modelable/SKILL.md": "2f539abe65c92d8fe8f79ac8d1511df40beceb6d873f777ac1b72cdc5c52d655",
+      ".github/skills/tla/SKILL.md": "7a8fefad35131ce549c7a882c8afcf2d3c47055919061180189c4f561c786eb5"
+    },
+    "verified_against_wheel": true,
+    "markdown_local_links_checked": 182,
+    "missing_local_links": [],
+    "byte_policy": "Exact published bytes; scoped -text Git attributes. Snapshot is kept intact."
+  },
+  "validator_comparison": {
+    "schema_semantically_identical": true,
+    "validator_symbol_differences": {
+      "added": [
+        "diagram"
+      ],
+      "removed": [],
+      "changed": [
+        "main"
+      ]
+    }
+  },
+  "current_validator_sha256": "7e87e60950b6ab7ef2fd4fc438e44f6651848661c2e206f7f12ec5741e1a277e",
+  "current_schema_sha256": "68575c37f4adf8449e2ae1978ad78038c7c383ccef7953e7ce4b473aa1ed71ea",
+  "historical_capture": "Existing adoption.json/source/evidence/schema pins are retained, not relabeled as new executions.",
+  "reference_tests": {
+    "result": {
+      "tests": 125,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1,
+      "passed": 124
+    },
+    "skips": [
+      "test_onboarding.py:112: file symlinks unavailable"
+    ],
+    "command": {
+      "command": [
+        "C:\\git\\modelable\\cli\\.venv\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "-q",
+        "-r",
+        "s",
+        "-p",
+        "no:cacheprovider",
+        "--basetemp=C:\\git\\modelable\\.agentbuild\\validation\\pypi-system-spec\\reference-capture-e177707729f546b98d6df8eabbc221df",
+        "--junitxml=C:\\git\\modelable\\docs\\superpowers\\specs\\system-spec\\evidence\\packaged-toolkit-tests.xml"
+      ],
+      "cwd": "tools/system-spec/reference-implementation",
+      "exit_code": 0
+    },
+    "artifacts": {
+      "docs/superpowers/specs/system-spec/evidence/packaged-toolkit-tests.txt": "8a9c264219819b90856f433fb62c9fff4f7e638d97315bfeb75d045aa3210e82",
+      "docs/superpowers/specs/system-spec/evidence/packaged-toolkit-tests.xml": "2cd7c627817b42416db61cc62d01058cc668eb6d15ba760aafc566a709446632"
+    }
+  },
+  "offline_version_note": "The standalone validator reports 0.0.0+unknown when package distribution metadata is absent; this verified snapshot is identified by the package version/wheel and file hashes above."
+}
