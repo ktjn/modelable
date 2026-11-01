@@ -12,6 +12,12 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Preserve affected artifact references such as `go.mod` in conversation previews without treating them as source-model locations.
+
+- Advertise conversation protocol support in the actual LSP initialize response so native editor chat can pass capability negotiation.
+
+- Keep conversation compilation previews recoverable after malformed-ledger JSON or SQLite operational failures, preserving pending actions and editor session metadata.
+
 - Render malformed registry-ledger JSON and SQLite operational failures as clear CLI errors, preserving nonzero status and input files.
 
 - Preserve committed compilation outcomes and written paths when final staging cleanup fails, including conversational apply.
