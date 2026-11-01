@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../../../tools/system-spec/reference-implementation/handoff-return.schema.json
+# Starting template, not execution evidence. Replace unmet entries with actual results for the task.
+component: compilation-unit
+base: 0aa1949afea74e4ba1daa17c312996b7982caa29
+results: []
+unmet:
+- requirement: MOD-COMP-01
+  reason: Not executed by this template. Supply current requirement-linked results before accepting this
+    handoff.
+- requirement: MOD-COMP-02
+  reason: Not executed by this template. Supply current requirement-linked results before accepting this
+    handoff.
+- requirement: MOD-COMP-03
+  reason: Not executed by this template. Supply current requirement-linked results before accepting this
+    handoff.
+- requirement: MOD-COMP-04
+  reason: Not executed by this template. Supply current requirement-linked results before accepting this
+    handoff.
+- requirement: MOD-COMP-05
+  reason: Not executed by this template. Supply current requirement-linked results before accepting this
+    handoff.
+- requirement: MOD-COMP-06
+  reason: Not executed by this template. Supply current requirement-linked results before accepting this
+    handoff.
+- requirement: MOD-COMP-07
+  reason: Not executed by this template. Supply current requirement-linked results before accepting this
+    handoff.
+- requirement: MOD-COMP-08
+  reason: Not executed by this template. Supply current requirement-linked results before accepting this
+    handoff.
+- requirement: MOD-COMP-10
+  reason: Not executed by this template. Supply current requirement-linked results before accepting this
+    handoff.
+changed: []
+findings:
+- kind: assumption
+  text: A valid incomplete return is structurally accountable, not acceptance. MOD-COMP-09 is system-scoped
+    and remains an explicit separate gate; no contract activation or release approval is recorded.

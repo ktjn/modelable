@@ -1,0 +1,7 @@
+........................................................................ [ 38%]
+...........................................................s..........s. [ 77%]
+..........................................                               [100%]
+=========================== short test summary info ===========================
+SKIPPED [1] test_onboarding.py:113: file symlinks unavailable
+SKIPPED [1] test_onboarding.py:206: file symlinks unavailable
+184 passed, 2 skipped in 4.26s

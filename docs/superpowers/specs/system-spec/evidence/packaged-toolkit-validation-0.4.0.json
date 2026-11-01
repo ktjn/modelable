@@ -1,0 +1,239 @@
+{
+  "package": "system-spec-ref==0.4.0",
+  "source_baseline": "0aa1949afea74e4ba1daa17c312996b7982caa29",
+  "scope": "Tool migration and diagnostic semantics; not new product execution or acceptance",
+  "cases": {
+    "inventory": {
+      "args": [
+        "docs/superpowers/specs/system-spec/inventory.yaml",
+        "--stage",
+        "inventory",
+        "--check-artifacts",
+        "--root",
+        ".",
+        "--json"
+      ],
+      "installed_offline_equal": true,
+      "exit_code": 0,
+      "stdout": "{\n  \"valid\": true,\n  \"stage\": \"inventory\",\n  \"errors\": [],\n  \"residual_risks\": [],\n  \"waivers\": []\n}\n"
+    },
+    "compilation": {
+      "args": [
+        "docs/superpowers/specs/system-spec/compilation.yaml",
+        "--stage",
+        "verification",
+        "--check-artifacts",
+        "--root",
+        ".",
+        "--json"
+      ],
+      "installed_offline_equal": true,
+      "exit_code": 0,
+      "stdout": "{\n  \"valid\": true,\n  \"stage\": \"verification\",\n  \"errors\": [],\n  \"residual_risks\": [],\n  \"waivers\": [\n    \"compilation-category-gap\"\n  ]\n}\n"
+    },
+    "proposal": {
+      "args": [
+        "docs/superpowers/specs/system-spec/compilation-contract-proposal.yaml",
+        "--stage",
+        "architecture",
+        "--check-artifacts",
+        "--root",
+        ".",
+        "--json"
+      ],
+      "installed_offline_equal": true,
+      "exit_code": 0,
+      "stdout": "{\n  \"valid\": true,\n  \"stage\": \"architecture\",\n  \"errors\": [],\n  \"residual_risks\": [],\n  \"waivers\": [\n    \"compilation-category-gap\"\n  ]\n}\n"
+    },
+    "prior_metadata": {
+      "args": [
+        "docs/superpowers/specs/system-spec/evidence/compilation-before-toolkit-0.4.0.yaml",
+        "--stage",
+        "verification",
+        "--check-artifacts",
+        "--root",
+        ".",
+        "--json"
+      ],
+      "installed_offline_equal": true,
+      "exit_code": 0,
+      "stdout": "{\n  \"valid\": true,\n  \"stage\": \"verification\",\n  \"errors\": [],\n  \"residual_risks\": [],\n  \"waivers\": [\n    \"compilation-category-gap\"\n  ]\n}\n"
+    },
+    "compatibility": {
+      "args": [
+        "docs/superpowers/specs/system-spec/compilation.yaml",
+        "--stage",
+        "verification",
+        "--compat",
+        "docs/superpowers/specs/system-spec/evidence/compilation-before-toolkit-0.4.0.yaml",
+        "--json"
+      ],
+      "installed_offline_equal": true,
+      "exit_code": 0,
+      "stdout": "{\n  \"valid\": true,\n  \"stage\": \"verification\",\n  \"errors\": [],\n  \"residual_risks\": [],\n  \"waivers\": [\n    \"compilation-category-gap\"\n  ]\n}\n"
+    },
+    "proposal_compatibility": {
+      "args": [
+        "docs/superpowers/specs/system-spec/compilation-contract-proposal.yaml",
+        "--stage",
+        "architecture",
+        "--compat",
+        "docs/superpowers/specs/system-spec/compilation.yaml",
+        "--json"
+      ],
+      "installed_offline_equal": true,
+      "exit_code": 1,
+      "stdout": "{\n  \"valid\": false,\n  \"stage\": \"architecture\",\n  \"errors\": [\n    \"[COMPAT-04] Capability 'direct-compilation': Added failure modes: ['LockContentionError', 'OSError', 'RegistryIdLockContentionError', 'json.JSONDecodeError', 'sqlite3.OperationalError']\",\n    \"[COMPAT-04] Capability 'preview-compilation': Added failure modes: ['OSError', 'json.JSONDecodeError', 'sqlite3.OperationalError']\",\n    \"[COMPAT-04] Capability 'apply-compilation': Added failure modes: ['LockContentionError', 'OSError', 'RegistryIdLockContentionError']\"\n  ],\n  \"residual_risks\": [],\n  \"waivers\": [\n    \"compilation-category-gap\"\n  ]\n}\n"
+    },
+    "release": {
+      "args": [
+        "docs/superpowers/specs/system-spec/compilation.yaml",
+        "--stage",
+        "release",
+        "--json"
+      ],
+      "installed_offline_equal": true,
+      "exit_code": 1,
+      "stdout": "{\n  \"valid\": false,\n  \"stage\": \"release\",\n  \"errors\": [\n    \"[RISK-02] Risk 'compilation-category-gap' waiver expired (verification)\",\n    \"[REQ-01] Missing verification categories: ['performance', 'scalability', 'observability']\",\n    \"[STAT-04] System 'modelable-compilation-slice' status 'specified' below 'verified'\",\n    \"[STAT-04] Capability 'direct-compilation' status 'specified' below 'verified'\",\n    \"[STAT-04] Capability 'preview-compilation' status 'specified' below 'verified'\",\n    \"[STAT-04] Capability 'apply-compilation' status 'specified' below 'verified'\",\n    \"[STAT-04] Capability 'discard-compilation' status 'specified' below 'verified'\",\n    \"[STAT-04] Component 'compilation-unit' status 'specified' below 'verified'\",\n    \"[STAT-04] Requirement 'MOD-COMP-01' status 'specified' below 'verified'\",\n    \"[STAT-04] Requirement 'MOD-COMP-02' status 'specified' below 'verified'\",\n    \"[STAT-04] Requirement 'MOD-COMP-03' status 'specified' below 'verified'\",\n    \"[STAT-04] Requirement 'MOD-COMP-04' status 'specified' below 'verified'\",\n    \"[STAT-04] Requirement 'MOD-COMP-05' status 'specified' below 'verified'\",\n    \"[STAT-04] Requirement 'MOD-COMP-06' status 'specified' below 'verified'\",\n    \"[STAT-04] Requirement 'MOD-COMP-07' status 'specified' below 'verified'\",\n    \"[STAT-04] Requirement 'MOD-COMP-08' status 'specified' below 'verified'\",\n    \"[STAT-04] Requirement 'MOD-COMP-09' status 'specified' below 'verified'\",\n    \"[REQ-05] Requirement 'MOD-COMP-09@1.0' missing valid verification evidence\",\n    \"[RISK-04] Risk 'compilation-category-gap' has unverified mitigation 'MOD-COMP-09'\",\n    \"[RISK-08] Risk 'compilation-category-gap' waives 'verification-category'; no waivers permitted at release\",\n    \"[RISK-04] Risk 'compilation-failure-review-gap' has unverified mitigation 'MOD-COMP-09'\"\n  ],\n  \"residual_risks\": [],\n  \"waivers\": []\n}\n"
+    },
+    "context": {
+      "args": [
+        "docs/superpowers/specs/system-spec/compilation.yaml",
+        "--context",
+        "compilation-unit",
+        "--json"
+      ],
+      "installed_offline_equal": true,
+      "exit_code": 0,
+      "stdout": "{\n  \"system\": {\n    \"id\": \"modelable-compilation-slice\",\n    \"version\": \"1.0\",\n    \"status\": \"specified\"\n  },\n  \"capabilities\": [\n    {\n      \"id\": \"direct-compilation\",\n      \"version\": \"1.0\",\n      \"status\": \"specified\",\n      \"preconditions\": [\n        \"readable workspace and supported target supplied\"\n      ],\n      \"postconditions\": [\n        \"generated artifacts and associated local state promoted from staging on success\"\n      ],\n      \"invariants\": [\n        \"failed preflight does not publish destination state\",\n        \"direct path does not write conversational audit\"\n      ],\n      \"failure_modes\": [\n        \"CompilationError\",\n        \"CompilationDiagnosticsError\",\n        \"FileTransactionError\",\n        \"FileTransactionCommittedError\"\n      ],\n      \"interface\": {\n        \"operation\": \"CompilationService.execute_direct\",\n        \"request\": \"compilation-request\",\n        \"response\": \"direct-compilation-result\",\n        \"idempotent\": false,\n        \"auth\": \"caller filesystem permissions; explicit local invocation\",\n        \"errors\": {\n          \"CompilationError\": \"python-exception\",\n          \"CompilationDiagnosticsError\": \"python-exception\",\n          \"FileTransactionError\": \"python-exception\",\n          \"FileTransactionCommittedError\": \"committed-with-cleanup-error\"\n        }\n      }\n    },\n    {\n      \"id\": \"preview-compilation\",\n      \"version\": \"1.0\",\n      \"status\": \"specified\",\n      \"preconditions\": [\n        \"conversation policy supplied and workspace-restricted request\"\n      ],\n      \"postconditions\": [\n        \"pending compilation contains staged file previews and source fingerprints\"\n      ],\n      \"invariants\": [\n        \"preview does not change destination workspace files\",\n        \"staging is outside workspace\"\n      ],\n      \"failure_modes\": [\n        \"CompilationError\",\n        \"CompilationDiagnosticsError\"\n      ],\n      \"interface\": {\n        \"operation\": \"CompilationService.preview\",\n        \"request\": \"compilation-request\",\n        \"response\": \"pending-compilation\",\n        \"idempotent\": false,\n        \"auth\": \"caller filesystem permissions; conversation policy\",\n        \"errors\": {\n          \"CompilationError\": \"python-exception\",\n          \"CompilationDiagnosticsError\": \"python-exception\"\n        }\n      }\n    },\n    {\n      \"id\": \"apply-compilation\",\n      \"version\": \"1.0\",\n      \"status\": \"specified\",\n      \"preconditions\": [\n        \"pending compilation and exact matching confirmation supplied\"\n      ],\n      \"postconditions\": [\n        \"exact staged files and private audit promoted on success\"\n      ],\n      \"invariants\": [\n        \"freshness checked under locks\",\n        \"staged bytes promoted without recompiling\"\n      ],\n      \"failure_modes\": [\n        \"CompilationError\",\n        \"StaleCompilationError\",\n        \"FileTransactionError\",\n        \"FileTransactionCommittedError\"\n      ],\n      \"interface\": {\n        \"operation\": \"CompilationService.apply\",\n        \"request\": [\n          \"pending-compilation\",\n          \"compilation-confirmation\"\n        ],\n        \"response\": \"applied-compilation\",\n        \"idempotent\": false,\n        \"auth\": \"confirmation binding and caller filesystem permissions\",\n        \"errors\": {\n          \"CompilationError\": \"python-exception\",\n          \"StaleCompilationError\": \"python-exception\",\n          \"FileTransactionError\": \"python-exception\",\n          \"FileTransactionCommittedError\": \"committed-with-cleanup-error\"\n        }\n      }\n    },\n    {\n      \"id\": \"discard-compilation\",\n      \"version\": \"1.0\",\n      \"status\": \"specified\",\n      \"preconditions\": [\n        \"pending compilation supplied\"\n      ],\n      \"postconditions\": [\n        \"invocation staging removed or cleanup failure surfaced\"\n      ],\n      \"invariants\": [\n        \"discard does not apply staged artifacts\"\n      ],\n      \"failure_modes\": [\n        \"CompilationError\"\n      ],\n      \"interface\": {\n        \"operation\": \"CompilationService.discard\",\n        \"request\": \"pending-compilation\",\n        \"idempotent\": true,\n        \"auth\": \"caller filesystem permissions\",\n        \"errors\": {\n          \"CompilationError\": \"python-exception\"\n        }\n      }\n    }\n  ],\n  \"components\": [\n    {\n      \"id\": \"compilation-unit\",\n      \"version\": \"1.15.2\",\n      \"status\": \"specified\",\n      \"provides\": [\n        \"direct-compilation\",\n        \"preview-compilation\",\n        \"apply-compilation\",\n        \"discard-compilation\"\n      ],\n      \"owns_data\": [\n        \"compilation-request\",\n        \"pending-compilation\",\n        \"compilation-confirmation\",\n        \"applied-compilation\",\n        \"direct-compilation-result\"\n      ],\n      \"source_paths\": [\n        \"cli/src/modelable/operations/compilation.py\",\n        \"cli/src/modelable/operations/file_transaction.py\",\n        \"cli/src/modelable/operations/compilation_audit.py\"\n      ],\n      \"test_paths\": [\n        \"cli/tests/test_compilation_service.py\",\n        \"cli/tests/test_compilation_cleanup_outcome.py\"\n      ],\n      \"context_budget\": {\n        \"max_owns_data\": 5\n      },\n      \"test_scope\": \"integration\"\n    }\n  ],\n  \"data_models\": [\n    {\n      \"id\": \"compilation-request\",\n      \"version\": \"1.0\",\n      \"owner\": \"compilation-unit\",\n      \"classification\": \"restricted\",\n      \"fields\": {\n        \"source\": \"Path\",\n        \"target\": \"str\",\n        \"out_dir\": \"Path | None\",\n        \"registry_path\": \"str\",\n        \"snapshot_path\": \"Path | None\",\n        \"registry_ids_path\": \"Path\",\n        \"allow_orphaned_registry_ids\": \"bool\",\n        \"enum_numbers_path\": \"Path\",\n        \"domains\": \"tuple[str, ...]\",\n        \"descriptor_set\": \"bool\",\n        \"package\": \"str | None\",\n        \"overlay_path\": \"Path | None\",\n        \"usage_manifest\": \"bool\"\n      }\n    },\n    {\n      \"id\": \"pending-compilation\",\n      \"version\": \"1.0\",\n      \"owner\": \"compilation-unit\",\n      \"classification\": \"restricted\",\n      \"fields\": {\n        \"action_id\": \"str\",\n        \"request\": \"CompilationRequest\",\n        \"workspace_root\": \"Path\",\n        \"staging_dir\": \"Path\",\n        \"files\": \"tuple[CompilationFilePreview, ...]\",\n        \"source_fingerprints\": \"tuple[FileFingerprint, ...]\",\n        \"affected_definitions\": \"tuple[AffectedDefinition, ...]\",\n        \"registry_id_changes\": \"tuple[RegistryIdChange, ...]\",\n        \"registry_ids_before\": \"dict[str, int]\",\n        \"warnings\": \"tuple[str, ...]\",\n        \"manifest_fingerprint\": \"str\",\n        \"preview_timestamp\": \"str\",\n        \"audit_resolved_parent\": \"Path\"\n      }\n    },\n    {\n      \"id\": \"compilation-confirmation\",\n      \"version\": \"1.0\",\n      \"owner\": \"compilation-unit\",\n      \"classification\": \"restricted\",\n      \"fields\": {\n        \"session_id\": \"str\",\n        \"action_id\": \"str\",\n        \"manifest_fingerprint\": \"str\",\n        \"surface\": \"Literal[cli-chat, vscode-chat]\",\n        \"provider\": \"str | None\",\n        \"model\": \"str | None\"\n      }\n    },\n    {\n      \"id\": \"applied-compilation\",\n      \"version\": \"1.0\",\n      \"owner\": \"compilation-unit\",\n      \"classification\": \"restricted\",\n      \"fields\": {\n        \"action_id\": \"str\",\n        \"written_paths\": \"tuple[Path, ...]\",\n        \"affected_definitions\": \"tuple[AffectedDefinition, ...]\",\n        \"files\": \"tuple[CompilationFilePreview, ...]\",\n        \"audit_path\": \"Path\"\n      }\n    },\n    {\n      \"id\": \"direct-compilation-result\",\n      \"version\": \"1.0\",\n      \"owner\": \"compilation-unit\",\n      \"classification\": \"restricted\",\n      \"fields\": {\n        \"written_paths\": \"tuple[Path, ...]\",\n        \"events\": \"tuple[CompilationEvent, ...]\"\n      }\n    }\n  ],\n  \"requirements\": [\n    {\n      \"id\": \"MOD-COMP-01\",\n      \"version\": \"1.0\",\n      \"target\": \"direct-compilation\",\n      \"status\": \"specified\",\n      \"category\": \"functional\",\n      \"criteria\": [\n        \"Direct compilation writes registry/plans/artifacts for supported targets and no conversational audit.\"\n      ]\n    },\n    {\n      \"id\": \"MOD-COMP-02\",\n      \"version\": \"1.0\",\n      \"target\": \"preview-compilation\",\n      \"status\": \"specified\",\n      \"category\": \"contract\",\n      \"criteria\": [\n        \"Preview stages file changes without mutating workspace destinations.\"\n      ]\n    },\n    {\n      \"id\": \"MOD-COMP-03\",\n      \"version\": \"1.0\",\n      \"target\": \"apply-compilation\",\n      \"status\": \"specified\",\n      \"category\": \"semantic\",\n      \"criteria\": [\n        \"Apply rejects stale inputs and tampering and promotes the confirmed staged bytes without recompilation.\"\n      ]\n    },\n    {\n      \"id\": \"MOD-COMP-04\",\n      \"version\": \"1.0\",\n      \"target\": \"apply-compilation\",\n      \"status\": \"specified\",\n      \"category\": \"concurrency\",\n      \"criteria\": [\n        \"Waiting apply rechecks freshness under the workspace lock.\"\n      ]\n    },\n    {\n      \"id\": \"MOD-COMP-05\",\n      \"version\": \"1.0\",\n      \"target\": \"apply-compilation\",\n      \"status\": \"specified\",\n      \"kind\": \"non-functional\",\n      \"category\": \"resilience\",\n      \"criteria\": [\n        \"Injected audit promotion failure rolls back destination files; committed cleanup failures remain distinguishable from uncommitted failures.\"\n      ]\n    },\n    {\n      \"id\": \"MOD-COMP-06\",\n      \"version\": \"1.0\",\n      \"target\": \"preview-compilation\",\n      \"status\": \"specified\",\n      \"kind\": \"non-functional\",\n      \"category\": \"security\",\n      \"criteria\": [\n        \"Preview rejects prohibited and overlapping control/output paths before publication; full symlink coverage is separately tracked.\"\n      ]\n    },\n    {\n      \"id\": \"MOD-COMP-07\",\n      \"version\": \"1.0\",\n      \"target\": \"discard-compilation\",\n      \"status\": \"specified\",\n      \"kind\": \"non-functional\",\n      \"category\": \"resilience\",\n      \"criteria\": [\n        \"Discard is idempotent and surfaces incomplete cleanup.\"\n      ]\n    },\n    {\n      \"id\": \"MOD-COMP-08\",\n      \"version\": \"1.0\",\n      \"target\": \"apply-compilation\",\n      \"status\": \"specified\",\n      \"category\": \"serialization\",\n      \"criteria\": [\n        \"Successful apply writes audit schemaVersion 1 with the pending manifest fingerprint and without prompt contents.\"\n      ]\n    },\n    {\n      \"id\": \"MOD-COMP-09\",\n      \"version\": \"1.0\",\n      \"target\": \"modelable-compilation-slice\",\n      \"status\": \"specified\",\n      \"category\": \"functional\",\n      \"criteria\": [\n        \"Before release, establish measured performance/scalability/observability requirements and evidence for this slice.\",\n        \"Complete transitive type/ownership mapping, production failure review and formal applicability assessment.\"\n      ]\n    },\n    {\n      \"id\": \"MOD-COMP-10\",\n      \"version\": \"1.0\",\n      \"target\": \"preview-compilation\",\n      \"status\": \"verified\",\n      \"kind\": \"non-functional\",\n      \"category\": \"security\",\n      \"criteria\": [\n        \"Run the changed-parent and escaping-symlink characterization cases on a host supporting directory symlinks.\"\n      ]\n    }\n  ],\n  \"risks\": [\n    {\n      \"id\": \"compilation-category-gap\",\n      \"target\": \"modelable-compilation-slice\",\n      \"treatment\": \"mitigation\",\n      \"mitigated_by\": [\n        \"MOD-COMP-09\"\n      ],\n      \"waives\": \"verification-category\",\n      \"expires\": \"verification\"\n    },\n    {\n      \"id\": \"compilation-failure-review-gap\",\n      \"target\": \"modelable-compilation-slice\",\n      \"treatment\": \"mitigation\",\n      \"mitigated_by\": [\n        \"MOD-COMP-09\"\n      ]\n    }\n  ],\n  \"subject_bindings\": {\n    \"direct-compilation\": {\n      \"version\": \"1.0\",\n      \"revision\": \"72de182a47e1c045f586be73a2c3a79b68f9130b\",\n      \"artifacts\": {\n        \"cli/src/modelable/operations/compilation.py\": \"b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3\",\n        \"cli/src/modelable/operations/file_transaction.py\": \"628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794\",\n        \"cli/src/modelable/operations/compilation_audit.py\": \"bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f\"\n      }\n    },\n    \"preview-compilation\": {\n      \"version\": \"1.0\",\n      \"revision\": \"72de182a47e1c045f586be73a2c3a79b68f9130b\",\n      \"artifacts\": {\n        \"cli/src/modelable/operations/compilation.py\": \"b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3\",\n        \"cli/src/modelable/operations/file_transaction.py\": \"628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794\",\n        \"cli/src/modelable/operations/compilation_audit.py\": \"bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f\"\n      }\n    },\n    \"apply-compilation\": {\n      \"version\": \"1.0\",\n      \"revision\": \"72de182a47e1c045f586be73a2c3a79b68f9130b\",\n      \"artifacts\": {\n        \"cli/src/modelable/operations/compilation.py\": \"b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3\",\n        \"cli/src/modelable/operations/file_transaction.py\": \"628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794\",\n        \"cli/src/modelable/operations/compilation_audit.py\": \"bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f\"\n      }\n    },\n    \"discard-compilation\": {\n      \"version\": \"1.0\",\n      \"revision\": \"72de182a47e1c045f586be73a2c3a79b68f9130b\",\n      \"artifacts\": {\n        \"cli/src/modelable/operations/compilation.py\": \"b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3\",\n        \"cli/src/modelable/operations/file_transaction.py\": \"628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794\",\n        \"cli/src/modelable/operations/compilation_audit.py\": \"bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f\"\n      }\n    }\n  }\n}"
+    },
+    "impact": {
+      "args": [
+        "docs/superpowers/specs/system-spec/compilation.yaml",
+        "--impact",
+        "apply-compilation",
+        "--json"
+      ],
+      "installed_offline_equal": true,
+      "exit_code": 0,
+      "stdout": "{\n  \"components\": [\n    \"compilation-unit\"\n  ],\n  \"capabilities\": [\n    \"direct-compilation\",\n    \"preview-compilation\",\n    \"apply-compilation\",\n    \"discard-compilation\"\n  ],\n  \"data_models\": [\n    \"compilation-request\",\n    \"pending-compilation\",\n    \"compilation-confirmation\",\n    \"applied-compilation\",\n    \"direct-compilation-result\"\n  ],\n  \"requirements\": [\n    \"MOD-COMP-01\",\n    \"MOD-COMP-02\",\n    \"MOD-COMP-03\",\n    \"MOD-COMP-04\",\n    \"MOD-COMP-05\",\n    \"MOD-COMP-06\",\n    \"MOD-COMP-07\",\n    \"MOD-COMP-08\",\n    \"MOD-COMP-09\",\n    \"MOD-COMP-10\"\n  ],\n  \"invalidated_evidence\": [\n    \"ev-mod-comp-10-skipped\",\n    \"ev-mod-comp-01-recovery\",\n    \"ev-mod-comp-02-recovery\",\n    \"ev-mod-comp-03-recovery\",\n    \"ev-mod-comp-04-recovery\",\n    \"ev-mod-comp-05-recovery\",\n    \"ev-mod-comp-06-recovery\",\n    \"ev-mod-comp-07-recovery\",\n    \"ev-mod-comp-08-recovery\",\n    \"ev-mod-comp-05-staging-cleanup\",\n    \"ev-mod-comp-10-recovery-linux\"\n  ]\n}\n"
+    },
+    "plan": {
+      "args": [
+        "docs/superpowers/specs/system-spec/inventory.yaml",
+        "--plan",
+        "local-contract-toolchain",
+        "--json"
+      ],
+      "installed_offline_equal": true,
+      "exit_code": 0,
+      "stdout": "{\n  \"target\": \"local-contract-toolchain\",\n  \"waves\": [\n    [\n      \"semantic-toolchain\"\n    ],\n    [\n      \"browser-facade\",\n      \"desktop-language-server\",\n      \"native-cli\"\n    ],\n    [\n      \"browser-playground\",\n      \"vscode-extension\"\n    ]\n  ],\n  \"components\": {\n    \"browser-facade\": {\n      \"requires\": [\n        \"local-contract-toolchain\"\n      ],\n      \"fakes\": {},\n      \"source_paths\": [\n        \"cli/src/modelable/browser\",\n        \"cli/browser\"\n      ],\n      \"test_paths\": []\n    },\n    \"browser-playground\": {\n      \"requires\": [\n        \"browser-compiler-api\"\n      ],\n      \"fakes\": {},\n      \"source_paths\": [\n        \"web/src\",\n        \"web/package.json\"\n      ],\n      \"test_paths\": []\n    },\n    \"desktop-language-server\": {\n      \"requires\": [\n        \"local-contract-toolchain\"\n      ],\n      \"fakes\": {},\n      \"source_paths\": [\n        \"cli/src/modelable/lsp\",\n        \"cli/src/modelable/language\"\n      ],\n      \"test_paths\": []\n    },\n    \"native-cli\": {\n      \"requires\": [\n        \"local-contract-toolchain\"\n      ],\n      \"fakes\": {},\n      \"source_paths\": [\n        \"cli/src/modelable/cli.py\",\n        \"cli/src/modelable/commands\",\n        \"cli/src/modelable/llm\",\n        \"cli/src/modelable/specs\"\n      ],\n      \"test_paths\": []\n    },\n    \"semantic-toolchain\": {\n      \"requires\": [],\n      \"fakes\": {},\n      \"source_paths\": [\n        \"cli/src/modelable/compiler\",\n        \"cli/src/modelable/parser\",\n        \"cli/src/modelable/validation\",\n        \"cli/src/modelable/planner\",\n        \"cli/src/modelable/emitters\",\n        \"cli/src/modelable/registry\",\n        \"cli/src/modelable/operations\"\n      ],\n      \"test_paths\": []\n    },\n    \"vscode-extension\": {\n      \"requires\": [\n        \"desktop-language-and-conversation\"\n      ],\n      \"fakes\": {},\n      \"source_paths\": [\n        \"vscode/extension.js\",\n        \"vscode/package.json\"\n      ],\n      \"test_paths\": []\n    }\n  },\n  \"requirements\": [\n    \"MOD-ADOPT-01\",\n    \"MOD-ADOPT-02\"\n  ],\n  \"invalidated_evidence\": []\n}"
+    },
+    "compilation_plan": {
+      "args": [
+        "docs/superpowers/specs/system-spec/compilation.yaml",
+        "--plan",
+        "apply-compilation",
+        "--json"
+      ],
+      "installed_offline_equal": true,
+      "exit_code": 0,
+      "stdout": "{\n  \"target\": \"apply-compilation\",\n  \"waves\": [\n    [\n      \"compilation-unit\"\n    ]\n  ],\n  \"components\": {\n    \"compilation-unit\": {\n      \"requires\": [],\n      \"fakes\": {},\n      \"source_paths\": [\n        \"cli/src/modelable/operations/compilation.py\",\n        \"cli/src/modelable/operations/file_transaction.py\",\n        \"cli/src/modelable/operations/compilation_audit.py\"\n      ],\n      \"test_paths\": [\n        \"cli/tests/test_compilation_service.py\",\n        \"cli/tests/test_compilation_cleanup_outcome.py\"\n      ]\n    }\n  },\n  \"requirements\": [\n    \"MOD-COMP-01\",\n    \"MOD-COMP-02\",\n    \"MOD-COMP-03\",\n    \"MOD-COMP-04\",\n    \"MOD-COMP-05\",\n    \"MOD-COMP-06\",\n    \"MOD-COMP-07\",\n    \"MOD-COMP-08\",\n    \"MOD-COMP-09\",\n    \"MOD-COMP-10\"\n  ],\n  \"invalidated_evidence\": [\n    \"ev-mod-comp-10-skipped\",\n    \"ev-mod-comp-01-recovery\",\n    \"ev-mod-comp-02-recovery\",\n    \"ev-mod-comp-03-recovery\",\n    \"ev-mod-comp-04-recovery\",\n    \"ev-mod-comp-05-recovery\",\n    \"ev-mod-comp-06-recovery\",\n    \"ev-mod-comp-07-recovery\",\n    \"ev-mod-comp-08-recovery\",\n    \"ev-mod-comp-05-staging-cleanup\",\n    \"ev-mod-comp-10-recovery-linux\"\n  ]\n}"
+    },
+    "return_template": {
+      "args": [
+        "docs/superpowers/specs/system-spec/compilation.yaml",
+        "--check-return",
+        "docs/superpowers/specs/system-spec/handoff-return-template.yaml",
+        "--json"
+      ],
+      "installed_offline_equal": true,
+      "exit_code": 0,
+      "stdout": "{\n  \"valid\": true,\n  \"errors\": [],\n  \"findings\": [\n    {\n      \"kind\": \"assumption\",\n      \"text\": \"A valid incomplete return is structurally accountable, not acceptance. MOD-COMP-09 is system-scoped and remains an explicit separate gate; no contract activation or release approval is recorded.\"\n    }\n  ]\n}\n"
+    },
+    "diagram": {
+      "args": [
+        "docs/superpowers/specs/system-spec/inventory.yaml",
+        "--diagram"
+      ],
+      "installed_offline_equal": true,
+      "exit_code": 0,
+      "stdout": "graph LR\n  subgraph s_modelable_product[\"modelable-product v1.15.1 (draft)\"]\n    c_semantic_toolchain[\"semantic-toolchain v1.15.1<br>draft\"]\n    c_native_cli[\"native-cli v1.15.1<br>draft\"]\n    c_desktop_language_server[\"desktop-language-server v1.15.1<br>draft\"]\n    c_browser_facade[\"browser-facade v1.15.1<br>draft\"]\n    c_browser_playground[\"browser-playground v1.15.1<br>draft\"]\n    c_vscode_extension[\"vscode-extension v1.15.1<br>draft\"]\n  end\n  c_native_cli -->|local-contract-toolchain| c_semantic_toolchain\n  c_desktop_language_server -->|local-contract-toolchain| c_semantic_toolchain\n  c_browser_facade -->|local-contract-toolchain| c_semantic_toolchain\n  c_browser_playground -->|browser-compiler-api| c_browser_facade\n  c_vscode_extension -->|desktop-language-and-conversation| c_desktop_language_server\n  classDef draft fill:#eee,stroke:#999,color:#333\n  classDef specified fill:#cce5ff,stroke:#36c\n  classDef verified fill:#d5f5d5,stroke:#393\n  classDef deprecated fill:#fdd,stroke:#c33,stroke-dasharray:4\n  classDef logical stroke-dasharray:4\n  class c_semantic_toolchain,c_native_cli,c_desktop_language_server,c_browser_facade,c_browser_playground,c_vscode_extension draft\n"
+    },
+    "backstage": {
+      "args": [
+        "docs/superpowers/specs/system-spec/inventory.yaml",
+        "--export",
+        "backstage"
+      ],
+      "installed_offline_equal": true,
+      "exit_code": 0,
+      "stdout": "apiVersion: backstage.io/v1alpha1\nkind: System\nmetadata:\n  name: modelable-product\n  description: v1.15.1 draft\nspec:\n  owner: unknown\n---\napiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: semantic-toolchain\n  description: v1.15.1 draft\nspec:\n  type: service\n  lifecycle: experimental\n  owner: unknown\n  system: modelable-product\n  providesApis:\n  - local-contract-toolchain\n  consumesApis: []\n  dependsOn: []\n---\napiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: native-cli\n  description: v1.15.1 draft\nspec:\n  type: service\n  lifecycle: experimental\n  owner: unknown\n  system: modelable-product\n  providesApis:\n  - native-command-workflows\n  consumesApis:\n  - local-contract-toolchain\n  dependsOn:\n  - component:semantic-toolchain\n---\napiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: desktop-language-server\n  description: v1.15.1 draft\nspec:\n  type: service\n  lifecycle: experimental\n  owner: unknown\n  system: modelable-product\n  providesApis:\n  - desktop-language-and-conversation\n  consumesApis:\n  - local-contract-toolchain\n  dependsOn:\n  - component:semantic-toolchain\n---\napiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: browser-facade\n  description: v1.15.1 draft\nspec:\n  type: service\n  lifecycle: experimental\n  owner: unknown\n  system: modelable-product\n  providesApis:\n  - browser-compiler-api\n  consumesApis:\n  - local-contract-toolchain\n  dependsOn:\n  - component:semantic-toolchain\n---\napiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: browser-playground\n  description: v1.15.1 draft\nspec:\n  type: service\n  lifecycle: experimental\n  owner: unknown\n  system: modelable-product\n  providesApis:\n  - playground-workspace\n  consumesApis:\n  - browser-compiler-api\n  dependsOn:\n  - component:browser-facade\n---\napiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: vscode-extension\n  description: v1.15.1 draft\nspec:\n  type: service\n  lifecycle: experimental\n  owner: unknown\n  system: modelable-product\n  providesApis:\n  - vscode-model-authoring\n  consumesApis:\n  - desktop-language-and-conversation\n  dependsOn:\n  - component:desktop-language-server\n---\napiVersion: backstage.io/v1alpha1\nkind: API\nmetadata:\n  name: local-contract-toolchain\n  description: v1.0 draft\nspec:\n  type: other\n  lifecycle: experimental\n  owner: unknown\n  system: modelable-product\n  definition: 'capability: local-contract-toolchain\n\n    version: ''1.0''\n\n    preconditions: []\n\n    postconditions: []\n\n    invariants: []\n\n    failure_modes: []\n\n    '\n---\napiVersion: backstage.io/v1alpha1\nkind: API\nmetadata:\n  name: native-command-workflows\n  description: v1.0 draft\nspec:\n  type: other\n  lifecycle: experimental\n  owner: unknown\n  system: modelable-product\n  definition: 'capability: native-command-workflows\n\n    version: ''1.0''\n\n    preconditions: []\n\n    postconditions: []\n\n    invariants: []\n\n    failure_modes: []\n\n    '\n---\napiVersion: backstage.io/v1alpha1\nkind: API\nmetadata:\n  name: desktop-language-and-conversation\n  description: v1.0 draft\nspec:\n  type: other\n  lifecycle: experimental\n  owner: unknown\n  system: modelable-product\n  definition: 'capability: desktop-language-and-conversation\n\n    version: ''1.0''\n\n    preconditions: []\n\n    postconditions: []\n\n    invariants: []\n\n    failure_modes: []\n\n    '\n---\napiVersion: backstage.io/v1alpha1\nkind: API\nmetadata:\n  name: browser-compiler-api\n  description: v1.0 draft\nspec:\n  type: other\n  lifecycle: experimental\n  owner: unknown\n  system: modelable-product\n  definition: 'capability: browser-compiler-api\n\n    version: ''1.0''\n\n    preconditions: []\n\n    postconditions: []\n\n    invariants: []\n\n    failure_modes: []\n\n    '\n---\napiVersion: backstage.io/v1alpha1\nkind: API\nmetadata:\n  name: playground-workspace\n  description: v1.0 draft\nspec:\n  type: other\n  lifecycle: experimental\n  owner: unknown\n  system: modelable-product\n  definition: 'capability: playground-workspace\n\n    version: ''1.0''\n\n    preconditions: []\n\n    postconditions: []\n\n    invariants: []\n\n    failure_modes: []\n\n    '\n---\napiVersion: backstage.io/v1alpha1\nkind: API\nmetadata:\n  name: vscode-model-authoring\n  description: v1.0 draft\nspec:\n  type: other\n  lifecycle: experimental\n  owner: unknown\n  system: modelable-product\n  definition: 'capability: vscode-model-authoring\n\n    version: ''1.0''\n\n    preconditions: []\n\n    postconditions: []\n\n    invariants: []\n\n    failure_modes: []\n\n    '\n"
+    },
+    "structurizr": {
+      "args": [
+        "docs/superpowers/specs/system-spec/inventory.yaml",
+        "--export",
+        "structurizr"
+      ],
+      "installed_offline_equal": true,
+      "exit_code": 0,
+      "stdout": "workspace {\n    model {\n        modelable_product = softwareSystem \"modelable-product\" \"v1.15.1 draft\" {\n            semantic_toolchain = container \"semantic-toolchain\" \"v1.15.1 draft; provides local-contract-toolchain\" \"\"\n            native_cli = container \"native-cli\" \"v1.15.1 draft; provides native-command-workflows\" \"\"\n            desktop_language_server = container \"desktop-language-server\" \"v1.15.1 draft; provides desktop-language-and-conversation\" \"\"\n            browser_facade = container \"browser-facade\" \"v1.15.1 draft; provides browser-compiler-api\" \"\"\n            browser_playground = container \"browser-playground\" \"v1.15.1 draft; provides playground-workspace\" \"\"\n            vscode_extension = container \"vscode-extension\" \"v1.15.1 draft; provides vscode-model-authoring\" \"\"\n        }\n        browser_facade -> semantic_toolchain \"requires local-contract-toolchain\"\n        browser_playground -> browser_facade \"requires browser-compiler-api\"\n        desktop_language_server -> semantic_toolchain \"requires local-contract-toolchain\"\n        native_cli -> semantic_toolchain \"requires local-contract-toolchain\"\n        vscode_extension -> desktop_language_server \"requires desktop-language-and-conversation\"\n    }\n    views {\n        container modelable_product {\n            include *\n            autolayout lr\n        }\n        styles {\n            element \"External\" {\n                background #999999\n            }\n        }\n    }\n}\n"
+    },
+    "drift": {
+      "args": [
+        "docs/superpowers/specs/system-spec/inventory.yaml",
+        "--check-drift",
+        "--root",
+        ".",
+        "--json"
+      ],
+      "installed_offline_equal": true,
+      "exit_code": 0,
+      "stdout": "{\n  \"valid\": true,\n  \"errors\": [],\n  \"unchecked\": []\n}\n"
+    }
+  },
+  "unchanged_contract_sections": [
+    "system",
+    "capabilities",
+    "data_models",
+    "requirements",
+    "risks",
+    "subject_bindings"
+  ],
+  "negative_and_scope_probes": {
+    "missing_requirement": {
+      "exit_code": 1,
+      "stdout": "{\n  \"valid\": false,\n  \"errors\": [\n    \"return: requirement 'MOD-COMP-10' is neither a result nor unmet\"\n  ],\n  \"findings\": [\n    {\n      \"kind\": \"assumption\",\n      \"text\": \"A valid incomplete return is structurally accountable, not acceptance. MOD-COMP-09 is system-scoped and remains an explicit separate gate; no contract activation or release approval is recorded.\"\n    }\n  ]\n}\n"
+    },
+    "outside_changed_path": {
+      "exit_code": 1,
+      "stdout": "{\n  \"valid\": false,\n  \"errors\": [\n    \"scope: 'web/src/App.tsx' is outside component 'compilation-unit' (source_paths, test_paths, fakes, owned schemas)\"\n  ],\n  \"findings\": [\n    {\n      \"kind\": \"assumption\",\n      \"text\": \"A valid incomplete return is structurally accountable, not acceptance. MOD-COMP-09 is system-scoped and remains an explicit separate gate; no contract activation or release approval is recorded.\"\n    }\n  ]\n}\n"
+    },
+    "stale_result_version": {
+      "exit_code": 1,
+      "stdout": "{\n  \"valid\": false,\n  \"errors\": [\n    \"return: result for 'MOD-COMP-01' has version 0.0, current is 1.0\"\n  ],\n  \"findings\": [\n    {\n      \"kind\": \"assumption\",\n      \"text\": \"A valid incomplete return is structurally accountable, not acceptance. MOD-COMP-09 is system-scoped and remains an explicit separate gate; no contract activation or release approval is recorded.\"\n    }\n  ]\n}\n"
+    },
+    "scope_owned": {
+      "exit_code": 0,
+      "stdout": "{\n  \"valid\": true,\n  \"errors\": []\n}\n"
+    },
+    "scope_outside": {
+      "exit_code": 1,
+      "stdout": "{\n  \"valid\": false,\n  \"errors\": [\n    \"scope: 'web/src/App.tsx' is outside component 'compilation-unit' (source_paths, test_paths, fakes, owned schemas)\"\n  ]\n}\n"
+    },
+    "log_is_not_test_provenance": {
+      "exit_code": 1,
+      "stdout": "{\n  \"valid\": false,\n  \"stage\": \"verification\",\n  \"errors\": [\n    \"[COMP-08] Evidence 'ev-mod-comp-10-recovery-linux' provenance 'docs/superpowers/specs/system-spec/evidence/symlink-linux.xml' is outside test_paths of component 'compilation-unit'\"\n  ],\n  \"residual_risks\": [],\n  \"waivers\": [\n    \"compilation-category-gap\"\n  ]\n}\n"
+    },
+    "unknown_criterion": {
+      "exit_code": 1,
+      "stdout": "{\n  \"valid\": false,\n  \"stage\": \"inventory\",\n  \"errors\": [\n    \"[EV-06] Evidence 'ev-mod-comp-01-recovery' names criteria not in requirement 'MOD-COMP-01': ['unobserved invented criterion']\"\n  ],\n  \"residual_risks\": [],\n  \"waivers\": [\n    \"compilation-category-gap\"\n  ]\n}\n"
+    }
+  },
+  "limits": [
+    "Drift remains a separate diagnostic path and cannot fully resolve cli/src Python imports. A clean result is not dependency closure.",
+    "The return template passes with all task obligations explicitly unmet; structural validity is not acceptance. MOD-COMP-09 is system-scoped and reviewed separately.",
+    "Backstage owner defaults to unknown. Generated exports are review diagnostics, not registered services or external acceptance."
+  ]
+}

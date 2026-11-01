@@ -82,18 +82,19 @@ Prepared/reviewed by Codex from source and local test output; maintainers own ac
 
 ## Validation and bounded work
 
-Published toolkit onboarding: [toolkit-upgrade-0.2.0.md](toolkit-upgrade-0.2.0.md). Use PyPI `system-spec-ref==0.2.0`; its intact offline export is committed at [tools/system-spec](../../../../tools/system-spec/WIRING.md). Follow the exported constitution plus the brownfield track. Existing project specification paths remain authoritative; no duplicate idealized baseline is created.
+Published toolkit onboarding: [toolkit-upgrade-0.4.0.md](toolkit-upgrade-0.4.0.md). Use PyPI `system-spec-ref==0.4.0`; its intact offline export is committed at [tools/system-spec](../../../../tools/system-spec/WIRING.md). Follow the exported constitution plus the brownfield track. Existing project specification paths remain authoritative; no duplicate idealized baseline is created.
 
 Run from the Modelable repository root:
 
 ```powershell
-uv tool install --index-url https://pypi.org/simple system-spec-ref==0.2.0
+uv tool install --index-url https://pypi.org/simple system-spec-ref==0.4.0
 system-spec --version
 system-spec docs/superpowers/specs/system-spec/inventory.yaml --stage inventory --check-artifacts --root .
 system-spec docs/superpowers/specs/system-spec/compilation.yaml --stage verification --check-artifacts --root .
 system-spec docs/superpowers/specs/system-spec/compilation-contract-proposal.yaml --stage architecture --check-artifacts --root .
 system-spec docs/superpowers/specs/system-spec/compilation.yaml --context compilation-unit
 system-spec docs/superpowers/specs/system-spec/compilation.yaml --impact apply-compilation
+system-spec docs/superpowers/specs/system-spec/inventory.yaml --plan local-contract-toolchain
 system-spec docs/superpowers/specs/system-spec/inventory.yaml --diagram
 ```
 
@@ -105,11 +106,27 @@ Offline fallback (Pydantic/PyYAML are already native CLI dependencies):
 uv run --project cli python tools/system-spec/reference-implementation/metamodel.py docs/superpowers/specs/system-spec/compilation.yaml --stage verification --check-artifacts --root .
 ```
 
-- [toolkit-pypi-0.2.0.json](evidence/toolkit-pypi-0.2.0.json) records the published wheel, verified installation/export bytes and current schema/validator hashes. [packaged-toolkit-validation-0.2.0.json](evidence/packaged-toolkit-validation-0.2.0.json) records installed/offline parity and remaining acceptance blockers.
-- Historical `adoption.json`, schemas and execution captures retain their original validator/source pins. The packaged schema is semantically identical and validation/artifact/compatibility functions match the earlier pinned source; no old evidence is relabeled with a new verifier or subject version.
-- Toolkit version 0.2.0 is separate from modeled contract versions. The proposal still has three expected `COMPAT-04` diagnostics; compilation release and whole-product conformance remain open.
+- [toolkit-pypi-0.4.0.json](evidence/toolkit-pypi-0.4.0.json) records the published wheel, verified installation/export bytes and current schema/validator hashes. [packaged-toolkit-validation-0.4.0.json](evidence/packaged-toolkit-validation-0.4.0.json) records installed/offline parity and remaining acceptance blockers.
+- [adoption.json](adoption.json) separates original capture/verifier pins from the current toolkit. Prior specification, schema and manifest are preserved in its `current_toolkit` record. Contracts/source bindings and verification state are unchanged; added test paths, explicit criterion mappings and environment fields are reviewed metadata, not reruns. The Linux test-file provenance correction retains its original execution artifacts and hashes.
+- Toolkit version 0.4.0 is separate from modeled contract versions. The proposal still has three expected `COMPAT-04` diagnostics; compilation release and whole-product conformance remain open.
 - Paths in source/provenance/artifact maps remain repository-relative. Review source/dependency/environment changes before reusing evidence; native semantic/manual gates remain authoritative.
 - Upgrade using a pinned package version and a fresh destination, for example `system-spec export tools/system-spec-next` (it must not exist). Compare snapshots and their provenance, follow [WIRING.md](../../../../tools/system-spec/WIRING.md), revalidate active specs at their stages, and retain historical captures/decisions.
+
+### Feature handoffs and scope
+
+Follow [FEATURE.md](../../../../tools/system-spec/FEATURE.md) for changes to the existing specification. Run stage/artifact validation separately from diagnostic commands. The current compilation unit remains one consistency boundary, with assembly tests declared as `test_scope: integration`; unmodeled transitive providers remain discovery work.
+
+```powershell
+git diff --name-only origin/main | system-spec docs/superpowers/specs/system-spec/compilation.yaml --check-scope compilation-unit --changed -
+system-spec docs/superpowers/specs/system-spec/compilation.yaml --check-return docs/superpowers/specs/system-spec/handoff-return-template.yaml
+system-spec docs/superpowers/specs/system-spec/inventory.yaml --export backstage
+system-spec docs/superpowers/specs/system-spec/inventory.yaml --export structurizr
+```
+
+- The scope command rejects unrelated paths. For a reviewed task, pass each shared file explicitly using repeatable `--allow <path>`; keep its exact allowlist in the handoff. Toolkit maintenance is outside the compilation unit, so its documentation/vendor paths must be reviewed separately rather than declared product ownership.
+- Copy the [return template](handoff-return-template.yaml) to a task-specific file. Replace its unmet entries with current results where verified, retain unmet reasons and findings, and list actual changed paths. Its current all-unmet state passes structural checking; this is not an accepted handoff. System-scoped MOD-COMP-09 and native/manual/release gates require separate review.
+- Split specs, external/imported providers, domains, mediation and fakes are available in the imported toolkit. This migration does not assert previously undiscovered topology or isolated tests. Keep coherent boundaries and bind new fields only after discovery.
+- Backstage's default owner is `unknown`; exports are review inputs, not registered services. Neither export implies a deployed service topology or changes the captured draft status.
 
 ### Historical evidence migration decision
 

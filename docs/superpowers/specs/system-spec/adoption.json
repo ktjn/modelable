@@ -20,9 +20,9 @@
     "cli/pyproject.toml": "1e83d0f2722bc192a7d7bb4c323c3019e5d3480867331b460d7c048a34801c74"
   },
   "artifact_sha256": {
-    "compilation.yaml": "3b47c893c05b9ec39816ac3c464e1e0e4d17f652debee684c2f8be9150401525",
+    "compilation.yaml": "c8a58420b8416f26d0b21d13057fdd2974b233f6209e4ef70068cf21f50d9743",
     "inventory.yaml": "bd3627fe6aa59b6b4ecbed0c5f26235eb2768217057e705f04b225d9f7cb968e",
-    "schema.json": "68575c37f4adf8449e2ae1978ad78038c7c383ccef7953e7ce4b473aa1ed71ea",
+    "schema.json": "abc8a1b150435aacf52af4d53c0811507af6462b640480fcc360d81d0c2fdf13",
     "schema-baseline.json": "3ae1d114cf78793e8573f97995a74befa56c6c9f9de45e547f5282e8af745d22",
     "evidence/characterization-current.txt": "8de6688dad28a3bb24e3291aafb08854d2a4fe26663de071cd91ac38ab563c88",
     "evidence/characterization-environment.json": "aaa032a3966d46f74dc03a774c62b15a1f5e4a1f75d10fe5f1d4018e2c1ec080",
@@ -87,5 +87,17 @@
       "platform": "Linux Docker filesystem",
       "scope": "Two symlink cases and two cleanup regressions; only the named symlink cases establish MOD-COMP-10."
     }
-  ]
+  ],
+  "current_toolkit": {
+    "distribution": "system-spec-ref",
+    "version": "0.4.0",
+    "receipt": "evidence/toolkit-pypi-0.4.0.json",
+    "schema_sha256": "abc8a1b150435aacf52af4d53c0811507af6462b640480fcc360d81d0c2fdf13",
+    "validator_sha256": "18f6384a950d4ef85857e80aee48a40d46a052287f73d5406e8c2bdd52348f12",
+    "migration": "toolkit-upgrade-0.4.0.md",
+    "prior_specification": "evidence/compilation-before-toolkit-0.4.0.yaml",
+    "prior_manifest": "evidence/adoption-before-toolkit-0.4.0.json",
+    "prior_schema": "evidence/schema-before-toolkit-0.4.0.json",
+    "capture_policy": "Original source/evidence/schema verifier pins describe retained historical execution. Added test paths, criterion mappings and environment fields are reviewed metadata, not reruns or contract activation."
+  }
 }
