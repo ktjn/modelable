@@ -96,24 +96,25 @@ acceptance remain open.
 
 ```mermaid
 graph LR
-  subgraph modelable_product["modelable-product v1.15.1 (draft)"]
-    semantic_toolchain["semantic-toolchain v1.15.1<br>draft"]
-    native_cli["native-cli v1.15.1<br>draft"]
-    desktop_language_server["desktop-language-server v1.15.1<br>draft"]
-    browser_facade["browser-facade v1.15.1<br>draft"]
-    browser_playground["browser-playground v1.15.1<br>draft"]
-    vscode_extension["vscode-extension v1.15.1<br>draft"]
+  subgraph s_modelable_product["modelable-product v1.15.1 (draft)"]
+    c_semantic_toolchain["semantic-toolchain v1.15.1<br>draft"]
+    c_native_cli["native-cli v1.15.1<br>draft"]
+    c_desktop_language_server["desktop-language-server v1.15.1<br>draft"]
+    c_browser_facade["browser-facade v1.15.1<br>draft"]
+    c_browser_playground["browser-playground v1.15.1<br>draft"]
+    c_vscode_extension["vscode-extension v1.15.1<br>draft"]
   end
-  native_cli -->|local-contract-toolchain| semantic_toolchain
-  desktop_language_server -->|local-contract-toolchain| semantic_toolchain
-  browser_facade -->|local-contract-toolchain| semantic_toolchain
-  browser_playground -->|browser-compiler-api| browser_facade
-  vscode_extension -->|desktop-language-and-conversation| desktop_language_server
+  c_native_cli -->|local-contract-toolchain| c_semantic_toolchain
+  c_desktop_language_server -->|local-contract-toolchain| c_semantic_toolchain
+  c_browser_facade -->|local-contract-toolchain| c_semantic_toolchain
+  c_browser_playground -->|browser-compiler-api| c_browser_facade
+  c_vscode_extension -->|desktop-language-and-conversation| c_desktop_language_server
   classDef draft fill:#eee,stroke:#999,color:#333
   classDef specified fill:#cce5ff,stroke:#36c
   classDef verified fill:#d5f5d5,stroke:#393
   classDef deprecated fill:#fdd,stroke:#c33,stroke-dasharray:4
-  class semantic_toolchain,native_cli,desktop_language_server,browser_facade,browser_playground,vscode_extension draft
+  classDef logical stroke-dasharray:4
+  class c_semantic_toolchain,c_native_cli,c_desktop_language_server,c_browser_facade,c_browser_playground,c_vscode_extension draft
 ```
 
 ## Install

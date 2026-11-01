@@ -1,0 +1,11 @@
+{
+  "checked": 300,
+  "resolved": 299,
+  "missing": [
+    {
+      "source": "tools/system-spec/PACKAGING.md",
+      "target": "RELEASING.md"
+    }
+  ],
+  "disposition": "Exact published payload retained. Upstream feedback repairs the link for future exports; fallback documented in upgrade decision."
+}

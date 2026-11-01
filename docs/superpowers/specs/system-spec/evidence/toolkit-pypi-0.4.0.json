@@ -1,0 +1,194 @@
+{
+  "recorded_date": "2026-11-01",
+  "package": "system-spec-ref",
+  "version": "0.4.0",
+  "index": "https://pypi.org/simple",
+  "pypi_metadata": "https://pypi.org/pypi/system-spec-ref/0.4.0/json",
+  "wheel": {
+    "filename": "system_spec_ref-0.4.0-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/08/60/af49f6ce1e7cfb04e46a3b1565f42d310385b0af59de12845911a5e7c164/system_spec_ref-0.4.0-py3-none-any.whl",
+    "sha256": "efbadff0a9d2a9e3bb6b840152dfa69a3b6ac51b8e18e27ebd469b2a767461aa",
+    "uploaded": "2026-11-01T16:02:34.642209Z"
+  },
+  "installation": {
+    "command": [
+      "uv",
+      "tool",
+      "install",
+      "--index-url",
+      "https://pypi.org/simple",
+      "system-spec-ref==0.4.0"
+    ],
+    "packaged_files_verified": 65,
+    "python": "3.14.5 (main, May 10 2026, 20:29:46) [MSC v.1944 64 bit (AMD64)]",
+    "dependencies": {
+      "pydantic": "2.14.2",
+      "pydantic-core": "2.50.2",
+      "PyYAML": "6.0.3"
+    }
+  },
+  "export": {
+    "root": "tools/system-spec",
+    "file_count": 62,
+    "sha256": {
+      ".github/skills/alloy/SKILL.md": "33456df172695c4ffaedef418e5596ab7e6a32aea8ba618cdd47edc24c9fab81",
+      ".github/skills/modelable/SKILL.md": "2f539abe65c92d8fe8f79ac8d1511df40beceb6d873f777ac1b72cdc5c52d655",
+      ".github/skills/tla/SKILL.md": "7a8fefad35131ce549c7a882c8afcf2d3c47055919061180189c4f561c786eb5",
+      ".github/workflows/metamodel.yml": "704fa6f928060492fbf8a298611e41263a96e3d10db136b9d72153d6d6e6293a",
+      "BROWNFIELD.md": "2a297d4b0e04dd89e1c529b9ef22675e50a6d1abb462e29b9c42cb8fa88ab184",
+      "CHANGELOG.md": "fd5b272d5583aa2f693d7a0a6b917e30006c6bc1ac03ac27c1ff1e4dad277253",
+      "CONSTITUTION.md": "28d789299afb11948cfd8fd66abaa6abcdac9c2af31cf44598c68d29d6c99e47",
+      "FEATURE.md": "b7519717c1a6cbd0c9458b7ac2b2869ebbdce7c0a18bea7e34b043e36318a297",
+      "GREENFIELD.md": "380991d52ce133af4352d65d01eefa7c280ff1aba71e8ae996123e6cc805a2eb",
+      "LICENSE": "41df4a90d6485d856d5012c6cbf3f6312556dc63c3337d70e39f33d88cf523ef",
+      "PACKAGING.md": "ff40e764e8dd1872440a42a3693ad0063312730ed8f52301c2b80c6c3545c714",
+      "PLAN.md": "dfddcc8028c17f338b9ab545108ded30f5e109e91965c39a5871faac0b815134",
+      "README.md": "5936d45e6b0d0595db0e9a91e2007b9089ab8b67b31345fcae4fbe3fdd523aba",
+      "WIRING.md": "72c45c8b5da349cf4098d3d3886bbb68df298b5d906fc169220752e17803b428",
+      "archive/BENCHMARK.md": "e93adacdc11a5b12f279e9989f7a9d28a2388da958005bdd36ff37843a797f38",
+      "archive/README.md": "f41d60b29d27d2efcca9d872ac4652f2085a5d450a07a73f1e91558cf1af75ab",
+      "archive/REVIEW.md": "fa5b315e2e55c10835fffb3d7b7a19d497fcbb6cff0ff1218db05afeb4de0bdb",
+      "archive/feedback/diagram-feedback.md": "e80739ecccb689282fdc6628c57bc884b79953f21a2c7b9f58f8d40b717458ab",
+      "archive/feedback/marketplace-model.md": "1616cadde4f3816d8ff6ba301d34d98c8e2747c65c4926a38664c1697033642c",
+      "archive/feedback/modelable-onboarding.md": "7ac11d0487d9aa2c46ece065f9df4f1172ee3be7ae4d36cb6ba9dc33da45b910",
+      "archive/feedback/observable-onboarding.md": "0de59479f965731a92bab8ce679fb3bb4eb061e7d854be73c6b959093b340785",
+      "archive/feedback/scalable-onboarding.md": "158365d54141b17ddc9e6b2886780dd0c6cc059074bbd4414c63448ddaf55d3c",
+      "examples/brownfield/README.md": "ec412db997e0b15b1f480ba16fc9e0b8ce192897a968c0f7a6b553654645b755",
+      "examples/brownfield/level0.yaml": "cbcaa1914d0eeb681187dcabd8a5e11b5de87ba64ce7bc15e5b9a38484b4f0c6",
+      "examples/brownfield/level1.yaml": "204b0d01fae61fbfe8ebab3a935d9e3cb6892756eeb867f87922ab43ef0ad425",
+      "examples/brownfield/old.yaml": "0aeee73bde34c9016453fe901cdb5cc2a0b929fd80087864ef7d74136c92c310",
+      "examples/brownfield/spec.yaml": "5709a18b8ad647567366e6006b5ae9347fb039cf8f3ce110bacb4ab2b741a52b",
+      "examples/components/README.md": "de04ae4075a5eb5278930951dae205f65d3269a75e797af1398b5211129f776b",
+      "examples/components/schemas/stock-item.json": "f237ab3a7c0e5e8f8216db4782bfe86fde0a60eeead0fbe20ff5ad01f2fc6a7e",
+      "examples/components/spec.yaml": "6538ad46f449eace21031d615f7bd58ab8f94c293294063bb69ea2de07adb2ee",
+      "examples/components/spec/checkout.yaml": "af8d3755bddb5bcecfba2c578cd3f002d5488ec8d9f790e8ca88992a1530b2a6",
+      "examples/components/spec/inventory.yaml": "43143eee1c35f42d4e7b335a6081fba0c978c432435367e5a0d4ae864a1b8e80",
+      "examples/components/spec/system.yaml": "d7c749cd9c0545cea8d87b08a020326bdf51434fe9e3f6465033bac00e9fe396",
+      "examples/components/src/checkout/app.py": "069fa53c6714f244c7cd411cfa86a2f24a3362d6edaf16f8db24a7aebc684d68",
+      "examples/components/src/inventory/api.py": "f8b5b17b923347c78afcfd5c656c04c8c77fcac6941c40cd0705fc4479732de3",
+      "examples/components/tests/checkout/fakes/reserve_inventory.py": "c26b657c08a31036b20ca47370d4e700bc1a06f41a3db50c7817047e62722c53",
+      "examples/components/tests/checkout/test_checkout.py": "e8cb012c7da9eb17f644507a7afe96ec548072ba6ba8c61c7741b693668da42a",
+      "examples/components/tests/inventory/test_inventory.py": "c73c91e773e7cbba6462ed8cb5dcc26508314dc5b37aea2de69be5830132ebdd",
+      "examples/greenfield/Inventory.als": "bddd33540d0071820f11d2954594125b3b757ea80462dc3eb2cbf8e70a6109f7",
+      "examples/greenfield/Inventory.cfg": "7341465e43a60cada3cd41af02e8022b1c84f572d737ce7c18fa407755bc1b54",
+      "examples/greenfield/Inventory.tla": "13c19af4312d1db2de1f42a72858cf8fb372123f9af843ae62e4a8a8898b3d31",
+      "examples/greenfield/README.md": "a0293c44e3225f5496d8258e4afeaabfddea30f48a60bbac215928d06b52cb0a",
+      "examples/greenfield/spec.yaml": "95a436c936e9d77069788515e12072c7357b3cd92ada7f80d32c01c58836d46a",
+      "packaging.yaml": "78ece5385247695b7585c7677aaccd4e42107524d026f85d486f49317e920722",
+      "reference-implementation/.dockerignore": "4409b253ac33acb862192f9cad8583ed3fe0bac938082a6cfa784d7cf0d185ef",
+      "reference-implementation/.gitignore": "4409b253ac33acb862192f9cad8583ed3fe0bac938082a6cfa784d7cf0d185ef",
+      "reference-implementation/Dockerfile": "f0326a7744a814643da97a5cc343202c934d1c1b7990bd62d6871c1e63135bb5",
+      "reference-implementation/README.md": "24019e65880b5322c531f8200db681ca1fcd365d62be16fb2de8efc860047187",
+      "reference-implementation/corpus.yaml": "5e200ef92055869728e5a7d1e5eed1cba26027a7fabb14d4a305e4d9dd47f800",
+      "reference-implementation/example.yaml": "28f1ed6ecc72d47441e47d67efe8cafda3263f7a288043c696e82ddcaba196ad",
+      "reference-implementation/fragment.schema.json": "11dd11efd76a1c33685b4805cfd391999b9999ca39e3165319ca567b79943755",
+      "reference-implementation/handoff-return.schema.json": "b9590ab2d6a4243b785646011f74bd59d0c1106ef0344e838b4f263459d1c02f",
+      "reference-implementation/metamodel.als": "a6866efa4e83256366662a12cd8ca81a3d1dd0bb1f74f952501951e807fbb406",
+      "reference-implementation/metamodel.py": "18f6384a950d4ef85857e80aee48a40d46a052287f73d5406e8c2bdd52348f12",
+      "reference-implementation/old.yaml": "e1e38b5a09372b64ed1e866aa72777b3646abb1e3a0940665e1109d6dbc6e688",
+      "reference-implementation/pyproject.toml": "82d805b5ab515f48e8602a21be47f12dbff1c2f0fd61ed1385b2ab23cb8c9cb2",
+      "reference-implementation/schema.json": "abc8a1b150435aacf52af4d53c0811507af6462b640480fcc360d81d0c2fdf13",
+      "reference-implementation/test_metamodel.py": "c3f34ecc9b9559e2118a79975de49ebda4046e4ec64c4623475497178d2553c6",
+      "reference-implementation/test_onboarding.py": "8736bcc391f1b04f742e857f813339c61f22f338b1bfc151e402f04f6d413eec",
+      "reference-implementation/uv.lock": "76900d55ae7239fc2b1ffa79dcf2104c90ef57ef9aea936492340f99e246c8d2",
+      "spec.md": "342fbc36cab6abe8947648357e55f2492c41f61bd0ae9dfed0c8a8407b4bb1f3",
+      "templates/BROWNFIELD-INTAKE.md": "5d9af777824ae8e8757d7dd1bcd77b14358fec2ba8e7623d056cf1c183e67dee"
+    }
+  },
+  "comparison": {
+    "added": [
+      "CHANGELOG.md",
+      "FEATURE.md",
+      "archive/feedback/diagram-feedback.md",
+      "archive/feedback/marketplace-model.md",
+      "archive/feedback/scalable-onboarding.md",
+      "examples/components/README.md",
+      "examples/components/schemas/stock-item.json",
+      "examples/components/spec.yaml",
+      "examples/components/spec/checkout.yaml",
+      "examples/components/spec/inventory.yaml",
+      "examples/components/spec/system.yaml",
+      "examples/components/src/checkout/app.py",
+      "examples/components/src/inventory/api.py",
+      "examples/components/tests/checkout/fakes/reserve_inventory.py",
+      "examples/components/tests/checkout/test_checkout.py",
+      "examples/components/tests/inventory/test_inventory.py",
+      "reference-implementation/fragment.schema.json",
+      "reference-implementation/handoff-return.schema.json"
+    ],
+    "changed": [
+      ".github/workflows/metamodel.yml",
+      "BROWNFIELD.md",
+      "CONSTITUTION.md",
+      "GREENFIELD.md",
+      "PACKAGING.md",
+      "PLAN.md",
+      "README.md",
+      "WIRING.md",
+      "archive/README.md",
+      "archive/feedback/modelable-onboarding.md",
+      "reference-implementation/README.md",
+      "reference-implementation/corpus.yaml",
+      "reference-implementation/metamodel.py",
+      "reference-implementation/pyproject.toml",
+      "reference-implementation/schema.json",
+      "reference-implementation/test_metamodel.py",
+      "reference-implementation/test_onboarding.py",
+      "reference-implementation/uv.lock",
+      "spec.md",
+      "templates/BROWNFIELD-INTAKE.md"
+    ],
+    "removed": []
+  },
+  "schema": {
+    "previous_sha256": "68575c37f4adf8449e2ae1978ad78038c7c383ccef7953e7ce4b473aa1ed71ea",
+    "current_sha256": "abc8a1b150435aacf52af4d53c0811507af6462b640480fcc360d81d0c2fdf13",
+    "generated_schemas_match": true
+  },
+  "historical_capture": "Existing source, evidence, contract versions and acceptance decisions retain their original identities. New metadata is a reviewed migration, not a new product test run.",
+  "reference_tests": {
+    "passed": 184,
+    "skipped": [
+      {
+        "case": "test_onboarding::test_artifact_symlink_escape_is_rejected",
+        "reason": "file symlinks unavailable"
+      },
+      {
+        "case": "test_onboarding::test_drift_ignores_symlinked_sources_outside_root",
+        "reason": "file symlinks unavailable"
+      }
+    ],
+    "failures": 0,
+    "command": [
+      "C:\\git\\modelable\\cli\\.venv\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "-q",
+      "-r",
+      "s",
+      "-p",
+      "no:cacheprovider",
+      "--basetemp=C:\\git\\modelable\\.agentbuild\\validation\\system-spec-0.4.0\\pytest-2d128c6e6a1745aa9b39a7307bb5108a",
+      "--junitxml=C:\\git\\modelable\\docs\\superpowers\\specs\\system-spec\\evidence\\packaged-toolkit-tests-0.4.0.xml"
+    ],
+    "cwd": "tools/system-spec/reference-implementation",
+    "exit_code": 0,
+    "artifacts": {
+      "packaged-toolkit-tests-0.4.0.txt": "d9af466f0ccc2d0b4c4db3358248bf2a901897c551f56709259d3971e6e19f86",
+      "packaged-toolkit-tests-0.4.0.xml": "570b35f0cd7a38011d3f452023d06bed660cd854ff12617e0e0c70ce49225603"
+    }
+  },
+  "validation": {
+    "artifact": "evidence/packaged-toolkit-validation-0.4.0.json",
+    "sha256": "7e16a2f7634b5eb9dd470200c82142fc0796e343217a7cc3941f322fef5314aa",
+    "installed_offline_pairs": 16,
+    "negative_and_scope_probes": 7
+  },
+  "export_link_check": {
+    "artifact": "evidence/packaged-toolkit-links-0.4.0.json",
+    "sha256": "98660b972c0d08adecd941209376da58e66b4ec5d74c155dbd35a141091cc572",
+    "checked": 300,
+    "resolved": 299,
+    "remaining": "Published PACKAGING.md -> RELEASING.md; retained exactly, fallback documented, upstream repair prepared."
+  }
+}
