@@ -9,8 +9,8 @@
 - [x] New regressions fail as expected before implementation: four missing-message failures; both programming-fault cases pass. Red output retained for evidence.
 - [x] Catch only JSONDecodeError and SQLite OperationalError at CLI; update the two as-is CLI assertions intentionally and add a changelog entry.
 - [x] Focused 41 tests pass; mandatory formatting/lint/mypy and 3223 tests pass with 67 skips, zero reruns. Commit immutable implementation/test source for the source-bound capture.
-- [ ] Capture source-bound characterization, update consumer disposition and feed upstream findings when applicable.
-- [ ] Validate active specs/compatibility and docs, commit evidence, then publish through the complete native gate and open a PR.
+- [x] Immutable source-bound capture: 41 passed, zero skips/reruns; consumer disposition and limits updated. Upstream feedback is prepared for publication with the delivery PR.
+- [x] Active-stage/artifact, compatibility/release diagnostics, documentation and exact-byte evidence checks pass. Mandatory precommit checks pass again: 3223 passed, 67 skipped, zero reruns. Commit evidence and configure the native-gated publication handoff; final exact-commit push/PR/CI outcomes are recorded externally in the delivery PR.
 
 ## Acceptance
 

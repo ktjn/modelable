@@ -1,0 +1,32 @@
+FF..FF                                                                   [100%]
+================================== FAILURES ===================================
+_________ test_compile_renders_dependency_operational_errors[error0] __________
+cli\tests\test_cli_compilation_dependency_errors.py:19: in test_compile_renders_dependency_operational_errors
+    assert result.output.startswith("Error: ")
+E   AssertionError: assert False
+E    +  where False = <built-in method startswith of str object at 0x00007FFD2E632790>('Error: ')
+E    +    where <built-in method startswith of str object at 0x00007FFD2E632790> = ''.startswith
+E    +      where '' = <Result JSONDecodeError('invalid ledger: line 1 column 2 (char 1)')>.output
+_________ test_compile_renders_dependency_operational_errors[error1] __________
+cli\tests\test_cli_compilation_dependency_errors.py:19: in test_compile_renders_dependency_operational_errors
+    assert result.output.startswith("Error: ")
+E   AssertionError: assert False
+E    +  where False = <built-in method startswith of str object at 0x00007FFD2E632790>('Error: ')
+E    +    where <built-in method startswith of str object at 0x00007FFD2E632790> = ''.startswith
+E    +      where '' = <Result OperationalError('database unavailable')>.output
+_ test_compile_dependency_failure_preserves_inputs_and_allows_retry[malformed-ledger] _
+cli\tests\test_cli_compilation_dependency_errors.py:47: in test_compile_dependency_failure_preserves_inputs_and_allows_retry
+    assert "Expecting value" in result.output
+E   AssertionError: assert 'Expecting value' in ''
+E    +  where '' = <Result JSONDecodeError('Expecting value: line 1 column 11 (char 10)')>.output
+_ test_compile_dependency_failure_preserves_inputs_and_allows_retry[sqlite-operational] _
+cli\tests\test_cli_compilation_dependency_errors.py:55: in test_compile_dependency_failure_preserves_inputs_and_allows_retry
+    assert "registry database unavailable" in result.output
+E   AssertionError: assert 'registry database unavailable' in ''
+E    +  where '' = <Result OperationalError('registry database unavailable')>.output
+=========================== short test summary info ===========================
+FAILED cli\tests\test_cli_compilation_dependency_errors.py::test_compile_renders_dependency_operational_errors[error0]
+FAILED cli\tests\test_cli_compilation_dependency_errors.py::test_compile_renders_dependency_operational_errors[error1]
+FAILED cli\tests\test_cli_compilation_dependency_errors.py::test_compile_dependency_failure_preserves_inputs_and_allows_retry[malformed-ledger]
+FAILED cli\tests\test_cli_compilation_dependency_errors.py::test_compile_dependency_failure_preserves_inputs_and_allows_retry[sqlite-operational]
+4 failed, 2 passed in 1.66s

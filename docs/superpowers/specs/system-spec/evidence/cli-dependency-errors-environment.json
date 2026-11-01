@@ -1,0 +1,100 @@
+{
+  "date": "2026-11-01",
+  "baseline": "05307933a713553c3e7c2d137f421429452033a4",
+  "source_revision": "41e4716c66b63a8ffb810b657d65891dba7d307f",
+  "scope": "CLI dependency operational-error presentation and named regression suite; no service contract activation or whole-product acceptance.",
+  "command": [
+    "C:\\git\\modelable\\cli\\.venv\\Scripts\\python.exe",
+    "-m",
+    "pytest",
+    "tests/test_cli_compilation_dependency_errors.py",
+    "tests/test_cli_compilation_errors.py",
+    "tests/test_compilation_failure_catalog.py",
+    "tests/test_compilation_cleanup_outcome.py",
+    "tests/test_lsp_compilation_recovery.py",
+    "--tb=short",
+    "-n",
+    "0",
+    "-q",
+    "-rR",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp=C:\\git\\modelable\\.agentbuild\\validation\\cli-dependency-errors\\capture-bb33aee89ec5423b812dd8a5f77e435a",
+    "--junitxml=C:\\git\\modelable\\docs\\superpowers\\specs\\system-spec\\evidence\\cli-dependency-errors.xml"
+  ],
+  "cwd": "cli",
+  "exit_code": 0,
+  "result": {
+    "tests": 41,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 41
+  },
+  "python": "3.14.5 (main, May 10 2026, 20:29:46) [MSC v.1944 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "imported_modelable": "C:\\git\\modelable\\cli\\src\\modelable\\__init__.py",
+  "packages": {
+    "modelable": "1.15.2",
+    "pytest": "9.1.1",
+    "click": "8.4.1",
+    "pydantic": "2.14.1",
+    "PyYAML": "6.0.3",
+    "pygls": "2.1.1"
+  },
+  "uv_lock_sha256": "8853fca6ec2ed6a94e9461bfe775cb418d0743c00fc7600b3ee3eb8500652b34",
+  "selected_source_test_hashes": {
+    "cli/src/modelable/commands/compile.py": {
+      "checkout_sha256": "004ae26dfab6174fb3b9a73b5d4021a9ea5d36671662b7f4e54dd832db7490e8",
+      "git_blob_sha256": "004ae26dfab6174fb3b9a73b5d4021a9ea5d36671662b7f4e54dd832db7490e8"
+    },
+    "cli/src/modelable/operations/compilation.py": {
+      "checkout_sha256": "b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3",
+      "git_blob_sha256": "f425a5d65977d48c0ab71061c93aa828dbc36d5f4b4562f39a07baf1b620ef7f"
+    },
+    "cli/src/modelable/operations/file_transaction.py": {
+      "checkout_sha256": "628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794",
+      "git_blob_sha256": "245dd333c909089a59a13fdb52dafc51c8b60d31b9bb879aa34ad4ab7f7a619d"
+    },
+    "cli/src/modelable/operations/compilation_audit.py": {
+      "checkout_sha256": "bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f",
+      "git_blob_sha256": "b85a6e5460ba07ca2bf560f00eb76939a11c851e59057d49bd60669b64d5cc51"
+    },
+    "cli/tests/test_cli_compilation_dependency_errors.py": {
+      "checkout_sha256": "2f5d40f3826558710f8c02e026c2ce7b755c6ff355c5a5e033be3988e782fc3b",
+      "git_blob_sha256": "2f5d40f3826558710f8c02e026c2ce7b755c6ff355c5a5e033be3988e782fc3b"
+    },
+    "cli/tests/test_cli_compilation_errors.py": {
+      "checkout_sha256": "f50ac380689c416c54999bd5b106fa3e8dbc42056a5f44c39b718531b1d3e820",
+      "git_blob_sha256": "4acdf153840682d3db98a8a4c16e115ae13b7b7bef9c663bfc9cc26b1ce6a235"
+    },
+    "cli/tests/test_compilation_failure_catalog.py": {
+      "checkout_sha256": "f56ebf59163fbf5530b204eacdca424823442b359dd2b997c603b14917fc9fd9",
+      "git_blob_sha256": "f56ebf59163fbf5530b204eacdca424823442b359dd2b997c603b14917fc9fd9"
+    },
+    "cli/tests/test_compilation_cleanup_outcome.py": {
+      "checkout_sha256": "863139fcf35b724cc43829237a90f94ddaf955c04578f43b9b4d7b3191730534",
+      "git_blob_sha256": "0443e8fd77a9617755e79641724377b8b3c6b3481ad898a566e8cba7c7dc5be4"
+    },
+    "cli/tests/test_lsp_compilation_recovery.py": {
+      "checkout_sha256": "cf36144d125ecb9dae13a01da27509008ab311957e656a07176972f64ad152fa",
+      "git_blob_sha256": "cf36144d125ecb9dae13a01da27509008ab311957e656a07176972f64ad152fa"
+    },
+    "cli/tests/support/lsp_compilation_fault_server.py": {
+      "checkout_sha256": "aec77bd1cc1e689f22e4db901aa53c60a981e896e981e326a66838099d417427",
+      "git_blob_sha256": "bf70b937c24bb2869b47c2384d124468eb411fc3a4a033c29085fff82a2395c6"
+    }
+  },
+  "artifacts": {
+    "cli-dependency-errors.txt": "79ddb2a8686e7f08004896d0766eff7fca54cb18c8b86fa100852d20952aee1c",
+    "cli-dependency-errors.xml": "242992e640dab5620268c89e75ba49c52d17181568e43e77d5d11cb2107726fe",
+    "cli-dependency-errors-red.txt": "701d6bd41aa20494e456181f8ca404461eaa2ddaa614f4026096916ea486890b"
+  },
+  "red_phase": "Before the handler change: four missing-message failures and two passing programming-fault identity cases. Original stdout retained; no assertions were relaxed.",
+  "limits": [
+    "Malformed ledger is a real file; SQLite OperationalError is deterministic connection injection, not real corruption/disk exhaustion.",
+    "Real retry checks source/ledger preservation, no published registry/artifacts/audit on failure, staging removal and successful corrected compilation.",
+    "Existing committed-path and real stdio recovery tests pass; no new preview/LSP/editor policy or native editor fault acceptance is established.",
+    "Historical passing records are unchanged; this record does not relabel old captures or approve the 2.0 proposal."
+  ]
+}

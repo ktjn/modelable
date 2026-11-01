@@ -152,3 +152,7 @@ Current follow-up: [compilation-recovery.md](compilation-recovery.md) records th
 [compilation-contract-review.md](compilation-contract-review.md) records operation-specific observed failures, consumer gaps and the next acceptance handoff. [The proposal](compilation-contract-proposal.yaml) describes direct/preview/apply at modeled 2.0 and discard at 1.0; active `compilation.yaml` remains 1.0 with unchanged passing evidence. Candidate architecture metadata and 35 passing as-is tests do not approve activation or remediate the documented CLI/editor gaps. Incompatibility diagnostics remain visible.
 
 The merged [recovery implementation plan](../../plans/archived/system-spec-compilation-recovery.md) is archived after PR #896. Its source-bound recovery review and current adoption manifest remain active because their broader contract/recovery acceptance obligations and artifact references are still open.
+
+## CLI consumer remediation
+
+[CLI dependency-error remediation](cli-dependency-errors.md) records the narrow JSON/SQLite operational-error presentation repair at `41e4716c`, six new desired-behavior cases and a 41-test source-bound capture. Historical defect output and core service bindings remain intact. The corrected-contract proposal stays unaccepted; preview/LSP/editor recovery and external consumer disposition remain open.
