@@ -87,6 +87,35 @@ runtime engine remain outside the core execution boundary — see
 [Architecture and system specification](docs/architecture.md) for the exact
 implemented/deferred boundary of every concept in the diagram.
 
+## System model
+
+Generated from the brownfield system-spec inventory.
+Arrows point from consumers to capability providers. Versions and draft statuses
+reflect the captured brownfield intake; whole-product dependency discovery and
+acceptance remain open.
+
+```mermaid
+graph LR
+  subgraph modelable_product["modelable-product v1.15.1 (draft)"]
+    semantic_toolchain["semantic-toolchain v1.15.1<br>draft"]
+    native_cli["native-cli v1.15.1<br>draft"]
+    desktop_language_server["desktop-language-server v1.15.1<br>draft"]
+    browser_facade["browser-facade v1.15.1<br>draft"]
+    browser_playground["browser-playground v1.15.1<br>draft"]
+    vscode_extension["vscode-extension v1.15.1<br>draft"]
+  end
+  native_cli -->|local-contract-toolchain| semantic_toolchain
+  desktop_language_server -->|local-contract-toolchain| semantic_toolchain
+  browser_facade -->|local-contract-toolchain| semantic_toolchain
+  browser_playground -->|browser-compiler-api| browser_facade
+  vscode_extension -->|desktop-language-and-conversation| desktop_language_server
+  classDef draft fill:#eee,stroke:#999,color:#333
+  classDef specified fill:#cce5ff,stroke:#36c
+  classDef verified fill:#d5f5d5,stroke:#393
+  classDef deprecated fill:#fdd,stroke:#c33,stroke-dasharray:4
+  class semantic_toolchain,native_cli,desktop_language_server,browser_facade,browser_playground,vscode_extension draft
+```
+
 ## Install
 
 Modelable requires Python 3.14.

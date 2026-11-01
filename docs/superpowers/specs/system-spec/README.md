@@ -94,7 +94,10 @@ system-spec docs/superpowers/specs/system-spec/compilation.yaml --stage verifica
 system-spec docs/superpowers/specs/system-spec/compilation-contract-proposal.yaml --stage architecture --check-artifacts --root .
 system-spec docs/superpowers/specs/system-spec/compilation.yaml --context compilation-unit
 system-spec docs/superpowers/specs/system-spec/compilation.yaml --impact apply-compilation
+system-spec docs/superpowers/specs/system-spec/inventory.yaml --diagram
 ```
+
+The inventory `--diagram` output is embedded verbatim in the root README. Regenerate it with the command above when the intake changes. Keep the source path and reproduction command in this internal guide: the public-doc release check forbids `docs/superpowers` references in the root README. Captured versions and draft status remain inventory metadata, not current-release acceptance.
 
 Offline fallback (Pydantic/PyYAML are already native CLI dependencies):
 
