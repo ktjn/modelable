@@ -3,12 +3,14 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import inspect
+from collections.abc import Generator
 from pathlib import Path
 
 from lsprotocol import types
 from pygls import feature_manager
 from pygls.lsp.server import LanguageServer
 from pygls.protocol import json_rpc
+from pygls.protocol.language_server import LanguageServerProtocol, lsp_method
 
 from modelable.lsp.code_actions import build_code_actions
 from modelable.lsp.completion import complete_for_desktop
@@ -44,9 +46,20 @@ json_rpc.asyncio.iscoroutinefunction = inspect.iscoroutinefunction  # type: igno
 _DEBOUNCE_DELAY = 0.2
 
 
+class ModelableLanguageServerProtocol(LanguageServerProtocol):
+    @lsp_method(types.INITIALIZE)
+    def lsp_initialize(self, params: types.InitializeParams) -> Generator[object, object, types.InitializeResult]:
+        result = yield from super().lsp_initialize(params)
+        result.capabilities.experimental = {
+            **(result.capabilities.experimental or {}),
+            **(_build_initialize_result().capabilities.experimental or {}),
+        }
+        return result
+
+
 class ModelableLanguageServer(LanguageServer):
     def __init__(self) -> None:
-        super().__init__("modelable-lsp", "0.1.0")
+        super().__init__("modelable-lsp", "0.1.0", protocol_cls=ModelableLanguageServerProtocol)
         self.index = LspWorkspaceIndex()
         self._indexes: dict[Path, LspWorkspaceIndex] = {}
         self._debounce_tasks: dict[str, asyncio.Task[None]] = {}

@@ -1,0 +1,6 @@
+........................................................................ [ 42%]
+.....................................................................s.. [ 85%]
+.........................                                                [100%]
+=========================== short test summary info ===========================
+SKIPPED [1] tests\test_lsp_conversation_service.py:486: platform cannot create symlinks: [WinError 1314] A required privilege is not held by the client: 'C:\\git\\modelable\\.agentbuild\\validation\\preview-capture-29ca7c33b64d4329a88d6d002edb7e6e\\test_registry_rejects_symlinke0\\outside-docs.json' -> 'C:\\git\\modelable\\.agentbuild\\validation\\preview-capture-29ca7c33b64d4329a88d6d002edb7e6e\\test_registry_rejects_symlinke0\\workspace\\docs-index\\docs\\outside-link.json'
+168 passed, 1 skipped in 52.40s

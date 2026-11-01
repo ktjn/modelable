@@ -26,7 +26,12 @@ def build_definition(
 
 def definition_location_for_ref(workspace: Workspace, ref: str) -> types.Location | None:
     from modelable.language.definition import _definition_for_qualified_ref
+    from modelable.llm.context import parse_model_ref
 
+    try:
+        parse_model_ref(ref)
+    except ValueError:
+        return None
     location = _definition_for_qualified_ref(workspace, ref)
     if location is None:
         return None

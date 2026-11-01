@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import sqlite3
 from pathlib import Path
 from typing import Literal, TypeIs
 
@@ -180,7 +182,7 @@ class FilesystemConversationBackend:
                 ),
                 policy=CompilationPolicy.conversation(),
             )
-        except CompilationError as error:
+        except (CompilationError, json.JSONDecodeError, sqlite3.OperationalError) as error:
             return ConversationReply(
                 kind="error",
                 text=f"Could not preview compilation: {_escape_inline(error)}",

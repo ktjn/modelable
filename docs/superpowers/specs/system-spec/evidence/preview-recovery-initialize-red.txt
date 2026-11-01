@@ -1,0 +1,11 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________ test_real_initialize_advertises_conversation_protocol[none] _________
+tests\test_lsp_preview_recovery.py:108: in test_real_initialize_advertises_conversation_protocol
+    assert initialized.capabilities.experimental == {"modelableConversation": {"protocolVersion": 2}}
+E   AssertionError: assert None == {'modelableConversation': {'protocolVersion': 2}}
+E    +  where None = ServerCapabilities(position_encoding='utf-16', text_document_sync=TextDocumentSyncOptions(open_close=True, change=<Tex... did_rename=None, will_rename=None, did_delete=None, will_delete=None), text_document_content=None), experimental=None).experimental
+E    +    where ServerCapabilities(position_encoding='utf-16', text_document_sync=TextDocumentSyncOptions(open_close=True, change=<Tex... did_rename=None, will_rename=None, did_delete=None, will_delete=None), text_document_content=None), experimental=None) = InitializeResult(capabilities=ServerCapabilities(position_encoding='utf-16', text_document_sync=TextDocumentSyncOption...=None), text_document_content=None), experimental=None), server_info=ServerInfo(name='modelable-lsp', version='0.1.0')).capabilities
+=========================== short test summary info ===========================
+FAILED tests/test_lsp_preview_recovery.py::test_real_initialize_advertises_conversation_protocol[none]
+1 failed in 2.74s

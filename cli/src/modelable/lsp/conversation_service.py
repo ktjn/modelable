@@ -392,6 +392,12 @@ class LspConversationService:
         session_id: str,
         entry: _SessionEntry,
     ) -> dict[str, object]:
+        if reply.kind == "error" and reply.change_set_id is None and entry.session.pending is not None:
+            reply = replace(
+                reply,
+                change_set_id=entry.session.pending_action_id,
+                operation_kind=entry.session.pending_operation_kind,
+            )
         if reply.focused_ref is None and entry.session.focused_ref is not None:
             reply = replace(reply, focused_ref=entry.session.focused_ref)
         refs = {item.ref for item in reply.changed}

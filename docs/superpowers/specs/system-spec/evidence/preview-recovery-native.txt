@@ -1,0 +1,221 @@
+
+> modelable-vscode@1.15.2 test
+> node ./out/test/runTests.js
+
+
+[main 2026-11-01T15:17:34.631Z] [node-compile-cache] main: packaged cache enabled (status: enabled, configured: C:\git\modelable\vscode\.vscode-test\vscode-win32-x64-archive-1.144.0\2c33b50b16\resources\app\node-compile-cache\main, active: C:\git\modelable\vscode\.vscode-test\vscode-win32-x64-archive-1.144.0\2c33b50b16\resources\app\node-compile-cache\main\v24.22.1-x64-60e4fe36)
+[main 2026-11-01T15:17:34.673Z] StorageMainService: creating application shared storage
+[main 2026-11-01T15:17:34.712Z] [shared storage] Creating shared storage database at ':memory:' (wasCreated: true)
+[main 2026-11-01T15:17:34.712Z] [shared storage] Initializing fallback application storage (path: in-memory)
+[main 2026-11-01T15:17:34.741Z] [shared storage] Fallback application storage initialized with 3 items
+[main 2026-11-01T15:17:34.742Z] update#setState disabled
+[main 2026-11-01T15:17:34.742Z] update#ctor - updates are disabled by the environment
+[RemoteAgentHost] Reconciling: desired=[], current=[]
+[AgentHost:renderer] Acquiring MessagePort to agent host...
+[main 2026-11-01T15:17:35.449Z] AgentHostProcessManager: agent host started
+[ChatModelSelection] event=no-model-at-toolbar-build surface="workbench" sessionKey=undefined conversationKey=undefined modelTarget=undefined storageKey="chat.currentLanguageModel.panel" widgetViewKind="view"
+[AgentHost:renderer] MessagePort acquired, creating client...
+Started local extension host with pid 71336.
+Loading development extension at c:\git\modelable\vscode
+[RemoteAgentHostProtocol] Sending initialize: address=local clientId=a36b1ae5-b11a-4e9f-88be-440e541e6832 requestId=1
+[RemoteAgentHostProtocol] Initialized: address=local clientId=a36b1ae5-b11a-4e9f-88be-440e541e6832 durationMs=899
+[AgentHost:renderer] Protocol connection established; clientId=a36b1ae5-b11a-4e9f-88be-440e541e6832
+[ChatModelSelection] event=no-model-at-toolbar-build surface="workbench" sessionKey="local" conversationKey="vscode-chat-session://local/NjIxMGNjMzctOWE0Yy00ZTNlLTk5MWYtZmE1NDRmOTNiMzll" modelTarget=undefined storageKey="chat.currentLanguageModel.panel" widgetViewKind="view"
+[AccountPolicyGate] apply: state=inactive, reason=undefined, isRestricted=false
+[0m[0m
+[0m  Modelable conversation participant[0m
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[ChatModelSelection] event=no-model-at-toolbar-build surface="workbench" sessionKey="local" conversationKey="vscode-chat-session://local/NjIxMGNjMzctOWE0Yy00ZTNlLTk5MWYtZmE1NDRmOTNiMzll" modelTarget=undefined storageKey="chat.currentLanguageModel.panel" widgetViewKind="view"
+  [32m  √[0m[90m manifest contributes the native chat participant[0m
+[ChatModelSelection] event=no-model-at-toolbar-build surface="workbench" sessionKey="local" conversationKey="vscode-chat-session://local/NjIxMGNjMzctOWE0Yy00ZTNlLTk5MWYtZmE1NDRmOTNiMzll" modelTarget=undefined storageKey="chat.currentLanguageModel.panel" widgetViewKind="view"
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+  [32m  √[0m[90m recovers only compatible Modelable session metadata[0m
+  [32m  √[0m[90m active model selects its folder and reports every dirty file there[0m
+  [32m  √[0m[90m workspace containment canonicalizes missing descendants without admitting symlink escapes[0m
+  [32m  √[0m[90m one manifest folder is selected without an active model[0m
+  [32m  √[0m[90m reports ambiguous and missing workspace context[0m
+  [32m  √[0m[90m participant streams replies and returns namespaced metadata[0m
+  [32m  √[0m[90m native compile command forwards exact deterministic parser input[0m
+  [32m  √[0m[90m participant reports capability and request failures as chat errors[0m
+  [32m  √[0m[90m conversation client sends exact turn and lifecycle payloads[0m
+  [32m  √[0m[90m recovered sessions cannot silently switch workspaces[0m
+  [32m  √[0m[90m preview store retains exact before and after snapshots[0m
+  [32m  √[0m[90m preview store represents a new file with an empty before snapshot[0m
+  [32m  √[0m[90m structured preview rendering caches snapshots, anchors refs, and adds one safe button[0m
+  [32m  √[0m[90m compile preview stores generated text snapshots and renders operational details[0m
+  [32m  √[0m[90m compile preview offers multiple generated diffs and applied audit link[0m
+  [32m  √[0m[90m plain answers do not cache preview content[0m
+  [32m  √[0m[90m preview results offer native apply and discard followups[0m
+  [32m  √[0m[90m apply, discard, and reset route exact metadata and clean successful previews[0m
+  [32m  √[0m[90m failed apply retains cached preview content[0m
+  [32m  √[0m[90m cancelled turns close and invalidate the session before the next turn[0m
+  [32m  √[0m[90m conversation logs contain lifecycle fields but no prompt or reply content[0m
+  [32m  √[0m[90m participant cancellation clears previews and returns no stale metadata[0m
+  [32m  √[0m[90m expired recovered sessions clear previews and request a fresh turn[0m
+[0m  Modelable LSP Smoke Tests[0m
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[ChatModelSelection] event=no-model-at-toolbar-build surface="workbench" sessionKey="local" conversationKey="vscode-chat-session://local/NjIxMGNjMzctOWE0Yy00ZTNlLTk5MWYtZmE1NDRmOTNiMzll" modelTarget=undefined storageKey="chat.currentLanguageModel.panel" widgetViewKind="view"
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[ChatModelSelection] event=no-model-at-toolbar-build surface="workbench" sessionKey="local" conversationKey="vscode-chat-session://local/NjIxMGNjMzctOWE0Yy00ZTNlLTk5MWYtZmE1NDRmOTNiMzll" modelTarget=undefined storageKey="chat.currentLanguageModel.panel" widgetViewKind="view"
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[RemoteAgentHost] Reconciling: desired=[], current=[]
+Settings Sync: Account status changed from uninitialized to unavailable
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[AgentHost] No signed-in session resolved for resource: https://api.github.com
+[AgentHost] No signed-in session resolved for resource: https://api.github.com/repos
+[ChatModelSelection] event=no-model-at-toolbar-build surface="workbench" sessionKey="local" conversationKey="vscode-chat-session://local/NjIxMGNjMzctOWE0Yy00ZTNlLTk5MWYtZmE1NDRmOTNiMzll" modelTarget=undefined storageKey="chat.currentLanguageModel.panel" widgetViewKind="view"
+  [32m  √[0m[90m extension activates without error[0m
+  [32m  √[0m[90m conversation question and reset cross the real language-client boundary[0m[31m (1058ms)[0m
+  [32m  √[0m[90m hover returns content for a cross-domain type reference[0m
+  [32m  √[0m[90m go-to-definition resolves cross-file reference to lending.mdl[0m
+  [32m  √[0m[90m completion suggests projection fields in a body[0m
+  [32m  √[0m[90m document symbols include the current projection fields[0m[31m (651ms)[0m
+  [32m  √[0m[90m rename returns a workspace edit for an aliased field reference[0m
+  [32m  √[0m[90m formatting returns normalized indentation for a messy document[0m[31m (183ms)[0m
+  [32m  √[0m[90m references include model declarations and usages[0m
+  [32m  √[0m[90m inlay hints include direct field types[0m
+  [32m  √[0m[90m no unresolved model reference diagnostics on ml-credit-risk.mdl[0m
+[0m  Native conversation preview recovery[0m
+[AccountPolicyGate] apply: state=inactive, reason=undefined, isRestricted=false
+  [32m  √[0m[90m malformed-ledger: first-turn history, preserved preview, apply and reset cross real RPC[0m[31m (2161ms)[0m
+  [32m  √[0m[90m sqlite-operational: first-turn history, preserved preview, apply and reset cross real RPC[0m[31m (2318ms)[0m
+[92m [0m[32m 37 passing[0m[90m (9s)[0m
+[main 2026-11-01T15:17:46.018Z] Extension host with pid 71336 exited with code: 0, signal: unknown.
+Exit code:   0
+- Resolving version...
+√ Validated version: 1.144.0
+√ Found existing install in C:\git\modelable\vscode\.vscode-test\vscode-win32-x64-archive-1.144.0
+Via 'product.json#extensionEnabledApiProposals' extension 'github.vscode-pull-request-github' wants API proposal 'agentsWindowActivation' but that proposal DOES NOT EXIST. Likely, the proposal has been finalized (check 'vscode.d.ts') or was abandoned.
+[main 2026-11-01T15:17:36.126Z] [AgentHost:stderr] (node:2852) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `Code --trace-deprecation ...` to show where the warning was created)
+
+(node:71336) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `Code --trace-deprecation ...` to show where the warning was created)
+Unknown channel: agentHostClientByokLm
+Unknown channel: agentHostClientProxy
+Unknown channel: agentHostClientProxy
+Unknown channel: agentHostClientProxy

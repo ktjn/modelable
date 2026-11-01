@@ -156,3 +156,7 @@ The merged [recovery implementation plan](../../plans/archived/system-spec-compi
 ## CLI consumer remediation
 
 [CLI dependency-error remediation](cli-dependency-errors.md) records the narrow JSON/SQLite operational-error presentation repair at `41e4716c`, six new desired-behavior cases and a 41-test source-bound capture. Historical defect output and core service bindings remain intact. The corrected-contract proposal stays unaccepted; preview/LSP/editor recovery and external consumer disposition remain open.
+
+## Conversation preview recovery
+
+[Preview recovery](preview-recovery.md) records operational-error replies, retained action metadata, real protocol negotiation and artifact-reference navigation at `2146fed9`: 168 Python/RPC passes (one existing platform skip) and 37 native editor passes. Manual/model acceptance, other fault families, external consumers and contract activation remain open.

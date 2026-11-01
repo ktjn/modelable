@@ -8,7 +8,6 @@ from unittest.mock import Mock
 
 import pytest
 from click.testing import CliRunner
-from pygls.exceptions import JsonRpcInternalError
 from test_lsp_compilation_recovery import (
     assert_published,
     change_payload,
@@ -20,7 +19,7 @@ from test_lsp_compilation_recovery import (
 
 import modelable.operations.compilation as compilation
 from modelable.cli import cli
-from modelable.lsp.conversation_protocol import APPLY_METHOD
+from modelable.lsp.conversation_protocol import APPLY_METHOD, TURN_METHOD
 from modelable.operations.compilation import (
     CompilationConfirmation,
     CompilationError,
@@ -226,15 +225,27 @@ def test_unsupported_oci_is_wrapped_as_compilation_error_without_remote_io(catal
     assert_no_publication(root)
 
 
-async def test_malformed_ledger_preview_fault_allows_repaired_request_in_same_rpc_session(compilation_rpc):
+async def test_malformed_ledger_preview_error_allows_repaired_request_in_same_rpc_session(compilation_rpc):
     client, root, _source, stages = compilation_rpc
     ledger = root / "registry-ids.lock"
     ledger.write_bytes(b'{"broken":')
 
-    with pytest.raises(JsonRpcInternalError, match="JSONDecodeError") as raised:
-        await preview_compilation(client, root)
+    failed = await client.protocol.send_request_async(
+        TURN_METHOD,
+        {
+            "protocolVersion": 2,
+            "sessionId": "recovery-session",
+            "createSession": True,
+            "workspaceUri": root.as_uri(),
+            "message": "/compile rust",
+            "dirtyDocumentUris": [],
+        },
+    )
 
-    assert raised.value.code == -32603
+    assert failed.kind == "error"
+    assert failed.sessionId == "recovery-session"
+    assert failed.changeSetId is None
+    assert "Could not preview compilation" in failed.text
     assert list(stages.iterdir()) == []
     assert_no_publication(root)
     ledger.write_text("{}", encoding="utf-8")

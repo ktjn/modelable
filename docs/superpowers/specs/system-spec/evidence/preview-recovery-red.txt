@@ -1,0 +1,837 @@
+FF...FFFFFFFFFFF.                                                        [100%]
+================================== FAILURES ===================================
+______ test_first_preview_operational_failure_is_a_domain_error[error0] _______
+tests\test_conversation_preview_recovery.py:28: in test_first_preview_operational_failure_is_a_domain_error
+    failed = session.turn("/compile rust")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\conversation.py:155: in turn
+    outcome = self.engine.begin_turn(message, direct_edit_mode=direct_edit_mode)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\conversation_engine.py:132: in begin_turn
+    return self._complete_plan(normalized, parse_compile_command(normalized), None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\conversation_engine.py:238: in _complete_plan
+    reply = self._execute_plan(plan)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\conversation_engine.py:277: in _execute_plan
+    reply = self.backend.preview_compilation(plan, self.pending_action_id)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\filesystem_conversation.py:173: in preview_compilation
+    pending = self.compilation_service.preview(
+C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py:1176: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py:1180: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py:1241: in _execute_mock_call
+    raise effect
+E   json.decoder.JSONDecodeError: bad ledger: line 1 column 2 (char 1)
+______ test_first_preview_operational_failure_is_a_domain_error[error1] _______
+tests\test_conversation_preview_recovery.py:28: in test_first_preview_operational_failure_is_a_domain_error
+    failed = session.turn("/compile rust")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\conversation.py:155: in turn
+    outcome = self.engine.begin_turn(message, direct_edit_mode=direct_edit_mode)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\conversation_engine.py:132: in begin_turn
+    return self._complete_plan(normalized, parse_compile_command(normalized), None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\conversation_engine.py:238: in _complete_plan
+    reply = self._execute_plan(plan)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\conversation_engine.py:277: in _execute_plan
+    reply = self.backend.preview_compilation(plan, self.pending_action_id)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\filesystem_conversation.py:173: in preview_compilation
+    pending = self.compilation_service.preview(
+C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py:1176: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py:1180: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py:1241: in _execute_mock_call
+    raise effect
+E   sqlite3.OperationalError: database unavailable
+_______ test_failed_replacement_keeps_pending_stage_until_close[error1] _______
+tests\test_conversation_preview_recovery.py:59: in test_failed_replacement_keeps_pending_stage_until_close
+    failed = session.turn("/compile go")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\conversation.py:155: in turn
+    outcome = self.engine.begin_turn(message, direct_edit_mode=direct_edit_mode)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\conversation_engine.py:132: in begin_turn
+    return self._complete_plan(normalized, parse_compile_command(normalized), None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\conversation_engine.py:238: in _complete_plan
+    reply = self._execute_plan(plan)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\conversation_engine.py:277: in _execute_plan
+    reply = self.backend.preview_compilation(plan, self.pending_action_id)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\filesystem_conversation.py:173: in preview_compilation
+    pending = self.compilation_service.preview(
+C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py:1176: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py:1180: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py:1241: in _execute_mock_call
+    raise effect
+E   json.decoder.JSONDecodeError: bad ledger: line 1 column 2 (char 1)
+_______ test_failed_replacement_keeps_pending_stage_until_close[error2] _______
+tests\test_conversation_preview_recovery.py:59: in test_failed_replacement_keeps_pending_stage_until_close
+    failed = session.turn("/compile go")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\conversation.py:155: in turn
+    outcome = self.engine.begin_turn(message, direct_edit_mode=direct_edit_mode)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\conversation_engine.py:132: in begin_turn
+    return self._complete_plan(normalized, parse_compile_command(normalized), None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\conversation_engine.py:238: in _complete_plan
+    reply = self._execute_plan(plan)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\conversation_engine.py:277: in _execute_plan
+    reply = self.backend.preview_compilation(plan, self.pending_action_id)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\filesystem_conversation.py:173: in preview_compilation
+    pending = self.compilation_service.preview(
+C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py:1176: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py:1180: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py:1241: in _execute_mock_call
+    raise effect
+E   sqlite3.OperationalError: database unavailable
+____________ test_wire_error_keeps_existing_pending_source_action _____________
+tests\test_conversation_preview_recovery.py:92: in test_wire_error_keeps_existing_pending_source_action
+    assert failed["changeSetId"] == first["changeSetId"]
+E   AssertionError: assert None == '1adfe809600e5bb9'
+___ test_first_turn_dependency_error_retains_session_and_allows_retry[none] ___
+tests\test_lsp_preview_recovery.py:47: in test_first_turn_dependency_error_retains_session_and_allows_retry
+    failed = await client.protocol.send_request_async(TURN_METHOD, payload(root, True))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\pytest_lsp\protocol.py:81: in send_request_async
+    result = await super().send_request_async(method, params, msg_id)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pygls.exceptions.JsonRpcInternalError: json.decoder.JSONDecodeError: Expecting value: line 1 column 11 (char 10)
+---------------------------- Captured stderr call -----------------------------
+Exception occurred for message "cc9be80a-1bdb-4753-8177-f08bd3b5fc14"
+
+Traceback (most recent call last):
+
+  File "C:\git\modelable\cli\.venv\Lib\site-packages\pygls\protocol\json_rpc.py", line 300, in _send_handler_result
+
+    self._send_response(msg_id, result=future.result())
+
+                                       ~~~~~~~~~~~~~^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\concurrent\futures\_base.py", line 443, in result
+
+    return self.__get_result()
+
+           ~~~~~~~~~~~~~~~~~^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\concurrent\futures\_base.py", line 395, in __get_result
+
+    raise self._exception
+
+  File "C:\git\modelable\cli\.venv\Lib\site-packages\pygls\protocol\json_rpc.py", line 236, in _execute_handler
+
+    result = handler(*args, **kwargs)
+
+  File "C:\git\modelable\cli\src\modelable\lsp\server.py", line 130, in conversation_turn
+
+    return ls.conversations.turn(params, index=index)
+
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\lsp\conversation_service.py", line 125, in turn
+
+    reply = documentation_reply if documentation_reply is not None else entry.session.turn(params.message)
+
+                                                                        ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation.py", line 155, in turn
+
+    outcome = self.engine.begin_turn(message, direct_edit_mode=direct_edit_mode)
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation_engine.py", line 132, in begin_turn
+
+    return self._complete_plan(normalized, parse_compile_command(normalized), None)
+
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation_engine.py", line 238, in _complete_plan
+
+    reply = self._execute_plan(plan)
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation_engine.py", line 277, in _execute_plan
+
+    reply = self.backend.preview_compilation(plan, self.pending_action_id)
+
+  File "C:\git\modelable\cli\src\modelable\llm\filesystem_conversation.py", line 173, in preview_compilation
+
+    pending = self.compilation_service.preview(
+
+        CompilationRequest(
+
+    ...<6 lines>...
+
+        policy=CompilationPolicy.conversation(),
+
+    )
+
+  File "C:\git\modelable\cli\tests\support\lsp_preview_recovery_server.py", line 28, in preview_with_fault
+
+    return original_preview(self, *args, **kwargs)
+
+  File "C:\git\modelable\cli\src\modelable\operations\compilation.py", line 380, in preview
+
+    existing_registry_ids = read_lock_file(layout.registry_ids)
+
+  File "C:\git\modelable\cli\src\modelable\registry\ids.py", line 153, in read_lock_file
+
+    return cast(dict[str, int], json.loads(path.read_text(encoding="utf-8")))
+
+                                ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\json\__init__.py", line 352, in loads
+
+    return _default_decoder.decode(s)
+
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\json\decoder.py", line 345, in decode
+
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\json\decoder.py", line 363, in raw_decode
+
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+
+json.decoder.JSONDecodeError: Expecting value: line 1 column 11 (char 10)
+
+_ test_first_turn_dependency_error_retains_session_and_allows_retry[sqlite-once] _
+tests\test_lsp_preview_recovery.py:47: in test_first_turn_dependency_error_retains_session_and_allows_retry
+    failed = await client.protocol.send_request_async(TURN_METHOD, payload(root, True))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\pytest_lsp\protocol.py:81: in send_request_async
+    result = await super().send_request_async(method, params, msg_id)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pygls.exceptions.JsonRpcInternalError: sqlite3.OperationalError: injected preview database failure
+---------------------------- Captured stderr call -----------------------------
+Exception occurred for message "2f2b6c8d-cfe6-417c-97c2-cdab07facec1"
+
+Traceback (most recent call last):
+
+  File "C:\git\modelable\cli\.venv\Lib\site-packages\pygls\protocol\json_rpc.py", line 300, in _send_handler_result
+
+    self._send_response(msg_id, result=future.result())
+
+                                       ~~~~~~~~~~~~~^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\concurrent\futures\_base.py", line 443, in result
+
+    return self.__get_result()
+
+           ~~~~~~~~~~~~~~~~~^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\concurrent\futures\_base.py", line 395, in __get_result
+
+    raise self._exception
+
+  File "C:\git\modelable\cli\.venv\Lib\site-packages\pygls\protocol\json_rpc.py", line 236, in _execute_handler
+
+    result = handler(*args, **kwargs)
+
+  File "C:\git\modelable\cli\src\modelable\lsp\server.py", line 130, in conversation_turn
+
+    return ls.conversations.turn(params, index=index)
+
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\lsp\conversation_service.py", line 125, in turn
+
+    reply = documentation_reply if documentation_reply is not None else entry.session.turn(params.message)
+
+                                                                        ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation.py", line 155, in turn
+
+    outcome = self.engine.begin_turn(message, direct_edit_mode=direct_edit_mode)
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation_engine.py", line 132, in begin_turn
+
+    return self._complete_plan(normalized, parse_compile_command(normalized), None)
+
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation_engine.py", line 238, in _complete_plan
+
+    reply = self._execute_plan(plan)
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation_engine.py", line 277, in _execute_plan
+
+    reply = self.backend.preview_compilation(plan, self.pending_action_id)
+
+  File "C:\git\modelable\cli\src\modelable\llm\filesystem_conversation.py", line 173, in preview_compilation
+
+    pending = self.compilation_service.preview(
+
+        CompilationRequest(
+
+    ...<6 lines>...
+
+        policy=CompilationPolicy.conversation(),
+
+    )
+
+  File "C:\git\modelable\cli\tests\support\lsp_preview_recovery_server.py", line 27, in preview_with_fault
+
+    return original_preview(self, *args, **kwargs)
+
+  File "C:\git\modelable\cli\src\modelable\operations\compilation.py", line 399, in preview
+
+    run = _run_compilation(
+
+        staged_request,
+
+        plans_dir=staging_dir / ".modelable" / "plans",
+
+    )
+
+  File "C:\git\modelable\cli\src\modelable\operations\compilation.py", line 1461, in _run_compilation
+
+    built_registry_path = build_registry(
+
+        workspace,
+
+        local_registry_path.parent,
+
+        registry_ids=registry_ids,
+
+    )
+
+  File "C:\git\modelable\cli\src\modelable\registry\index.py", line 46, in build_registry
+
+    with sqlite3.connect(registry_path) as conn:
+
+         ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py", line 1176, in __call__
+
+    return self._mock_call(*args, **kwargs)
+
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py", line 1180, in _mock_call
+
+    return self._execute_mock_call(*args, **kwargs)
+
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py", line 1241, in _execute_mock_call
+
+    raise effect
+
+sqlite3.OperationalError: injected preview database failure
+
+_ test_failed_replacement_serializes_live_pending_id_and_retains_bytes[apply-none] _
+tests\test_lsp_preview_recovery.py:78: in test_failed_replacement_serializes_live_pending_id_and_retains_bytes
+    failed = await client.protocol.send_request_async(TURN_METHOD, payload(root, target="go"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\pytest_lsp\protocol.py:81: in send_request_async
+    result = await super().send_request_async(method, params, msg_id)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pygls.exceptions.JsonRpcInternalError: json.decoder.JSONDecodeError: Expecting value: line 1 column 11 (char 10)
+---------------------------- Captured stderr call -----------------------------
+Exception occurred for message "98dbd36c-9d94-48db-878d-d17fd73d1dbd"
+
+Traceback (most recent call last):
+
+  File "C:\git\modelable\cli\.venv\Lib\site-packages\pygls\protocol\json_rpc.py", line 300, in _send_handler_result
+
+    self._send_response(msg_id, result=future.result())
+
+                                       ~~~~~~~~~~~~~^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\concurrent\futures\_base.py", line 443, in result
+
+    return self.__get_result()
+
+           ~~~~~~~~~~~~~~~~~^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\concurrent\futures\_base.py", line 395, in __get_result
+
+    raise self._exception
+
+  File "C:\git\modelable\cli\.venv\Lib\site-packages\pygls\protocol\json_rpc.py", line 236, in _execute_handler
+
+    result = handler(*args, **kwargs)
+
+  File "C:\git\modelable\cli\src\modelable\lsp\server.py", line 130, in conversation_turn
+
+    return ls.conversations.turn(params, index=index)
+
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\lsp\conversation_service.py", line 125, in turn
+
+    reply = documentation_reply if documentation_reply is not None else entry.session.turn(params.message)
+
+                                                                        ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation.py", line 155, in turn
+
+    outcome = self.engine.begin_turn(message, direct_edit_mode=direct_edit_mode)
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation_engine.py", line 132, in begin_turn
+
+    return self._complete_plan(normalized, parse_compile_command(normalized), None)
+
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation_engine.py", line 238, in _complete_plan
+
+    reply = self._execute_plan(plan)
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation_engine.py", line 277, in _execute_plan
+
+    reply = self.backend.preview_compilation(plan, self.pending_action_id)
+
+  File "C:\git\modelable\cli\src\modelable\llm\filesystem_conversation.py", line 173, in preview_compilation
+
+    pending = self.compilation_service.preview(
+
+        CompilationRequest(
+
+    ...<6 lines>...
+
+        policy=CompilationPolicy.conversation(),
+
+    )
+
+  File "C:\git\modelable\cli\tests\support\lsp_preview_recovery_server.py", line 28, in preview_with_fault
+
+    return original_preview(self, *args, **kwargs)
+
+  File "C:\git\modelable\cli\src\modelable\operations\compilation.py", line 380, in preview
+
+    existing_registry_ids = read_lock_file(layout.registry_ids)
+
+  File "C:\git\modelable\cli\src\modelable\registry\ids.py", line 153, in read_lock_file
+
+    return cast(dict[str, int], json.loads(path.read_text(encoding="utf-8")))
+
+                                ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\json\__init__.py", line 352, in loads
+
+    return _default_decoder.decode(s)
+
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\json\decoder.py", line 345, in decode
+
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\json\decoder.py", line 363, in raw_decode
+
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+
+json.decoder.JSONDecodeError: Expecting value: line 1 column 11 (char 10)
+
+_ test_failed_replacement_serializes_live_pending_id_and_retains_bytes[apply-sqlite-second] _
+tests\test_lsp_preview_recovery.py:78: in test_failed_replacement_serializes_live_pending_id_and_retains_bytes
+    failed = await client.protocol.send_request_async(TURN_METHOD, payload(root, target="go"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\pytest_lsp\protocol.py:81: in send_request_async
+    result = await super().send_request_async(method, params, msg_id)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pygls.exceptions.JsonRpcInternalError: sqlite3.OperationalError: injected preview database failure
+---------------------------- Captured stderr call -----------------------------
+Exception occurred for message "a4226d3a-5676-43d5-bc24-52d34f13d91c"
+
+Traceback (most recent call last):
+
+  File "C:\git\modelable\cli\.venv\Lib\site-packages\pygls\protocol\json_rpc.py", line 300, in _send_handler_result
+
+    self._send_response(msg_id, result=future.result())
+
+                                       ~~~~~~~~~~~~~^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\concurrent\futures\_base.py", line 443, in result
+
+    return self.__get_result()
+
+           ~~~~~~~~~~~~~~~~~^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\concurrent\futures\_base.py", line 395, in __get_result
+
+    raise self._exception
+
+  File "C:\git\modelable\cli\.venv\Lib\site-packages\pygls\protocol\json_rpc.py", line 236, in _execute_handler
+
+    result = handler(*args, **kwargs)
+
+  File "C:\git\modelable\cli\src\modelable\lsp\server.py", line 130, in conversation_turn
+
+    return ls.conversations.turn(params, index=index)
+
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\lsp\conversation_service.py", line 125, in turn
+
+    reply = documentation_reply if documentation_reply is not None else entry.session.turn(params.message)
+
+                                                                        ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation.py", line 155, in turn
+
+    outcome = self.engine.begin_turn(message, direct_edit_mode=direct_edit_mode)
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation_engine.py", line 132, in begin_turn
+
+    return self._complete_plan(normalized, parse_compile_command(normalized), None)
+
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation_engine.py", line 238, in _complete_plan
+
+    reply = self._execute_plan(plan)
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation_engine.py", line 277, in _execute_plan
+
+    reply = self.backend.preview_compilation(plan, self.pending_action_id)
+
+  File "C:\git\modelable\cli\src\modelable\llm\filesystem_conversation.py", line 173, in preview_compilation
+
+    pending = self.compilation_service.preview(
+
+        CompilationRequest(
+
+    ...<6 lines>...
+
+        policy=CompilationPolicy.conversation(),
+
+    )
+
+  File "C:\git\modelable\cli\tests\support\lsp_preview_recovery_server.py", line 27, in preview_with_fault
+
+    return original_preview(self, *args, **kwargs)
+
+  File "C:\git\modelable\cli\src\modelable\operations\compilation.py", line 399, in preview
+
+    run = _run_compilation(
+
+        staged_request,
+
+        plans_dir=staging_dir / ".modelable" / "plans",
+
+    )
+
+  File "C:\git\modelable\cli\src\modelable\operations\compilation.py", line 1461, in _run_compilation
+
+    built_registry_path = build_registry(
+
+        workspace,
+
+        local_registry_path.parent,
+
+        registry_ids=registry_ids,
+
+    )
+
+  File "C:\git\modelable\cli\src\modelable\registry\index.py", line 46, in build_registry
+
+    with sqlite3.connect(registry_path) as conn:
+
+         ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py", line 1176, in __call__
+
+    return self._mock_call(*args, **kwargs)
+
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py", line 1180, in _mock_call
+
+    return self._execute_mock_call(*args, **kwargs)
+
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py", line 1241, in _execute_mock_call
+
+    raise effect
+
+sqlite3.OperationalError: injected preview database failure
+
+_ test_failed_replacement_serializes_live_pending_id_and_retains_bytes[apply-compilation-second] _
+tests\test_lsp_preview_recovery.py:81: in test_failed_replacement_serializes_live_pending_id_and_retains_bytes
+    assert failed.changeSetId == first.changeSetId
+E   AssertionError: assert None == 'f23d09b3-8b0b-4401-83b9-f69b11b782f5'
+E    +  where None = Object(protocolVersion=2, kind='error', text='Could not preview compilation: injected rejected replacement', sessionId...indings=[], diagnostics=[], previewFiles=[], compilationFiles=[], registryIdChanges=[], auditUri=None, writtenPaths=[]).changeSetId
+E    +  and   'f23d09b3-8b0b-4401-83b9-f69b11b782f5' = Object(protocolVersion=2, kind='preview', text='No LLM provider is configured, so I can answer workspace queries but c...eplacement_serial2/workspace/.modelable/audit/compilations/f23d09b3-8b0b-4401-83b9-f69b11b782f5.json', writtenPaths=[]).changeSetId
+_ test_failed_replacement_serializes_live_pending_id_and_retains_bytes[close-none] _
+tests\test_lsp_preview_recovery.py:78: in test_failed_replacement_serializes_live_pending_id_and_retains_bytes
+    failed = await client.protocol.send_request_async(TURN_METHOD, payload(root, target="go"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\pytest_lsp\protocol.py:81: in send_request_async
+    result = await super().send_request_async(method, params, msg_id)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pygls.exceptions.JsonRpcInternalError: json.decoder.JSONDecodeError: Expecting value: line 1 column 11 (char 10)
+---------------------------- Captured stderr call -----------------------------
+Exception occurred for message "8a18e06c-21ad-4e17-bff2-a6b3bdc44d16"
+
+Traceback (most recent call last):
+
+  File "C:\git\modelable\cli\.venv\Lib\site-packages\pygls\protocol\json_rpc.py", line 300, in _send_handler_result
+
+    self._send_response(msg_id, result=future.result())
+
+                                       ~~~~~~~~~~~~~^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\concurrent\futures\_base.py", line 443, in result
+
+    return self.__get_result()
+
+           ~~~~~~~~~~~~~~~~~^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\concurrent\futures\_base.py", line 395, in __get_result
+
+    raise self._exception
+
+  File "C:\git\modelable\cli\.venv\Lib\site-packages\pygls\protocol\json_rpc.py", line 236, in _execute_handler
+
+    result = handler(*args, **kwargs)
+
+  File "C:\git\modelable\cli\src\modelable\lsp\server.py", line 130, in conversation_turn
+
+    return ls.conversations.turn(params, index=index)
+
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\lsp\conversation_service.py", line 125, in turn
+
+    reply = documentation_reply if documentation_reply is not None else entry.session.turn(params.message)
+
+                                                                        ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation.py", line 155, in turn
+
+    outcome = self.engine.begin_turn(message, direct_edit_mode=direct_edit_mode)
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation_engine.py", line 132, in begin_turn
+
+    return self._complete_plan(normalized, parse_compile_command(normalized), None)
+
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation_engine.py", line 238, in _complete_plan
+
+    reply = self._execute_plan(plan)
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation_engine.py", line 277, in _execute_plan
+
+    reply = self.backend.preview_compilation(plan, self.pending_action_id)
+
+  File "C:\git\modelable\cli\src\modelable\llm\filesystem_conversation.py", line 173, in preview_compilation
+
+    pending = self.compilation_service.preview(
+
+        CompilationRequest(
+
+    ...<6 lines>...
+
+        policy=CompilationPolicy.conversation(),
+
+    )
+
+  File "C:\git\modelable\cli\tests\support\lsp_preview_recovery_server.py", line 28, in preview_with_fault
+
+    return original_preview(self, *args, **kwargs)
+
+  File "C:\git\modelable\cli\src\modelable\operations\compilation.py", line 380, in preview
+
+    existing_registry_ids = read_lock_file(layout.registry_ids)
+
+  File "C:\git\modelable\cli\src\modelable\registry\ids.py", line 153, in read_lock_file
+
+    return cast(dict[str, int], json.loads(path.read_text(encoding="utf-8")))
+
+                                ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\json\__init__.py", line 352, in loads
+
+    return _default_decoder.decode(s)
+
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\json\decoder.py", line 345, in decode
+
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\json\decoder.py", line 363, in raw_decode
+
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+
+json.decoder.JSONDecodeError: Expecting value: line 1 column 11 (char 10)
+
+_ test_failed_replacement_serializes_live_pending_id_and_retains_bytes[close-sqlite-second] _
+tests\test_lsp_preview_recovery.py:78: in test_failed_replacement_serializes_live_pending_id_and_retains_bytes
+    failed = await client.protocol.send_request_async(TURN_METHOD, payload(root, target="go"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\pytest_lsp\protocol.py:81: in send_request_async
+    result = await super().send_request_async(method, params, msg_id)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pygls.exceptions.JsonRpcInternalError: sqlite3.OperationalError: injected preview database failure
+---------------------------- Captured stderr call -----------------------------
+Exception occurred for message "6c63e45c-03c7-4692-9e39-fe1721b92cad"
+
+Traceback (most recent call last):
+
+  File "C:\git\modelable\cli\.venv\Lib\site-packages\pygls\protocol\json_rpc.py", line 300, in _send_handler_result
+
+    self._send_response(msg_id, result=future.result())
+
+                                       ~~~~~~~~~~~~~^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\concurrent\futures\_base.py", line 443, in result
+
+    return self.__get_result()
+
+           ~~~~~~~~~~~~~~~~~^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\concurrent\futures\_base.py", line 395, in __get_result
+
+    raise self._exception
+
+  File "C:\git\modelable\cli\.venv\Lib\site-packages\pygls\protocol\json_rpc.py", line 236, in _execute_handler
+
+    result = handler(*args, **kwargs)
+
+  File "C:\git\modelable\cli\src\modelable\lsp\server.py", line 130, in conversation_turn
+
+    return ls.conversations.turn(params, index=index)
+
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\lsp\conversation_service.py", line 125, in turn
+
+    reply = documentation_reply if documentation_reply is not None else entry.session.turn(params.message)
+
+                                                                        ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation.py", line 155, in turn
+
+    outcome = self.engine.begin_turn(message, direct_edit_mode=direct_edit_mode)
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation_engine.py", line 132, in begin_turn
+
+    return self._complete_plan(normalized, parse_compile_command(normalized), None)
+
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation_engine.py", line 238, in _complete_plan
+
+    reply = self._execute_plan(plan)
+
+  File "C:\git\modelable\cli\src\modelable\llm\conversation_engine.py", line 277, in _execute_plan
+
+    reply = self.backend.preview_compilation(plan, self.pending_action_id)
+
+  File "C:\git\modelable\cli\src\modelable\llm\filesystem_conversation.py", line 173, in preview_compilation
+
+    pending = self.compilation_service.preview(
+
+        CompilationRequest(
+
+    ...<6 lines>...
+
+        policy=CompilationPolicy.conversation(),
+
+    )
+
+  File "C:\git\modelable\cli\tests\support\lsp_preview_recovery_server.py", line 27, in preview_with_fault
+
+    return original_preview(self, *args, **kwargs)
+
+  File "C:\git\modelable\cli\src\modelable\operations\compilation.py", line 399, in preview
+
+    run = _run_compilation(
+
+        staged_request,
+
+        plans_dir=staging_dir / ".modelable" / "plans",
+
+    )
+
+  File "C:\git\modelable\cli\src\modelable\operations\compilation.py", line 1461, in _run_compilation
+
+    built_registry_path = build_registry(
+
+        workspace,
+
+        local_registry_path.parent,
+
+        registry_ids=registry_ids,
+
+    )
+
+  File "C:\git\modelable\cli\src\modelable\registry\index.py", line 46, in build_registry
+
+    with sqlite3.connect(registry_path) as conn:
+
+         ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py", line 1176, in __call__
+
+    return self._mock_call(*args, **kwargs)
+
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py", line 1180, in _mock_call
+
+    return self._execute_mock_call(*args, **kwargs)
+
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\unittest\mock.py", line 1241, in _execute_mock_call
+
+    raise effect
+
+sqlite3.OperationalError: injected preview database failure
+
+_ test_failed_replacement_serializes_live_pending_id_and_retains_bytes[close-compilation-second] _
+tests\test_lsp_preview_recovery.py:81: in test_failed_replacement_serializes_live_pending_id_and_retains_bytes
+    assert failed.changeSetId == first.changeSetId
+E   AssertionError: assert None == '81b2827b-2d89-4df0-906d-d60dd49c2129'
+E    +  where None = Object(protocolVersion=2, kind='error', text='Could not preview compilation: injected rejected replacement', sessionId...indings=[], diagnostics=[], previewFiles=[], compilationFiles=[], registryIdChanges=[], auditUri=None, writtenPaths=[]).changeSetId
+E    +  and   '81b2827b-2d89-4df0-906d-d60dd49c2129' = Object(protocolVersion=2, kind='preview', text='No LLM provider is configured, so I can answer workspace queries but c...eplacement_serial5/workspace/.modelable/audit/compilations/81b2827b-2d89-4df0-906d-d60dd49c2129.json', writtenPaths=[]).changeSetId
+=========================== short test summary info ===========================
+FAILED tests/test_conversation_preview_recovery.py::test_first_preview_operational_failure_is_a_domain_error[error0]
+FAILED tests/test_conversation_preview_recovery.py::test_first_preview_operational_failure_is_a_domain_error[error1]
+FAILED tests/test_conversation_preview_recovery.py::test_failed_replacement_keeps_pending_stage_until_close[error1]
+FAILED tests/test_conversation_preview_recovery.py::test_failed_replacement_keeps_pending_stage_until_close[error2]
+FAILED tests/test_conversation_preview_recovery.py::test_wire_error_keeps_existing_pending_source_action
+FAILED tests/test_lsp_preview_recovery.py::test_first_turn_dependency_error_retains_session_and_allows_retry[none]
+FAILED tests/test_lsp_preview_recovery.py::test_first_turn_dependency_error_retains_session_and_allows_retry[sqlite-once]
+FAILED tests/test_lsp_preview_recovery.py::test_failed_replacement_serializes_live_pending_id_and_retains_bytes[apply-none]
+FAILED tests/test_lsp_preview_recovery.py::test_failed_replacement_serializes_live_pending_id_and_retains_bytes[apply-sqlite-second]
+FAILED tests/test_lsp_preview_recovery.py::test_failed_replacement_serializes_live_pending_id_and_retains_bytes[apply-compilation-second]
+FAILED tests/test_lsp_preview_recovery.py::test_failed_replacement_serializes_live_pending_id_and_retains_bytes[close-none]
+FAILED tests/test_lsp_preview_recovery.py::test_failed_replacement_serializes_live_pending_id_and_retains_bytes[close-sqlite-second]
+FAILED tests/test_lsp_preview_recovery.py::test_failed_replacement_serializes_live_pending_id_and_retains_bytes[close-compilation-second]
+13 failed, 4 passed in 16.90s
