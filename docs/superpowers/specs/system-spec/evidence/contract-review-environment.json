@@ -1,0 +1,227 @@
+{
+  "recorded_date": "2026-11-01",
+  "date_context": "Europe/Stockholm client date; raw execution timestamps retained in JUnit",
+  "runtime_revision": "940a76b21f503621cda895642f1a2fb6b465a293",
+  "runtime_note": "Runtime files verified against this immutable merged revision; active compilation evidence remains at its existing pinned revision. No implementation changes.",
+  "system_spec_base_revision": "31776f5ae61ddbd67c4f34140f944d21c112b806",
+  "validator_sha256": "fd773d80d64938a66f0300a0067c86fbd014531bc5feef3933c35463723e3795",
+  "schema_sha256": "68575c37f4adf8449e2ae1978ad78038c7c383ccef7953e7ce4b473aa1ed71ea",
+  "python": "3.14.5 (main, May 10 2026, 20:29:46) [MSC v.1944 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "cwd": "cli",
+  "command": [
+    "uv",
+    "run",
+    "pytest",
+    "tests/test_compilation_failure_catalog.py",
+    "tests/test_cli_compilation_errors.py",
+    "tests/test_lsp_compilation_recovery.py",
+    "tests/test_compilation_cleanup_outcome.py",
+    "-n",
+    "0",
+    "-q",
+    "-r",
+    "sR",
+    "--tb=short",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp=.venv/failure-catalog-3fdfff94cfbd481ea6ead6ea10b058b9",
+    "--junitxml=C:\\git\\modelable\\docs\\superpowers\\specs\\system-spec\\evidence\\contract-characterization.xml"
+  ],
+  "packages": {
+    "annotated-types": "0.7.0",
+    "ast_serialize": "0.5.0",
+    "attrs": "26.1.0",
+    "build": "1.5.0",
+    "cattrs": "26.1.0",
+    "certifi": "2026.10.23",
+    "charset-normalizer": "3.4.7",
+    "click": "8.4.1",
+    "colorama": "0.4.6",
+    "coverage": "7.14.1",
+    "docker": "7.1.0",
+    "execnet": "2.1.2",
+    "idna": "3.18",
+    "iniconfig": "2.3.0",
+    "jsonschema": "4.26.0",
+    "jsonschema-path": "0.5.0",
+    "jsonschema-specifications": "2025.9.1",
+    "lark": "1.3.1",
+    "lazy-object-proxy": "1.12.0",
+    "librt": "0.11.0",
+    "lsprotocol": "2025.0.0",
+    "markdown-it-py": "4.2.0",
+    "mdurl": "0.1.2",
+    "modelable": "1.15.2",
+    "mypy": "2.1.0",
+    "mypy_extensions": "1.1.0",
+    "openapi-schema-validator": "0.9.0",
+    "openapi-spec-validator": "0.9.0",
+    "packaging": "26.2",
+    "pathable": "0.6.0",
+    "pathspec": "1.1.1",
+    "pluggy": "1.6.0",
+    "psycopg": "3.3.4",
+    "psycopg-binary": "3.3.4",
+    "pydantic": "2.14.1",
+    "pydantic-settings": "2.15.0",
+    "pydantic_core": "2.50.1",
+    "pygls": "2.1.1",
+    "Pygments": "2.20.0",
+    "pyproject_hooks": "1.2.0",
+    "pytest": "9.1.1",
+    "pytest-asyncio": "1.4.0",
+    "pytest-cov": "7.1.0",
+    "pytest-lsp": "1.0.1",
+    "pytest-rerunfailures": "16.6",
+    "pytest-timeout": "2.4.0",
+    "pytest-xdist": "3.8.0",
+    "python-dotenv": "1.2.2",
+    "pywin32": "312",
+    "PyYAML": "6.0.3",
+    "referencing": "0.37.0",
+    "requests": "2.34.2",
+    "rfc3339-validator": "0.1.4",
+    "rich": "15.0.0",
+    "rpds-py": "2026.5.1",
+    "ruff": "0.15.18",
+    "searchable": "2.1.1",
+    "selectolax": "1.0.2",
+    "six": "1.17.0",
+    "testcontainers": "4.15.0",
+    "typing-inspection": "0.4.4",
+    "typing_extensions": "4.16.0",
+    "tzdata": "2026.2",
+    "urllib3": "2.8.0",
+    "wasmtime": "48.0.0",
+    "wrapt": "2.2.1"
+  },
+  "result": {
+    "tests": 35,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 35,
+    "reruns": 0
+  },
+  "new_cases": 21,
+  "known_defect_characterization": "Two passing CLI runner cases demonstrate missing normal JSON/SQLite error presentation; passing as-is tests are not remediation acceptance.",
+  "runtime_files": {
+    "cli/src/modelable/operations/compilation.py": {
+      "checkout_sha256": "b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3",
+      "baseline_git_sha256": "f425a5d65977d48c0ab71061c93aa828dbc36d5f4b4562f39a07baf1b620ef7f"
+    },
+    "cli/src/modelable/operations/file_transaction.py": {
+      "checkout_sha256": "628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794",
+      "baseline_git_sha256": "245dd333c909089a59a13fdb52dafc51c8b60d31b9bb879aa34ad4ab7f7a619d"
+    },
+    "cli/src/modelable/registry/ids.py": {
+      "checkout_sha256": "7d0a7b260ae780ed338a6073c428407d84e56d88f0ec8e631b4538de6b801069",
+      "baseline_git_sha256": "9c1053d0f8927b66b04d1b1a1df4bd841fabc1ffb00a41eccc3ca6322956aa3b"
+    },
+    "cli/src/modelable/registry/enum_numbers.py": {
+      "checkout_sha256": "f853960b14899f3d0f78d34af3d56a4e8aef1cf3eedcd2c2a74d6141fc8418ed",
+      "baseline_git_sha256": "e6ad94bdfaacfe6ed08cdec6f9e031dbe41eb72d8efcec34c502a2427be54934"
+    },
+    "cli/src/modelable/registry/index.py": {
+      "checkout_sha256": "111f7509f6729eb38b4a575a9b08a331d6c4ad93b8ee56b82cffd6f03a59add3",
+      "baseline_git_sha256": "c45c601bb6fce3baa06c134fbb10ac125f550d4ced1ceb34e3a73c8041559b50"
+    },
+    "cli/src/modelable/registry/factory.py": {
+      "checkout_sha256": "6b7b0113407e8e07ac7fa70ca13fa82a4923e56ea88c35c815bd9c248e7d671d",
+      "baseline_git_sha256": "8af81f6ab4fe68aaba68e43a28d632b6be829f6a78676d74612318bffa9a86c7"
+    },
+    "cli/src/modelable/registry/local.py": {
+      "checkout_sha256": "c6406c2f4aed8857851f07f86eed97114cc80f774fb971e2e282a5c633006c52",
+      "baseline_git_sha256": "c6406c2f4aed8857851f07f86eed97114cc80f774fb971e2e282a5c633006c52"
+    },
+    "cli/src/modelable/registry/oci.py": {
+      "checkout_sha256": "a722fdcc7cb89d379b0f56c52c400e19f564c22fb1cf0f869b15fb2e086973ff",
+      "baseline_git_sha256": "41543079cab6ce82597b4f38f713279ed1bae37888cbd3ce4962cabbfda55940"
+    },
+    "cli/src/modelable/commands/compile.py": {
+      "checkout_sha256": "bf6029ac32c7bfaee34793a27f778be642e1f8d2e3eec8a8c28657c7ac861995",
+      "baseline_git_sha256": "c77402e95522fcd08f79c7f52e84c620972691f0a85732dec000ae3354bb8197"
+    },
+    "cli/src/modelable/llm/filesystem_conversation.py": {
+      "checkout_sha256": "45600f550c49315c1129fde71b04bbb79bbb9bd99a3ebd9cf289c1470125a830",
+      "baseline_git_sha256": "40b4323a405227d7aa4a706cc985c228ac501db9cb552a3580dd94e5b3048e67"
+    },
+    "cli/src/modelable/llm/conversation.py": {
+      "checkout_sha256": "06713b7bfaeb8ad28fd001fbbccaf838600bc8e6a4d35951f22ed75703f8d67a",
+      "baseline_git_sha256": "0fb32b4d285436cae5a4909f0297f682c5876e51fa6017be5b6303a64e2f5d8d"
+    },
+    "cli/src/modelable/llm/conversation_engine.py": {
+      "checkout_sha256": "72021d01ab0996e1e6c08538793dc68c639ae3e852eba0c2d5e01b2f3e8a1c07",
+      "baseline_git_sha256": "8343d3640f664c769ccb3efdfd552cea38f3004f5c408a3ceb259d94a5eba328"
+    },
+    "cli/src/modelable/lsp/conversation_service.py": {
+      "checkout_sha256": "9d2c0243f44f9a43743781dda3ee9bfe3892996dce51ad098026ebb169df75f8",
+      "baseline_git_sha256": "0513fba384617ab507b4903cbc939010583bdf0a4a1c434d2dace23c6de16813"
+    },
+    "cli/src/modelable/lsp/conversation_protocol.py": {
+      "checkout_sha256": "c1217be0c82bcb9d13cfcb5af580adf59e1b39090514c95d3463c8802f8a7dd3",
+      "baseline_git_sha256": "6e2d87b5e1b0654b0f125fc09178564c64fc2ac2e3b2376bf17f441b2c418681"
+    },
+    "cli/src/modelable/lsp/server.py": {
+      "checkout_sha256": "1cef880cf87a1ac5d3986ed793f68196a0b7237927c20fcab22e760bacb0de4e",
+      "baseline_git_sha256": "2326613289d2cf9f316b9f800219b701ad876c955d1484feb5938305638949dd"
+    },
+    "vscode/conversationClient.js": {
+      "checkout_sha256": "6d371e835522db527f41b1f6453e367e0260e1a07b43859d1b340ba68b2070fd",
+      "baseline_git_sha256": "1aab7301429d0c31934baa6326cf62be384ee02c94ddf1034a534796c09d74db"
+    },
+    "vscode/conversationParticipant.js": {
+      "checkout_sha256": "d1a98581462cfce896b396c7c8075bfc1e7187c6725de826f0c41717b64ed5e4",
+      "baseline_git_sha256": "d164e157a91dac034a110acf15487f43a03a9b754cf8b2b8dd4aee479c600cfd"
+    }
+  },
+  "reused_test_files": {
+    "cli/tests/test_cli_compilation_errors.py": {
+      "checkout_sha256": "f50ac380689c416c54999bd5b106fa3e8dbc42056a5f44c39b718531b1d3e820",
+      "baseline_git_sha256": "4acdf153840682d3db98a8a4c16e115ae13b7b7bef9c663bfc9cc26b1ce6a235"
+    },
+    "cli/tests/test_lsp_compilation_recovery.py": {
+      "checkout_sha256": "cf36144d125ecb9dae13a01da27509008ab311957e656a07176972f64ad152fa",
+      "baseline_git_sha256": "cf36144d125ecb9dae13a01da27509008ab311957e656a07176972f64ad152fa"
+    },
+    "cli/tests/test_compilation_cleanup_outcome.py": {
+      "checkout_sha256": "863139fcf35b724cc43829237a90f94ddaf955c04578f43b9b4d7b3191730534",
+      "baseline_git_sha256": "0443e8fd77a9617755e79641724377b8b3c6b3481ad898a566e8cba7c7dc5be4"
+    },
+    "cli/tests/support/lsp_compilation_fault_server.py": {
+      "checkout_sha256": "aec77bd1cc1e689f22e4db901aa53c60a981e896e981e326a66838099d417427",
+      "baseline_git_sha256": "bf70b937c24bb2869b47c2384d124468eb411fc3a4a033c29085fff82a2395c6"
+    }
+  },
+  "new_test_definitions": {
+    "cli/tests/test_compilation_failure_catalog.py": {
+      "checkout_sha256": "619945f506b5b18e4ccc2bccbeff3365412c1a6de8b8e1e12f0d8edb2f534540",
+      "binding": "New PR artifact, not present at the runtime baseline. Exact bytes captured here; final delivery commit identified in PR."
+    }
+  },
+  "dependency_sha256": {
+    "cli/pyproject.toml": "1e83d0f2722bc192a7d7bb4c323c3019e5d3480867331b460d7c048a34801c74",
+    "cli/uv.lock": "8853fca6ec2ed6a94e9461bfe775cb418d0743c00fc7600b3ee3eb8500652b34"
+  },
+  "active_artifacts_sha256": {
+    "compilation.yaml": "3b47c893c05b9ec39816ac3c464e1e0e4d17f652debee684c2f8be9150401525",
+    "adoption.json": "f45b4d3ca4f5c945200e05fd956181527f44c07018248fa378a857a5e3b8e3ef",
+    "schema.json": "68575c37f4adf8449e2ae1978ad78038c7c383ccef7953e7ce4b473aa1ed71ea"
+  },
+  "artifact_sha256": {
+    "compilation-contract-proposal.yaml": "7426d3614485ef270faaf14a841fef3852192c36d940e13922c7a8d86bbfe03e",
+    "compilation-contract-review.md": "3c97436c948dfc18f179babfcebc37c413520871c78e7e83dd0e5e1ca70b7bd7",
+    "evidence/contract-characterization.txt": "59bda060737b67be854ece7f414717917241d00d11c49ef1ba0f6093dd099ffb",
+    "evidence/contract-characterization.xml": "2666156eb3c79a2c720da44af41a19952eb7356893b63ad069498da4f9932a8e",
+    "evidence/contract-compatibility.json": "7647faf2cd5a65d858daeec0a40025d3b1b42c7100a2138593593bfd84337048"
+  },
+  "byte_convention": "Exact checkout/test/artifact hashes retain line endings. Separate baseline Git hashes are compared after CRLF/LF normalization for runtime/reused tests. Captured metadata uses the existing scoped -text policy.",
+  "proposal_acceptance": "Not accepted; no candidate passing evidence. Active 1.0 remains unchanged.",
+  "limits": [
+    "Named Rust/local-path fault cases only; not exhaustive emitter/dependency/OS/crash coverage.",
+    "SQLite and contention are deterministic injection; malformed ledger is real input.",
+    "Only malformed-ledger preview fault/repaired explicit-session retry is executed over JSON-RPC; SQL fault transport and native editor history recovery are unverified.",
+    "Unknown external Python consumers and CLI/adapter changes remain rework."
+  ]
+}
