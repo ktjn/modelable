@@ -82,12 +82,12 @@ Prepared/reviewed by Codex from source and local test output; maintainers own ac
 
 ## Validation and bounded work
 
-Published toolkit onboarding: [pypi-onboarding.md](pypi-onboarding.md). Use PyPI `system-spec-ref==0.1.0`; its intact offline export is committed at [tools/system-spec](../../../../tools/system-spec/WIRING.md). Follow the exported constitution plus the brownfield track. Existing project specification paths remain authoritative; no duplicate idealized baseline is created.
+Published toolkit onboarding: [toolkit-upgrade-0.2.0.md](toolkit-upgrade-0.2.0.md). Use PyPI `system-spec-ref==0.2.0`; its intact offline export is committed at [tools/system-spec](../../../../tools/system-spec/WIRING.md). Follow the exported constitution plus the brownfield track. Existing project specification paths remain authoritative; no duplicate idealized baseline is created.
 
 Run from the Modelable repository root:
 
 ```powershell
-uv tool install --index-url https://pypi.org/simple system-spec-ref==0.1.0
+uv tool install --index-url https://pypi.org/simple system-spec-ref==0.2.0
 system-spec --version
 system-spec docs/superpowers/specs/system-spec/inventory.yaml --stage inventory --check-artifacts --root .
 system-spec docs/superpowers/specs/system-spec/compilation.yaml --stage verification --check-artifacts --root .
@@ -102,9 +102,9 @@ Offline fallback (Pydantic/PyYAML are already native CLI dependencies):
 uv run --project cli python tools/system-spec/reference-implementation/metamodel.py docs/superpowers/specs/system-spec/compilation.yaml --stage verification --check-artifacts --root .
 ```
 
-- [toolkit-pypi-0.1.0.json](evidence/toolkit-pypi-0.1.0.json) records the published wheel, verified installation/export bytes and current schema/validator hashes. [packaged-toolkit-validation.json](evidence/packaged-toolkit-validation.json) records installed/offline parity and remaining acceptance blockers.
+- [toolkit-pypi-0.2.0.json](evidence/toolkit-pypi-0.2.0.json) records the published wheel, verified installation/export bytes and current schema/validator hashes. [packaged-toolkit-validation-0.2.0.json](evidence/packaged-toolkit-validation-0.2.0.json) records installed/offline parity and remaining acceptance blockers.
 - Historical `adoption.json`, schemas and execution captures retain their original validator/source pins. The packaged schema is semantically identical and validation/artifact/compatibility functions match the earlier pinned source; no old evidence is relabeled with a new verifier or subject version.
-- Toolkit version 0.1.0 is separate from modeled contract versions. The proposal still has three expected `COMPAT-04` diagnostics; compilation release and whole-product conformance remain open.
+- Toolkit version 0.2.0 is separate from modeled contract versions. The proposal still has three expected `COMPAT-04` diagnostics; compilation release and whole-product conformance remain open.
 - Paths in source/provenance/artifact maps remain repository-relative. Review source/dependency/environment changes before reusing evidence; native semantic/manual gates remain authoritative.
 - Upgrade using a pinned package version and a fresh destination, for example `system-spec export tools/system-spec-next` (it must not exist). Compare snapshots and their provenance, follow [WIRING.md](../../../../tools/system-spec/WIRING.md), revalidate active specs at their stages, and retain historical captures/decisions.
 

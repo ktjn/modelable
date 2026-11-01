@@ -1,0 +1,1240 @@
+{
+  "recorded_date": "2026-11-01",
+  "package_version": "0.2.0",
+  "scope": "Tool upgrade only; no new product runtime characterization or adoption-level acceptance.",
+  "installed_and_offline_equivalent": true,
+  "all_seven_results_equal_0.1.0": true,
+  "schema_semantically_identical": true,
+  "cases": {
+    "inventory": {
+      "installed": {
+        "command": [
+          "system-spec",
+          "docs/superpowers/specs/system-spec/inventory.yaml",
+          "--stage",
+          "inventory",
+          "--check-artifacts",
+          "--root",
+          ".",
+          "--json"
+        ],
+        "exit_code": 0,
+        "result": {
+          "valid": true,
+          "stage": "inventory",
+          "errors": [],
+          "residual_risks": [],
+          "waivers": []
+        }
+      },
+      "offline": {
+        "command": [
+          "C:\\git\\modelable\\cli\\.venv\\Scripts\\python.exe",
+          "C:\\git\\modelable\\tools\\system-spec\\reference-implementation\\metamodel.py",
+          "docs/superpowers/specs/system-spec/inventory.yaml",
+          "--stage",
+          "inventory",
+          "--check-artifacts",
+          "--root",
+          ".",
+          "--json"
+        ],
+        "exit_code": 0,
+        "result": {
+          "valid": true,
+          "stage": "inventory",
+          "errors": [],
+          "residual_risks": [],
+          "waivers": []
+        }
+      }
+    },
+    "compilation": {
+      "installed": {
+        "command": [
+          "system-spec",
+          "docs/superpowers/specs/system-spec/compilation.yaml",
+          "--stage",
+          "verification",
+          "--check-artifacts",
+          "--root",
+          ".",
+          "--json"
+        ],
+        "exit_code": 0,
+        "result": {
+          "valid": true,
+          "stage": "verification",
+          "errors": [],
+          "residual_risks": [],
+          "waivers": [
+            "compilation-category-gap"
+          ]
+        }
+      },
+      "offline": {
+        "command": [
+          "C:\\git\\modelable\\cli\\.venv\\Scripts\\python.exe",
+          "C:\\git\\modelable\\tools\\system-spec\\reference-implementation\\metamodel.py",
+          "docs/superpowers/specs/system-spec/compilation.yaml",
+          "--stage",
+          "verification",
+          "--check-artifacts",
+          "--root",
+          ".",
+          "--json"
+        ],
+        "exit_code": 0,
+        "result": {
+          "valid": true,
+          "stage": "verification",
+          "errors": [],
+          "residual_risks": [],
+          "waivers": [
+            "compilation-category-gap"
+          ]
+        }
+      }
+    },
+    "proposal": {
+      "installed": {
+        "command": [
+          "system-spec",
+          "docs/superpowers/specs/system-spec/compilation-contract-proposal.yaml",
+          "--stage",
+          "architecture",
+          "--check-artifacts",
+          "--root",
+          ".",
+          "--json"
+        ],
+        "exit_code": 0,
+        "result": {
+          "valid": true,
+          "stage": "architecture",
+          "errors": [],
+          "residual_risks": [],
+          "waivers": [
+            "compilation-category-gap"
+          ]
+        }
+      },
+      "offline": {
+        "command": [
+          "C:\\git\\modelable\\cli\\.venv\\Scripts\\python.exe",
+          "C:\\git\\modelable\\tools\\system-spec\\reference-implementation\\metamodel.py",
+          "docs/superpowers/specs/system-spec/compilation-contract-proposal.yaml",
+          "--stage",
+          "architecture",
+          "--check-artifacts",
+          "--root",
+          ".",
+          "--json"
+        ],
+        "exit_code": 0,
+        "result": {
+          "valid": true,
+          "stage": "architecture",
+          "errors": [],
+          "residual_risks": [],
+          "waivers": [
+            "compilation-category-gap"
+          ]
+        }
+      }
+    },
+    "proposal-compatibility": {
+      "installed": {
+        "command": [
+          "system-spec",
+          "docs/superpowers/specs/system-spec/compilation-contract-proposal.yaml",
+          "--stage",
+          "architecture",
+          "--compat",
+          "docs/superpowers/specs/system-spec/compilation.yaml",
+          "--json"
+        ],
+        "exit_code": 1,
+        "result": {
+          "valid": false,
+          "stage": "architecture",
+          "errors": [
+            "[COMPAT-04] Capability 'direct-compilation': Added failure modes: ['LockContentionError', 'OSError', 'RegistryIdLockContentionError', 'json.JSONDecodeError', 'sqlite3.OperationalError']",
+            "[COMPAT-04] Capability 'preview-compilation': Added failure modes: ['OSError', 'json.JSONDecodeError', 'sqlite3.OperationalError']",
+            "[COMPAT-04] Capability 'apply-compilation': Added failure modes: ['LockContentionError', 'OSError', 'RegistryIdLockContentionError']"
+          ],
+          "residual_risks": [],
+          "waivers": [
+            "compilation-category-gap"
+          ]
+        }
+      },
+      "offline": {
+        "command": [
+          "C:\\git\\modelable\\cli\\.venv\\Scripts\\python.exe",
+          "C:\\git\\modelable\\tools\\system-spec\\reference-implementation\\metamodel.py",
+          "docs/superpowers/specs/system-spec/compilation-contract-proposal.yaml",
+          "--stage",
+          "architecture",
+          "--compat",
+          "docs/superpowers/specs/system-spec/compilation.yaml",
+          "--json"
+        ],
+        "exit_code": 1,
+        "result": {
+          "valid": false,
+          "stage": "architecture",
+          "errors": [
+            "[COMPAT-04] Capability 'direct-compilation': Added failure modes: ['LockContentionError', 'OSError', 'RegistryIdLockContentionError', 'json.JSONDecodeError', 'sqlite3.OperationalError']",
+            "[COMPAT-04] Capability 'preview-compilation': Added failure modes: ['OSError', 'json.JSONDecodeError', 'sqlite3.OperationalError']",
+            "[COMPAT-04] Capability 'apply-compilation': Added failure modes: ['LockContentionError', 'OSError', 'RegistryIdLockContentionError']"
+          ],
+          "residual_risks": [],
+          "waivers": [
+            "compilation-category-gap"
+          ]
+        }
+      }
+    },
+    "compilation-release": {
+      "installed": {
+        "command": [
+          "system-spec",
+          "docs/superpowers/specs/system-spec/compilation.yaml",
+          "--stage",
+          "release",
+          "--check-artifacts",
+          "--root",
+          ".",
+          "--json"
+        ],
+        "exit_code": 1,
+        "result": {
+          "valid": false,
+          "stage": "release",
+          "errors": [
+            "[RISK-02] Risk 'compilation-category-gap' waiver expired (verification)",
+            "[REQ-01] Missing verification categories: ['performance', 'scalability', 'observability']",
+            "[STAT-04] System 'modelable-compilation-slice' status 'specified' below 'verified'",
+            "[STAT-04] Capability 'direct-compilation' status 'specified' below 'verified'",
+            "[STAT-04] Capability 'preview-compilation' status 'specified' below 'verified'",
+            "[STAT-04] Capability 'apply-compilation' status 'specified' below 'verified'",
+            "[STAT-04] Capability 'discard-compilation' status 'specified' below 'verified'",
+            "[STAT-04] Component 'compilation-unit' status 'specified' below 'verified'",
+            "[STAT-04] Requirement 'MOD-COMP-01' status 'specified' below 'verified'",
+            "[STAT-04] Requirement 'MOD-COMP-02' status 'specified' below 'verified'",
+            "[STAT-04] Requirement 'MOD-COMP-03' status 'specified' below 'verified'",
+            "[STAT-04] Requirement 'MOD-COMP-04' status 'specified' below 'verified'",
+            "[STAT-04] Requirement 'MOD-COMP-05' status 'specified' below 'verified'",
+            "[STAT-04] Requirement 'MOD-COMP-06' status 'specified' below 'verified'",
+            "[STAT-04] Requirement 'MOD-COMP-07' status 'specified' below 'verified'",
+            "[STAT-04] Requirement 'MOD-COMP-08' status 'specified' below 'verified'",
+            "[STAT-04] Requirement 'MOD-COMP-09' status 'specified' below 'verified'",
+            "[REQ-05] Requirement 'MOD-COMP-09@1.0' missing valid verification evidence",
+            "[RISK-04] Risk 'compilation-category-gap' has unverified mitigation 'MOD-COMP-09'",
+            "[RISK-08] Risk 'compilation-category-gap' waives 'verification-category'; no waivers permitted at release",
+            "[RISK-04] Risk 'compilation-failure-review-gap' has unverified mitigation 'MOD-COMP-09'"
+          ],
+          "residual_risks": [],
+          "waivers": []
+        }
+      },
+      "offline": {
+        "command": [
+          "C:\\git\\modelable\\cli\\.venv\\Scripts\\python.exe",
+          "C:\\git\\modelable\\tools\\system-spec\\reference-implementation\\metamodel.py",
+          "docs/superpowers/specs/system-spec/compilation.yaml",
+          "--stage",
+          "release",
+          "--check-artifacts",
+          "--root",
+          ".",
+          "--json"
+        ],
+        "exit_code": 1,
+        "result": {
+          "valid": false,
+          "stage": "release",
+          "errors": [
+            "[RISK-02] Risk 'compilation-category-gap' waiver expired (verification)",
+            "[REQ-01] Missing verification categories: ['performance', 'scalability', 'observability']",
+            "[STAT-04] System 'modelable-compilation-slice' status 'specified' below 'verified'",
+            "[STAT-04] Capability 'direct-compilation' status 'specified' below 'verified'",
+            "[STAT-04] Capability 'preview-compilation' status 'specified' below 'verified'",
+            "[STAT-04] Capability 'apply-compilation' status 'specified' below 'verified'",
+            "[STAT-04] Capability 'discard-compilation' status 'specified' below 'verified'",
+            "[STAT-04] Component 'compilation-unit' status 'specified' below 'verified'",
+            "[STAT-04] Requirement 'MOD-COMP-01' status 'specified' below 'verified'",
+            "[STAT-04] Requirement 'MOD-COMP-02' status 'specified' below 'verified'",
+            "[STAT-04] Requirement 'MOD-COMP-03' status 'specified' below 'verified'",
+            "[STAT-04] Requirement 'MOD-COMP-04' status 'specified' below 'verified'",
+            "[STAT-04] Requirement 'MOD-COMP-05' status 'specified' below 'verified'",
+            "[STAT-04] Requirement 'MOD-COMP-06' status 'specified' below 'verified'",
+            "[STAT-04] Requirement 'MOD-COMP-07' status 'specified' below 'verified'",
+            "[STAT-04] Requirement 'MOD-COMP-08' status 'specified' below 'verified'",
+            "[STAT-04] Requirement 'MOD-COMP-09' status 'specified' below 'verified'",
+            "[REQ-05] Requirement 'MOD-COMP-09@1.0' missing valid verification evidence",
+            "[RISK-04] Risk 'compilation-category-gap' has unverified mitigation 'MOD-COMP-09'",
+            "[RISK-08] Risk 'compilation-category-gap' waives 'verification-category'; no waivers permitted at release",
+            "[RISK-04] Risk 'compilation-failure-review-gap' has unverified mitigation 'MOD-COMP-09'"
+          ],
+          "residual_risks": [],
+          "waivers": []
+        }
+      }
+    },
+    "context": {
+      "installed": {
+        "command": [
+          "system-spec",
+          "docs/superpowers/specs/system-spec/compilation.yaml",
+          "--context",
+          "compilation-unit",
+          "--json"
+        ],
+        "exit_code": 0,
+        "result": {
+          "system": {
+            "id": "modelable-compilation-slice",
+            "version": "1.0",
+            "status": "specified"
+          },
+          "capabilities": [
+            {
+              "id": "direct-compilation",
+              "version": "1.0",
+              "status": "specified",
+              "preconditions": [
+                "readable workspace and supported target supplied"
+              ],
+              "postconditions": [
+                "generated artifacts and associated local state promoted from staging on success"
+              ],
+              "invariants": [
+                "failed preflight does not publish destination state",
+                "direct path does not write conversational audit"
+              ],
+              "failure_modes": [
+                "CompilationError",
+                "CompilationDiagnosticsError",
+                "FileTransactionError",
+                "FileTransactionCommittedError"
+              ],
+              "interface": {
+                "operation": "CompilationService.execute_direct",
+                "request": "compilation-request",
+                "response": "direct-compilation-result",
+                "idempotent": false,
+                "auth": "caller filesystem permissions; explicit local invocation",
+                "errors": {
+                  "CompilationError": "python-exception",
+                  "CompilationDiagnosticsError": "python-exception",
+                  "FileTransactionError": "python-exception",
+                  "FileTransactionCommittedError": "committed-with-cleanup-error"
+                }
+              }
+            },
+            {
+              "id": "preview-compilation",
+              "version": "1.0",
+              "status": "specified",
+              "preconditions": [
+                "conversation policy supplied and workspace-restricted request"
+              ],
+              "postconditions": [
+                "pending compilation contains staged file previews and source fingerprints"
+              ],
+              "invariants": [
+                "preview does not change destination workspace files",
+                "staging is outside workspace"
+              ],
+              "failure_modes": [
+                "CompilationError",
+                "CompilationDiagnosticsError"
+              ],
+              "interface": {
+                "operation": "CompilationService.preview",
+                "request": "compilation-request",
+                "response": "pending-compilation",
+                "idempotent": false,
+                "auth": "caller filesystem permissions; conversation policy",
+                "errors": {
+                  "CompilationError": "python-exception",
+                  "CompilationDiagnosticsError": "python-exception"
+                }
+              }
+            },
+            {
+              "id": "apply-compilation",
+              "version": "1.0",
+              "status": "specified",
+              "preconditions": [
+                "pending compilation and exact matching confirmation supplied"
+              ],
+              "postconditions": [
+                "exact staged files and private audit promoted on success"
+              ],
+              "invariants": [
+                "freshness checked under locks",
+                "staged bytes promoted without recompiling"
+              ],
+              "failure_modes": [
+                "CompilationError",
+                "StaleCompilationError",
+                "FileTransactionError",
+                "FileTransactionCommittedError"
+              ],
+              "interface": {
+                "operation": "CompilationService.apply",
+                "request": [
+                  "pending-compilation",
+                  "compilation-confirmation"
+                ],
+                "response": "applied-compilation",
+                "idempotent": false,
+                "auth": "confirmation binding and caller filesystem permissions",
+                "errors": {
+                  "CompilationError": "python-exception",
+                  "StaleCompilationError": "python-exception",
+                  "FileTransactionError": "python-exception",
+                  "FileTransactionCommittedError": "committed-with-cleanup-error"
+                }
+              }
+            },
+            {
+              "id": "discard-compilation",
+              "version": "1.0",
+              "status": "specified",
+              "preconditions": [
+                "pending compilation supplied"
+              ],
+              "postconditions": [
+                "invocation staging removed or cleanup failure surfaced"
+              ],
+              "invariants": [
+                "discard does not apply staged artifacts"
+              ],
+              "failure_modes": [
+                "CompilationError"
+              ],
+              "interface": {
+                "operation": "CompilationService.discard",
+                "request": "pending-compilation",
+                "idempotent": true,
+                "auth": "caller filesystem permissions",
+                "errors": {
+                  "CompilationError": "python-exception"
+                }
+              }
+            }
+          ],
+          "components": [
+            {
+              "id": "compilation-unit",
+              "version": "1.15.2",
+              "status": "specified",
+              "provides": [
+                "direct-compilation",
+                "preview-compilation",
+                "apply-compilation",
+                "discard-compilation"
+              ],
+              "owns_data": [
+                "compilation-request",
+                "pending-compilation",
+                "compilation-confirmation",
+                "applied-compilation",
+                "direct-compilation-result"
+              ],
+              "source_paths": [
+                "cli/src/modelable/operations/compilation.py",
+                "cli/src/modelable/operations/file_transaction.py",
+                "cli/src/modelable/operations/compilation_audit.py"
+              ],
+              "context_budget": {
+                "max_owns_data": 5
+              }
+            }
+          ],
+          "data_models": [
+            {
+              "id": "compilation-request",
+              "version": "1.0",
+              "owner": "compilation-unit",
+              "classification": "restricted",
+              "fields": {
+                "source": "Path",
+                "target": "str",
+                "out_dir": "Path | None",
+                "registry_path": "str",
+                "snapshot_path": "Path | None",
+                "registry_ids_path": "Path",
+                "allow_orphaned_registry_ids": "bool",
+                "enum_numbers_path": "Path",
+                "domains": "tuple[str, ...]",
+                "descriptor_set": "bool",
+                "package": "str | None",
+                "overlay_path": "Path | None",
+                "usage_manifest": "bool"
+              }
+            },
+            {
+              "id": "pending-compilation",
+              "version": "1.0",
+              "owner": "compilation-unit",
+              "classification": "restricted",
+              "fields": {
+                "action_id": "str",
+                "request": "CompilationRequest",
+                "workspace_root": "Path",
+                "staging_dir": "Path",
+                "files": "tuple[CompilationFilePreview, ...]",
+                "source_fingerprints": "tuple[FileFingerprint, ...]",
+                "affected_definitions": "tuple[AffectedDefinition, ...]",
+                "registry_id_changes": "tuple[RegistryIdChange, ...]",
+                "registry_ids_before": "dict[str, int]",
+                "warnings": "tuple[str, ...]",
+                "manifest_fingerprint": "str",
+                "preview_timestamp": "str",
+                "audit_resolved_parent": "Path"
+              }
+            },
+            {
+              "id": "compilation-confirmation",
+              "version": "1.0",
+              "owner": "compilation-unit",
+              "classification": "restricted",
+              "fields": {
+                "session_id": "str",
+                "action_id": "str",
+                "manifest_fingerprint": "str",
+                "surface": "Literal[cli-chat, vscode-chat]",
+                "provider": "str | None",
+                "model": "str | None"
+              }
+            },
+            {
+              "id": "applied-compilation",
+              "version": "1.0",
+              "owner": "compilation-unit",
+              "classification": "restricted",
+              "fields": {
+                "action_id": "str",
+                "written_paths": "tuple[Path, ...]",
+                "affected_definitions": "tuple[AffectedDefinition, ...]",
+                "files": "tuple[CompilationFilePreview, ...]",
+                "audit_path": "Path"
+              }
+            },
+            {
+              "id": "direct-compilation-result",
+              "version": "1.0",
+              "owner": "compilation-unit",
+              "classification": "restricted",
+              "fields": {
+                "written_paths": "tuple[Path, ...]",
+                "events": "tuple[CompilationEvent, ...]"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "MOD-COMP-01",
+              "version": "1.0",
+              "target": "direct-compilation",
+              "status": "specified",
+              "category": "functional",
+              "criteria": [
+                "Direct compilation writes registry/plans/artifacts for supported targets and no conversational audit."
+              ]
+            },
+            {
+              "id": "MOD-COMP-02",
+              "version": "1.0",
+              "target": "preview-compilation",
+              "status": "specified",
+              "category": "contract",
+              "criteria": [
+                "Preview stages file changes without mutating workspace destinations."
+              ]
+            },
+            {
+              "id": "MOD-COMP-03",
+              "version": "1.0",
+              "target": "apply-compilation",
+              "status": "specified",
+              "category": "semantic",
+              "criteria": [
+                "Apply rejects stale inputs and tampering and promotes the confirmed staged bytes without recompilation."
+              ]
+            },
+            {
+              "id": "MOD-COMP-04",
+              "version": "1.0",
+              "target": "apply-compilation",
+              "status": "specified",
+              "category": "concurrency",
+              "criteria": [
+                "Waiting apply rechecks freshness under the workspace lock."
+              ]
+            },
+            {
+              "id": "MOD-COMP-05",
+              "version": "1.0",
+              "target": "apply-compilation",
+              "status": "specified",
+              "kind": "non-functional",
+              "category": "resilience",
+              "criteria": [
+                "Injected audit promotion failure rolls back destination files; committed cleanup failures remain distinguishable from uncommitted failures."
+              ]
+            },
+            {
+              "id": "MOD-COMP-06",
+              "version": "1.0",
+              "target": "preview-compilation",
+              "status": "specified",
+              "kind": "non-functional",
+              "category": "security",
+              "criteria": [
+                "Preview rejects prohibited and overlapping control/output paths before publication; full symlink coverage is separately tracked."
+              ]
+            },
+            {
+              "id": "MOD-COMP-07",
+              "version": "1.0",
+              "target": "discard-compilation",
+              "status": "specified",
+              "kind": "non-functional",
+              "category": "resilience",
+              "criteria": [
+                "Discard is idempotent and surfaces incomplete cleanup."
+              ]
+            },
+            {
+              "id": "MOD-COMP-08",
+              "version": "1.0",
+              "target": "apply-compilation",
+              "status": "specified",
+              "category": "serialization",
+              "criteria": [
+                "Successful apply writes audit schemaVersion 1 with the pending manifest fingerprint and without prompt contents."
+              ]
+            },
+            {
+              "id": "MOD-COMP-09",
+              "version": "1.0",
+              "target": "modelable-compilation-slice",
+              "status": "specified",
+              "category": "functional",
+              "criteria": [
+                "Before release, establish measured performance/scalability/observability requirements and evidence for this slice.",
+                "Complete transitive type/ownership mapping, production failure review and formal applicability assessment."
+              ]
+            },
+            {
+              "id": "MOD-COMP-10",
+              "version": "1.0",
+              "target": "preview-compilation",
+              "status": "verified",
+              "kind": "non-functional",
+              "category": "security",
+              "criteria": [
+                "Run the changed-parent and escaping-symlink characterization cases on a host supporting directory symlinks."
+              ]
+            }
+          ],
+          "risks": [
+            {
+              "id": "compilation-category-gap",
+              "target": "modelable-compilation-slice",
+              "treatment": "mitigation",
+              "mitigated_by": [
+                "MOD-COMP-09"
+              ],
+              "waives": "verification-category",
+              "expires": "verification"
+            },
+            {
+              "id": "compilation-failure-review-gap",
+              "target": "modelable-compilation-slice",
+              "treatment": "mitigation",
+              "mitigated_by": [
+                "MOD-COMP-09"
+              ]
+            }
+          ],
+          "subject_bindings": {
+            "direct-compilation": {
+              "version": "1.0",
+              "revision": "72de182a47e1c045f586be73a2c3a79b68f9130b",
+              "artifacts": {
+                "cli/src/modelable/operations/compilation.py": "b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3",
+                "cli/src/modelable/operations/file_transaction.py": "628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794",
+                "cli/src/modelable/operations/compilation_audit.py": "bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f"
+              }
+            },
+            "preview-compilation": {
+              "version": "1.0",
+              "revision": "72de182a47e1c045f586be73a2c3a79b68f9130b",
+              "artifacts": {
+                "cli/src/modelable/operations/compilation.py": "b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3",
+                "cli/src/modelable/operations/file_transaction.py": "628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794",
+                "cli/src/modelable/operations/compilation_audit.py": "bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f"
+              }
+            },
+            "apply-compilation": {
+              "version": "1.0",
+              "revision": "72de182a47e1c045f586be73a2c3a79b68f9130b",
+              "artifacts": {
+                "cli/src/modelable/operations/compilation.py": "b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3",
+                "cli/src/modelable/operations/file_transaction.py": "628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794",
+                "cli/src/modelable/operations/compilation_audit.py": "bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f"
+              }
+            },
+            "discard-compilation": {
+              "version": "1.0",
+              "revision": "72de182a47e1c045f586be73a2c3a79b68f9130b",
+              "artifacts": {
+                "cli/src/modelable/operations/compilation.py": "b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3",
+                "cli/src/modelable/operations/file_transaction.py": "628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794",
+                "cli/src/modelable/operations/compilation_audit.py": "bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f"
+              }
+            }
+          }
+        }
+      },
+      "offline": {
+        "command": [
+          "C:\\git\\modelable\\cli\\.venv\\Scripts\\python.exe",
+          "C:\\git\\modelable\\tools\\system-spec\\reference-implementation\\metamodel.py",
+          "docs/superpowers/specs/system-spec/compilation.yaml",
+          "--context",
+          "compilation-unit",
+          "--json"
+        ],
+        "exit_code": 0,
+        "result": {
+          "system": {
+            "id": "modelable-compilation-slice",
+            "version": "1.0",
+            "status": "specified"
+          },
+          "capabilities": [
+            {
+              "id": "direct-compilation",
+              "version": "1.0",
+              "status": "specified",
+              "preconditions": [
+                "readable workspace and supported target supplied"
+              ],
+              "postconditions": [
+                "generated artifacts and associated local state promoted from staging on success"
+              ],
+              "invariants": [
+                "failed preflight does not publish destination state",
+                "direct path does not write conversational audit"
+              ],
+              "failure_modes": [
+                "CompilationError",
+                "CompilationDiagnosticsError",
+                "FileTransactionError",
+                "FileTransactionCommittedError"
+              ],
+              "interface": {
+                "operation": "CompilationService.execute_direct",
+                "request": "compilation-request",
+                "response": "direct-compilation-result",
+                "idempotent": false,
+                "auth": "caller filesystem permissions; explicit local invocation",
+                "errors": {
+                  "CompilationError": "python-exception",
+                  "CompilationDiagnosticsError": "python-exception",
+                  "FileTransactionError": "python-exception",
+                  "FileTransactionCommittedError": "committed-with-cleanup-error"
+                }
+              }
+            },
+            {
+              "id": "preview-compilation",
+              "version": "1.0",
+              "status": "specified",
+              "preconditions": [
+                "conversation policy supplied and workspace-restricted request"
+              ],
+              "postconditions": [
+                "pending compilation contains staged file previews and source fingerprints"
+              ],
+              "invariants": [
+                "preview does not change destination workspace files",
+                "staging is outside workspace"
+              ],
+              "failure_modes": [
+                "CompilationError",
+                "CompilationDiagnosticsError"
+              ],
+              "interface": {
+                "operation": "CompilationService.preview",
+                "request": "compilation-request",
+                "response": "pending-compilation",
+                "idempotent": false,
+                "auth": "caller filesystem permissions; conversation policy",
+                "errors": {
+                  "CompilationError": "python-exception",
+                  "CompilationDiagnosticsError": "python-exception"
+                }
+              }
+            },
+            {
+              "id": "apply-compilation",
+              "version": "1.0",
+              "status": "specified",
+              "preconditions": [
+                "pending compilation and exact matching confirmation supplied"
+              ],
+              "postconditions": [
+                "exact staged files and private audit promoted on success"
+              ],
+              "invariants": [
+                "freshness checked under locks",
+                "staged bytes promoted without recompiling"
+              ],
+              "failure_modes": [
+                "CompilationError",
+                "StaleCompilationError",
+                "FileTransactionError",
+                "FileTransactionCommittedError"
+              ],
+              "interface": {
+                "operation": "CompilationService.apply",
+                "request": [
+                  "pending-compilation",
+                  "compilation-confirmation"
+                ],
+                "response": "applied-compilation",
+                "idempotent": false,
+                "auth": "confirmation binding and caller filesystem permissions",
+                "errors": {
+                  "CompilationError": "python-exception",
+                  "StaleCompilationError": "python-exception",
+                  "FileTransactionError": "python-exception",
+                  "FileTransactionCommittedError": "committed-with-cleanup-error"
+                }
+              }
+            },
+            {
+              "id": "discard-compilation",
+              "version": "1.0",
+              "status": "specified",
+              "preconditions": [
+                "pending compilation supplied"
+              ],
+              "postconditions": [
+                "invocation staging removed or cleanup failure surfaced"
+              ],
+              "invariants": [
+                "discard does not apply staged artifacts"
+              ],
+              "failure_modes": [
+                "CompilationError"
+              ],
+              "interface": {
+                "operation": "CompilationService.discard",
+                "request": "pending-compilation",
+                "idempotent": true,
+                "auth": "caller filesystem permissions",
+                "errors": {
+                  "CompilationError": "python-exception"
+                }
+              }
+            }
+          ],
+          "components": [
+            {
+              "id": "compilation-unit",
+              "version": "1.15.2",
+              "status": "specified",
+              "provides": [
+                "direct-compilation",
+                "preview-compilation",
+                "apply-compilation",
+                "discard-compilation"
+              ],
+              "owns_data": [
+                "compilation-request",
+                "pending-compilation",
+                "compilation-confirmation",
+                "applied-compilation",
+                "direct-compilation-result"
+              ],
+              "source_paths": [
+                "cli/src/modelable/operations/compilation.py",
+                "cli/src/modelable/operations/file_transaction.py",
+                "cli/src/modelable/operations/compilation_audit.py"
+              ],
+              "context_budget": {
+                "max_owns_data": 5
+              }
+            }
+          ],
+          "data_models": [
+            {
+              "id": "compilation-request",
+              "version": "1.0",
+              "owner": "compilation-unit",
+              "classification": "restricted",
+              "fields": {
+                "source": "Path",
+                "target": "str",
+                "out_dir": "Path | None",
+                "registry_path": "str",
+                "snapshot_path": "Path | None",
+                "registry_ids_path": "Path",
+                "allow_orphaned_registry_ids": "bool",
+                "enum_numbers_path": "Path",
+                "domains": "tuple[str, ...]",
+                "descriptor_set": "bool",
+                "package": "str | None",
+                "overlay_path": "Path | None",
+                "usage_manifest": "bool"
+              }
+            },
+            {
+              "id": "pending-compilation",
+              "version": "1.0",
+              "owner": "compilation-unit",
+              "classification": "restricted",
+              "fields": {
+                "action_id": "str",
+                "request": "CompilationRequest",
+                "workspace_root": "Path",
+                "staging_dir": "Path",
+                "files": "tuple[CompilationFilePreview, ...]",
+                "source_fingerprints": "tuple[FileFingerprint, ...]",
+                "affected_definitions": "tuple[AffectedDefinition, ...]",
+                "registry_id_changes": "tuple[RegistryIdChange, ...]",
+                "registry_ids_before": "dict[str, int]",
+                "warnings": "tuple[str, ...]",
+                "manifest_fingerprint": "str",
+                "preview_timestamp": "str",
+                "audit_resolved_parent": "Path"
+              }
+            },
+            {
+              "id": "compilation-confirmation",
+              "version": "1.0",
+              "owner": "compilation-unit",
+              "classification": "restricted",
+              "fields": {
+                "session_id": "str",
+                "action_id": "str",
+                "manifest_fingerprint": "str",
+                "surface": "Literal[cli-chat, vscode-chat]",
+                "provider": "str | None",
+                "model": "str | None"
+              }
+            },
+            {
+              "id": "applied-compilation",
+              "version": "1.0",
+              "owner": "compilation-unit",
+              "classification": "restricted",
+              "fields": {
+                "action_id": "str",
+                "written_paths": "tuple[Path, ...]",
+                "affected_definitions": "tuple[AffectedDefinition, ...]",
+                "files": "tuple[CompilationFilePreview, ...]",
+                "audit_path": "Path"
+              }
+            },
+            {
+              "id": "direct-compilation-result",
+              "version": "1.0",
+              "owner": "compilation-unit",
+              "classification": "restricted",
+              "fields": {
+                "written_paths": "tuple[Path, ...]",
+                "events": "tuple[CompilationEvent, ...]"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "MOD-COMP-01",
+              "version": "1.0",
+              "target": "direct-compilation",
+              "status": "specified",
+              "category": "functional",
+              "criteria": [
+                "Direct compilation writes registry/plans/artifacts for supported targets and no conversational audit."
+              ]
+            },
+            {
+              "id": "MOD-COMP-02",
+              "version": "1.0",
+              "target": "preview-compilation",
+              "status": "specified",
+              "category": "contract",
+              "criteria": [
+                "Preview stages file changes without mutating workspace destinations."
+              ]
+            },
+            {
+              "id": "MOD-COMP-03",
+              "version": "1.0",
+              "target": "apply-compilation",
+              "status": "specified",
+              "category": "semantic",
+              "criteria": [
+                "Apply rejects stale inputs and tampering and promotes the confirmed staged bytes without recompilation."
+              ]
+            },
+            {
+              "id": "MOD-COMP-04",
+              "version": "1.0",
+              "target": "apply-compilation",
+              "status": "specified",
+              "category": "concurrency",
+              "criteria": [
+                "Waiting apply rechecks freshness under the workspace lock."
+              ]
+            },
+            {
+              "id": "MOD-COMP-05",
+              "version": "1.0",
+              "target": "apply-compilation",
+              "status": "specified",
+              "kind": "non-functional",
+              "category": "resilience",
+              "criteria": [
+                "Injected audit promotion failure rolls back destination files; committed cleanup failures remain distinguishable from uncommitted failures."
+              ]
+            },
+            {
+              "id": "MOD-COMP-06",
+              "version": "1.0",
+              "target": "preview-compilation",
+              "status": "specified",
+              "kind": "non-functional",
+              "category": "security",
+              "criteria": [
+                "Preview rejects prohibited and overlapping control/output paths before publication; full symlink coverage is separately tracked."
+              ]
+            },
+            {
+              "id": "MOD-COMP-07",
+              "version": "1.0",
+              "target": "discard-compilation",
+              "status": "specified",
+              "kind": "non-functional",
+              "category": "resilience",
+              "criteria": [
+                "Discard is idempotent and surfaces incomplete cleanup."
+              ]
+            },
+            {
+              "id": "MOD-COMP-08",
+              "version": "1.0",
+              "target": "apply-compilation",
+              "status": "specified",
+              "category": "serialization",
+              "criteria": [
+                "Successful apply writes audit schemaVersion 1 with the pending manifest fingerprint and without prompt contents."
+              ]
+            },
+            {
+              "id": "MOD-COMP-09",
+              "version": "1.0",
+              "target": "modelable-compilation-slice",
+              "status": "specified",
+              "category": "functional",
+              "criteria": [
+                "Before release, establish measured performance/scalability/observability requirements and evidence for this slice.",
+                "Complete transitive type/ownership mapping, production failure review and formal applicability assessment."
+              ]
+            },
+            {
+              "id": "MOD-COMP-10",
+              "version": "1.0",
+              "target": "preview-compilation",
+              "status": "verified",
+              "kind": "non-functional",
+              "category": "security",
+              "criteria": [
+                "Run the changed-parent and escaping-symlink characterization cases on a host supporting directory symlinks."
+              ]
+            }
+          ],
+          "risks": [
+            {
+              "id": "compilation-category-gap",
+              "target": "modelable-compilation-slice",
+              "treatment": "mitigation",
+              "mitigated_by": [
+                "MOD-COMP-09"
+              ],
+              "waives": "verification-category",
+              "expires": "verification"
+            },
+            {
+              "id": "compilation-failure-review-gap",
+              "target": "modelable-compilation-slice",
+              "treatment": "mitigation",
+              "mitigated_by": [
+                "MOD-COMP-09"
+              ]
+            }
+          ],
+          "subject_bindings": {
+            "direct-compilation": {
+              "version": "1.0",
+              "revision": "72de182a47e1c045f586be73a2c3a79b68f9130b",
+              "artifacts": {
+                "cli/src/modelable/operations/compilation.py": "b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3",
+                "cli/src/modelable/operations/file_transaction.py": "628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794",
+                "cli/src/modelable/operations/compilation_audit.py": "bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f"
+              }
+            },
+            "preview-compilation": {
+              "version": "1.0",
+              "revision": "72de182a47e1c045f586be73a2c3a79b68f9130b",
+              "artifacts": {
+                "cli/src/modelable/operations/compilation.py": "b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3",
+                "cli/src/modelable/operations/file_transaction.py": "628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794",
+                "cli/src/modelable/operations/compilation_audit.py": "bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f"
+              }
+            },
+            "apply-compilation": {
+              "version": "1.0",
+              "revision": "72de182a47e1c045f586be73a2c3a79b68f9130b",
+              "artifacts": {
+                "cli/src/modelable/operations/compilation.py": "b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3",
+                "cli/src/modelable/operations/file_transaction.py": "628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794",
+                "cli/src/modelable/operations/compilation_audit.py": "bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f"
+              }
+            },
+            "discard-compilation": {
+              "version": "1.0",
+              "revision": "72de182a47e1c045f586be73a2c3a79b68f9130b",
+              "artifacts": {
+                "cli/src/modelable/operations/compilation.py": "b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3",
+                "cli/src/modelable/operations/file_transaction.py": "628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794",
+                "cli/src/modelable/operations/compilation_audit.py": "bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f"
+              }
+            }
+          }
+        }
+      }
+    },
+    "impact": {
+      "installed": {
+        "command": [
+          "system-spec",
+          "docs/superpowers/specs/system-spec/compilation.yaml",
+          "--impact",
+          "apply-compilation",
+          "--json"
+        ],
+        "exit_code": 0,
+        "result": {
+          "components": [
+            "compilation-unit"
+          ],
+          "capabilities": [
+            "direct-compilation",
+            "preview-compilation",
+            "apply-compilation",
+            "discard-compilation"
+          ],
+          "data_models": [
+            "compilation-request",
+            "pending-compilation",
+            "compilation-confirmation",
+            "applied-compilation",
+            "direct-compilation-result"
+          ],
+          "requirements": [
+            "MOD-COMP-01",
+            "MOD-COMP-02",
+            "MOD-COMP-03",
+            "MOD-COMP-04",
+            "MOD-COMP-05",
+            "MOD-COMP-06",
+            "MOD-COMP-07",
+            "MOD-COMP-08",
+            "MOD-COMP-09",
+            "MOD-COMP-10"
+          ],
+          "invalidated_evidence": [
+            "ev-mod-comp-10-skipped",
+            "ev-mod-comp-01-recovery",
+            "ev-mod-comp-02-recovery",
+            "ev-mod-comp-03-recovery",
+            "ev-mod-comp-04-recovery",
+            "ev-mod-comp-05-recovery",
+            "ev-mod-comp-06-recovery",
+            "ev-mod-comp-07-recovery",
+            "ev-mod-comp-08-recovery",
+            "ev-mod-comp-05-staging-cleanup",
+            "ev-mod-comp-10-recovery-linux"
+          ]
+        }
+      },
+      "offline": {
+        "command": [
+          "C:\\git\\modelable\\cli\\.venv\\Scripts\\python.exe",
+          "C:\\git\\modelable\\tools\\system-spec\\reference-implementation\\metamodel.py",
+          "docs/superpowers/specs/system-spec/compilation.yaml",
+          "--impact",
+          "apply-compilation",
+          "--json"
+        ],
+        "exit_code": 0,
+        "result": {
+          "components": [
+            "compilation-unit"
+          ],
+          "capabilities": [
+            "direct-compilation",
+            "preview-compilation",
+            "apply-compilation",
+            "discard-compilation"
+          ],
+          "data_models": [
+            "compilation-request",
+            "pending-compilation",
+            "compilation-confirmation",
+            "applied-compilation",
+            "direct-compilation-result"
+          ],
+          "requirements": [
+            "MOD-COMP-01",
+            "MOD-COMP-02",
+            "MOD-COMP-03",
+            "MOD-COMP-04",
+            "MOD-COMP-05",
+            "MOD-COMP-06",
+            "MOD-COMP-07",
+            "MOD-COMP-08",
+            "MOD-COMP-09",
+            "MOD-COMP-10"
+          ],
+          "invalidated_evidence": [
+            "ev-mod-comp-10-skipped",
+            "ev-mod-comp-01-recovery",
+            "ev-mod-comp-02-recovery",
+            "ev-mod-comp-03-recovery",
+            "ev-mod-comp-04-recovery",
+            "ev-mod-comp-05-recovery",
+            "ev-mod-comp-06-recovery",
+            "ev-mod-comp-07-recovery",
+            "ev-mod-comp-08-recovery",
+            "ev-mod-comp-05-staging-cleanup",
+            "ev-mod-comp-10-recovery-linux"
+          ]
+        }
+      }
+    }
+  },
+  "acceptance": "Current stages retained; proposal incompatibility and release blockers remain open."
+}

@@ -46,7 +46,7 @@ Design docs and implementation plans (created via the `writing-plans`/brainstorm
 
 ## System-spec onboarding
 
-- Published tool: `system-spec-ref==0.1.0` (`system-spec`). Install with `uv tool install --index-url https://pypi.org/simple system-spec-ref==0.1.0`; verify `system-spec --version` and [package/export provenance](docs/superpowers/specs/system-spec/evidence/toolkit-pypi-0.1.0.json).
+- Published tool: `system-spec-ref==0.2.0` (`system-spec`). Install with `uv tool install --index-url https://pypi.org/simple system-spec-ref==0.2.0`; verify `system-spec --version` and [package/export provenance](docs/superpowers/specs/system-spec/evidence/toolkit-pypi-0.2.0.json).
 - Follow the intact offline toolkit's [WIRING.md](tools/system-spec/WIRING.md), [CONSTITUTION.md](tools/system-spec/CONSTITUTION.md) and brownfield track [BROWNFIELD.md](tools/system-spec/BROWNFIELD.md).
 - Project specifications and acceptance records remain in [docs/superpowers/specs/system-spec/](docs/superpowers/specs/system-spec/README.md). Before committing, validate inventory at `inventory`, active compilation at `verification`, and the unaccepted contract proposal at `architecture`, with `--check-artifacts --root .`; use the exact commands in that README.
 - For bounded work, use `system-spec <spec> --context <component-id>` and `--impact <id>`. Source/schema/evidence pins and native gates above remain required; package installation does not establish whole-product conformance or approve the proposal.
