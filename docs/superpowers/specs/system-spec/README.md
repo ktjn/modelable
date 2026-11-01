@@ -2,7 +2,7 @@
 
 - Historical intake: 2026-10-31. Product baseline: `0fead2321bdef11c72b2746eb57f3a8b0e327c94` (Modelable 1.15.1).
 - Historical metamodel: system-specification `00188b037797fd37240dab9a0a11c431815e3ac9`; original schema retained as [schema-baseline.json](schema-baseline.json), original hashes/environment in [baseline.json](baseline.json). The manifest describes the original files at Modelable commit `5f48ed00`, not the migrated compilation/schema files.
-- Current compilation evidence: Modelable `72de182a47e1c045f586be73a2c3a79b68f9130b` (1.15.2), validator `b187e43628c7dc89935d17c2c382094ad37eb2eb`. Current [schema.json](schema.json), pins/hashes in [adoption.json](adoption.json), and [current recovery checks](evidence/recovery-validation.json). Prior captures remain historical.
+- Compilation characterization: Modelable `72de182a47e1c045f586be73a2c3a79b68f9130b` (1.15.2), capture validator `b187e43628c7dc89935d17c2c382094ad37eb2eb`. Current [schema.json](schema.json), pins/hashes in [adoption.json](adoption.json), and [current recovery checks](evidence/recovery-validation.json). Prior captures remain historical.
 - Status: whole-product inventory recorded; compilation behavior pinned for the bounded scope below, with explicit source/version and artifact bindings. Whole-product Levels 1–3 remain open.
 - Live onboarding TODO: inventory and bounded compilation discovery recorded; [dependency/state map](compilation-map.md) covers 141 source modules and 19 declared dataclass shapes. The two missing symlink cases now pass on Linux. Shared IR/schema semantics, public failure catalog and remaining recovery/transport coverage, classification, quality criteria, formal assessment and release review remain open.
 - This is internal development metadata. Product authority remains [architecture.md](../../../architecture.md), the existing capability catalog and native acceptance gates. The metadata changes no language, dependencies, installed skills or product commands. The accompanying native-gate repair moves graph controls above the canvas and makes browser characterization wait for the requested layout.
@@ -82,22 +82,31 @@ Prepared/reviewed by Codex from source and local test output; maintainers own ac
 
 ## Validation and bounded work
 
-The toolkit wheel/CLI and offline export are implemented. This capture still uses the exact pinned sibling validator to retain commit-level provenance; package version `0.1.0` alone does not identify that source revision. Run from the Modelable repository root:
+Published toolkit onboarding: [pypi-onboarding.md](pypi-onboarding.md). Use PyPI `system-spec-ref==0.1.0`; its intact offline export is committed at [tools/system-spec](../../../../tools/system-spec/WIRING.md). Follow the exported constitution plus the brownfield track. Existing project specification paths remain authoritative; no duplicate idealized baseline is created.
+
+Run from the Modelable repository root:
 
 ```powershell
-$validator = '../system-specification/reference-implementation'
-$python = "$validator/.venv/Scripts/python.exe"
-& $python "$validator/metamodel.py" docs/superpowers/specs/system-spec/inventory.yaml --stage inventory --check-artifacts --root .
-& $python "$validator/metamodel.py" docs/superpowers/specs/system-spec/compilation.yaml --stage verification --check-artifacts --root .
-& $python "$validator/metamodel.py" docs/superpowers/specs/system-spec/compilation.yaml --context compilation-unit
-& $python "$validator/metamodel.py" docs/superpowers/specs/system-spec/compilation.yaml --impact apply-compilation
+uv tool install --index-url https://pypi.org/simple system-spec-ref==0.1.0
+system-spec --version
+system-spec docs/superpowers/specs/system-spec/inventory.yaml --stage inventory --check-artifacts --root .
+system-spec docs/superpowers/specs/system-spec/compilation.yaml --stage verification --check-artifacts --root .
+system-spec docs/superpowers/specs/system-spec/compilation-contract-proposal.yaml --stage architecture --check-artifacts --root .
+system-spec docs/superpowers/specs/system-spec/compilation.yaml --context compilation-unit
+system-spec docs/superpowers/specs/system-spec/compilation.yaml --impact apply-compilation
 ```
 
-- Confirm the sibling Git revision and validator/schema hashes against `adoption.json` before validating. Hashes use exact worktree bytes, including checkout line endings; a different checkout may require reviewed recapture rather than silently accepting new hashes.
-- Paths in `source_paths`, provenance and artifact maps are relative to `--root`, including the full `docs/superpowers/specs/system-spec/` prefix for logs. Provenance names one file, optionally followed by a `::selector`; logs and environment records have separate `artifacts` hashes.
-- Before changing a contract, retain a baseline, run impact/context, trace nested dependencies, and use `--compat` after the edit. Matching prose sets cannot prove semantic compatibility.
-- Record rerun source/dependency/environment revisions; invalidate affected evidence instead of reusing this run after code changes.
-- Native format/lint/type/test/browser gates from [AGENTS.md](../../../../AGENTS.md) remain mandatory before commits/pushes.
+Offline fallback (Pydantic/PyYAML are already native CLI dependencies):
+
+```powershell
+uv run --project cli python tools/system-spec/reference-implementation/metamodel.py docs/superpowers/specs/system-spec/compilation.yaml --stage verification --check-artifacts --root .
+```
+
+- [toolkit-pypi-0.1.0.json](evidence/toolkit-pypi-0.1.0.json) records the published wheel, verified installation/export bytes and current schema/validator hashes. [packaged-toolkit-validation.json](evidence/packaged-toolkit-validation.json) records installed/offline parity and remaining acceptance blockers.
+- Historical `adoption.json`, schemas and execution captures retain their original validator/source pins. The packaged schema is semantically identical and validation/artifact/compatibility functions match the earlier pinned source; no old evidence is relabeled with a new verifier or subject version.
+- Toolkit version 0.1.0 is separate from modeled contract versions. The proposal still has three expected `COMPAT-04` diagnostics; compilation release and whole-product conformance remain open.
+- Paths in source/provenance/artifact maps remain repository-relative. Review source/dependency/environment changes before reusing evidence; native semantic/manual gates remain authoritative.
+- Upgrade using a pinned package version and a fresh destination, for example `system-spec export tools/system-spec-next` (it must not exist). Compare snapshots and their provenance, follow [WIRING.md](../../../../tools/system-spec/WIRING.md), revalidate active specs at their stages, and retain historical captures/decisions.
 
 ### Historical evidence migration decision
 

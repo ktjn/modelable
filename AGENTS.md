@@ -46,13 +46,13 @@ Design docs and implementation plans (created via the `writing-plans`/brainstorm
 
 ## System-spec onboarding
 
-The observed inventory, bounded compilation contracts, source/schema pins,
-characterization evidence and open adoption gates live in
-[docs/superpowers/specs/system-spec/README.md](docs/superpowers/specs/system-spec/README.md).
-Read that record before changing the adopted compilation slice. Validate its
-YAML with the pinned system-specification metamodel; retain the native gates
-above. Report newly discovered facts and model gaps back to system-specification
-as described in the onboarding record. Whole-product conformance remains open.
+- Published tool: `system-spec-ref==0.1.0` (`system-spec`). Install with `uv tool install --index-url https://pypi.org/simple system-spec-ref==0.1.0`; verify `system-spec --version` and [package/export provenance](docs/superpowers/specs/system-spec/evidence/toolkit-pypi-0.1.0.json).
+- Follow the intact offline toolkit's [WIRING.md](tools/system-spec/WIRING.md), [CONSTITUTION.md](tools/system-spec/CONSTITUTION.md) and brownfield track [BROWNFIELD.md](tools/system-spec/BROWNFIELD.md).
+- Project specifications and acceptance records remain in [docs/superpowers/specs/system-spec/](docs/superpowers/specs/system-spec/README.md). Before committing, validate inventory at `inventory`, active compilation at `verification`, and the unaccepted contract proposal at `architecture`, with `--check-artifacts --root .`; use the exact commands in that README.
+- For bounded work, use `system-spec <spec> --context <component-id>` and `--impact <id>`. Source/schema/evidence pins and native gates above remain required; package installation does not establish whole-product conformance or approve the proposal.
+- Offline fallback: `uv run --project cli python tools/system-spec/reference-implementation/metamodel.py <spec> --stage <stage>`. The snapshot is pinned by the package receipt; preserve its tree/bytes and follow WIRING.md's fresh-export upgrade procedure.
+- Applicable formal/data-model guidance: [TLA+](tools/system-spec/.github/skills/tla/SKILL.md), [Alloy](tools/system-spec/.github/skills/alloy/SKILL.md), [Modelable](tools/system-spec/.github/skills/modelable/SKILL.md). Follow each guide's separate tool prerequisites.
+- Report newly discovered facts/model gaps using the exported constitution's self-improvement process and the existing onboarding feedback route. Maintainers own acceptance and unresolved adoption gates.
 
 ## Web AI/chat changes
 

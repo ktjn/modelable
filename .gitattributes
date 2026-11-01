@@ -4,3 +4,6 @@ cli/tests/fixtures/offline-rust-consumer/vendor/** -text
 
 # Captured hashes bind exact metadata/log bytes, including mixed line endings.
 docs/superpowers/specs/system-spec/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+# Preserve the exact published offline toolkit payload.
+tools/system-spec/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
