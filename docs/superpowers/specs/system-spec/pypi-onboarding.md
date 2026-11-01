@@ -1,5 +1,7 @@
 # Published toolkit onboarding decision
 
+Historical 0.1.0 decision; current toolkit: [0.2.0 upgrade](toolkit-upgrade-0.2.0.md). The receipt preserves the original snapshot hashes.
+
 - Date: 2026-11-01. Scope: tool installation, offline instructions and verifier migration for the existing brownfield adoption.
 - Baseline: Modelable #897 merged at `cd1c59aca64aea8c22c1cf10fb0be6ff0696d48f`. The completed proposal-preparation plan is archived; consumer implementation and acceptance remain open.
 - Authority: follow [WIRING](../../../../tools/system-spec/WIRING.md), [CONSTITUTION](../../../../tools/system-spec/CONSTITUTION.md) and [BROWNFIELD](../../../../tools/system-spec/BROWNFIELD.md). Existing project specs and decisions stay here; the example `system-spec/spec.yaml` path does not create a second baseline.

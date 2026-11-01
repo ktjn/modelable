@@ -1,0 +1,25 @@
+{
+  "command": [
+    "system-spec",
+    "docs/superpowers/specs/system-spec/compilation.yaml",
+    "--stage",
+    "release",
+    "--check-artifacts",
+    "--check-drift",
+    "--root",
+    ".",
+    "--json"
+  ],
+  "exit_code": 0,
+  "result": {
+    "valid": true,
+    "errors": [],
+    "unchecked": []
+  },
+  "scope": "Optional diagnostic only; drift mode does not run ordinary stage validation. Existing stage gates are separate.",
+  "limitations": [
+    "The drift branch does not run ordinary stage validation; --stage release does not make this a release gate.",
+    "Absolute imports resolve under repository root or root/src, not Modelable cli/src. Unresolved imports are not listed as unchecked.",
+    "A clean drift result does not establish whole-product dependency correspondence or acceptance."
+  ]
+}

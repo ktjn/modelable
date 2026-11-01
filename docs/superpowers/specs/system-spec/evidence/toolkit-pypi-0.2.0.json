@@ -1,0 +1,156 @@
+{
+  "recorded_date": "2026-11-01",
+  "package": "system-spec-ref",
+  "version": "0.2.0",
+  "index": "https://pypi.org/simple",
+  "pypi_metadata": "https://pypi.org/pypi/system-spec-ref/0.2.0/json",
+  "wheel": {
+    "filename": "system_spec_ref-0.2.0-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/61/98/dad6654a75012264333788384b0458e69ae6551bfe9cf9f5f6933bb841ae/system_spec_ref-0.2.0-py3-none-any.whl",
+    "sha256": "fb6e1f5db7ba95f4c3673ee7f6fc926a00fe70068928157387358609396463e8",
+    "uploaded": "2026-11-01T07:48:39.355102Z"
+  },
+  "installation": {
+    "command": [
+      "uv",
+      "tool",
+      "install",
+      "--index-url",
+      "https://pypi.org/simple",
+      "system-spec-ref==0.2.0"
+    ],
+    "packaged_files_verified": 47,
+    "python": "3.14.5 (main, May 10 2026, 20:29:46) [MSC v.1944 64 bit (AMD64)]",
+    "dependencies": {
+      "pydantic": "2.14.2",
+      "pydantic-core": "2.50.2",
+      "PyYAML": "6.0.3"
+    }
+  },
+  "export": {
+    "root": "tools/system-spec",
+    "file_count": 44,
+    "sha256": {
+      "BROWNFIELD.md": "8baba39831e5405551eeeb62732a4b263892431cbf6b242d686c1b6024a6acf6",
+      "CONSTITUTION.md": "12d8102df141e89283ee4506bc93d1e1f59e7fa92a29daa86199b9d8cc2ac970",
+      "GREENFIELD.md": "19c0384018a0fcbdad26488ddb625a2e1fb84bb0f599a4377b58f9460bb0ed7b",
+      "LICENSE": "41df4a90d6485d856d5012c6cbf3f6312556dc63c3337d70e39f33d88cf523ef",
+      "PACKAGING.md": "405296a9f292f874fb2ab04314d1a84aacec2440d77ed84c2a6ed187b218623a",
+      "PLAN.md": "9da8e596e536a97d5374f2109f5cdd7c4e6601b86bb9a8d04d7337fb84a27b84",
+      "README.md": "7c551c80f1321e6803f51b2f4e9261a01e39d062c8f853e43507dcdd69c12cde",
+      "WIRING.md": "7fa80e966077692277f7a77d31db095c53356474db049741fcc392aa0532f1b7",
+      "packaging.yaml": "78ece5385247695b7585c7677aaccd4e42107524d026f85d486f49317e920722",
+      "spec.md": "1f2d15a3bdc1e4abdb190afff371a5a97f766f697aff25c30bd6f374bc675e71",
+      ".github/skills/alloy/SKILL.md": "33456df172695c4ffaedef418e5596ab7e6a32aea8ba618cdd47edc24c9fab81",
+      ".github/skills/modelable/SKILL.md": "2f539abe65c92d8fe8f79ac8d1511df40beceb6d873f777ac1b72cdc5c52d655",
+      ".github/skills/tla/SKILL.md": "7a8fefad35131ce549c7a882c8afcf2d3c47055919061180189c4f561c786eb5",
+      ".github/workflows/metamodel.yml": "4e3ab88fefef2bad0b1199fa04dcda5c3480fd8e2bb97e94d26f8d96ba5b05d8",
+      "archive/BENCHMARK.md": "e93adacdc11a5b12f279e9989f7a9d28a2388da958005bdd36ff37843a797f38",
+      "archive/README.md": "559b34f42e43f0c669d42f27393e3ef8921250c75bc3f9d541f25f1d18660d48",
+      "archive/REVIEW.md": "fa5b315e2e55c10835fffb3d7b7a19d497fcbb6cff0ff1218db05afeb4de0bdb",
+      "archive/feedback/modelable-onboarding.md": "753ab7e3f1df304274e0e2b21b5009e6ad705f6932b83e43f1752f0de1c7c528",
+      "archive/feedback/observable-onboarding.md": "0de59479f965731a92bab8ce679fb3bb4eb061e7d854be73c6b959093b340785",
+      "examples/brownfield/README.md": "ec412db997e0b15b1f480ba16fc9e0b8ce192897a968c0f7a6b553654645b755",
+      "examples/brownfield/level0.yaml": "cbcaa1914d0eeb681187dcabd8a5e11b5de87ba64ce7bc15e5b9a38484b4f0c6",
+      "examples/brownfield/level1.yaml": "204b0d01fae61fbfe8ebab3a935d9e3cb6892756eeb867f87922ab43ef0ad425",
+      "examples/brownfield/old.yaml": "0aeee73bde34c9016453fe901cdb5cc2a0b929fd80087864ef7d74136c92c310",
+      "examples/brownfield/spec.yaml": "5709a18b8ad647567366e6006b5ae9347fb039cf8f3ce110bacb4ab2b741a52b",
+      "examples/greenfield/Inventory.als": "bddd33540d0071820f11d2954594125b3b757ea80462dc3eb2cbf8e70a6109f7",
+      "examples/greenfield/Inventory.cfg": "7341465e43a60cada3cd41af02e8022b1c84f572d737ce7c18fa407755bc1b54",
+      "examples/greenfield/Inventory.tla": "13c19af4312d1db2de1f42a72858cf8fb372123f9af843ae62e4a8a8898b3d31",
+      "examples/greenfield/README.md": "a0293c44e3225f5496d8258e4afeaabfddea30f48a60bbac215928d06b52cb0a",
+      "examples/greenfield/spec.yaml": "95a436c936e9d77069788515e12072c7357b3cd92ada7f80d32c01c58836d46a",
+      "reference-implementation/.dockerignore": "4409b253ac33acb862192f9cad8583ed3fe0bac938082a6cfa784d7cf0d185ef",
+      "reference-implementation/.gitignore": "4409b253ac33acb862192f9cad8583ed3fe0bac938082a6cfa784d7cf0d185ef",
+      "reference-implementation/Dockerfile": "f0326a7744a814643da97a5cc343202c934d1c1b7990bd62d6871c1e63135bb5",
+      "reference-implementation/README.md": "420db3a0b80aa331f12f406383f9701ff4cb396beafa412e13189df67ab02620",
+      "reference-implementation/corpus.yaml": "5961ffdd3e4937bb8b76aa478d2713a0c6ff52ffc8b5c72742f17e78c9f3591e",
+      "reference-implementation/example.yaml": "28f1ed6ecc72d47441e47d67efe8cafda3263f7a288043c696e82ddcaba196ad",
+      "reference-implementation/metamodel.als": "a6866efa4e83256366662a12cd8ca81a3d1dd0bb1f74f952501951e807fbb406",
+      "reference-implementation/metamodel.py": "8c8d508ddf0d407c7a1ef25c509ddaace22b0094610b1d5c305c0d160507389c",
+      "reference-implementation/old.yaml": "e1e38b5a09372b64ed1e866aa72777b3646abb1e3a0940665e1109d6dbc6e688",
+      "reference-implementation/pyproject.toml": "4a67445b1726eb8ab27301d5db01c703fbd19634dee413b4f696766bd3336ebe",
+      "reference-implementation/schema.json": "68575c37f4adf8449e2ae1978ad78038c7c383ccef7953e7ce4b473aa1ed71ea",
+      "reference-implementation/test_metamodel.py": "31ab27131989c066aa103347ea03c02641551d965db51ba7d964f0d6cc212eb4",
+      "reference-implementation/test_onboarding.py": "211b98ea9c72b0516cb5dbd33afd26cff973d04444eae4bd6c88b628779c892e",
+      "reference-implementation/uv.lock": "ad4e85eb7bf61f7c3ddaefc2c7f16367d67a82a9be97c3608177aee025066966",
+      "templates/BROWNFIELD-INTAKE.md": "4a5faa63e1bf575295aef29239f31cc0a06674030f1c6408d4086dee9619a8cb"
+    },
+    "verified_against_wheel": true,
+    "markdown_local_links_checked": 186,
+    "missing_local_links": [
+      [
+        "tools/system-spec/README.md",
+        "PYPI.md"
+      ]
+    ],
+    "byte_policy": "Exact published bytes; existing scoped -text attributes. Git round-trip verification recorded in upgrade review."
+  },
+  "comparison_to_0.1.0": {
+    "files": {
+      "added": [],
+      "removed": [],
+      "changed": [
+        "BROWNFIELD.md",
+        "PACKAGING.md",
+        "PLAN.md",
+        "README.md",
+        "WIRING.md",
+        "archive/feedback/modelable-onboarding.md",
+        "reference-implementation/README.md",
+        "reference-implementation/metamodel.py",
+        "reference-implementation/pyproject.toml",
+        "reference-implementation/test_onboarding.py",
+        "reference-implementation/uv.lock",
+        "spec.md"
+      ]
+    },
+    "schema_semantically_identical": true,
+    "validator_symbols": {
+      "added": [
+        "check_drift"
+      ],
+      "removed": [],
+      "changed": [
+        "main"
+      ]
+    }
+  },
+  "historical_capture": "Prior package receipts, specs and source/evidence bindings are preserved; no adoption or release acceptance advanced.",
+  "current_validator_sha256": "8c8d508ddf0d407c7a1ef25c509ddaace22b0094610b1d5c305c0d160507389c",
+  "current_schema_sha256": "68575c37f4adf8449e2ae1978ad78038c7c383ccef7953e7ce4b473aa1ed71ea",
+  "reference_tests": {
+    "result": {
+      "tests": 133,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2,
+      "passed": 131
+    },
+    "skips": [
+      "file symlinks unavailable",
+      "file symlinks unavailable"
+    ],
+    "command": {
+      "command": [
+        "C:\\git\\modelable\\cli\\.venv\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "-q",
+        "-r",
+        "s",
+        "-p",
+        "no:cacheprovider",
+        "--basetemp=C:\\git\\modelable\\.agentbuild\\validation\\system-spec-0.2.0\\pytest-74da665a25154c75b2a323560b228528",
+        "--junitxml=C:\\git\\modelable\\docs\\superpowers\\specs\\system-spec\\evidence\\packaged-toolkit-tests-0.2.0.xml"
+      ],
+      "cwd": "tools/system-spec/reference-implementation",
+      "exit_code": 0
+    },
+    "artifacts": {
+      "packaged-toolkit-tests-0.2.0.txt": "7e144299e4f5cd7cf982a54560ac121774140ccb32a810571499ee8ff168987a",
+      "packaged-toolkit-tests-0.2.0.xml": "49dc22a5b269c0170362165209293883e96e9795077b647ce619a67585915bc0"
+    }
+  },
+  "offline_version_note": "Standalone --version lacks distribution metadata; identify snapshot by package/wheel/export hashes."
+}
