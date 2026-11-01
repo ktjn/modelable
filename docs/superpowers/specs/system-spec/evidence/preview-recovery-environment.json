@@ -1,0 +1,223 @@
+{
+  "date": "2026-11-01",
+  "baseline_revision": "661e8a41496ca2effad37d13aa45bbb462e46453",
+  "source_revision": "2146fed9327b58518b9f1e67f3b7cc5b1aace7b8",
+  "scope": "Named conversation preview failures, live pending metadata, actual protocol negotiation and optional artifact-reference navigation. No contract activation or whole-product acceptance.",
+  "python_tests": {
+    "command": [
+      "C:\\git\\modelable\\cli\\.venv\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "tests/test_conversation_preview_recovery.py",
+      "tests/test_lsp_preview_recovery.py",
+      "tests/test_compilation_failure_catalog.py",
+      "tests/test_lsp_server.py",
+      "tests/test_conversation.py",
+      "tests/test_lsp_conversation_service.py",
+      "tests/test_lsp_compilation_recovery.py",
+      "--tb=short",
+      "-n",
+      "0",
+      "-q",
+      "-rRs",
+      "-p",
+      "no:cacheprovider",
+      "--basetemp=C:\\git\\modelable\\.agentbuild\\validation\\preview-capture-29ca7c33b64d4329a88d6d002edb7e6e",
+      "--junitxml=C:\\git\\modelable\\docs\\superpowers\\specs\\system-spec\\evidence\\preview-recovery-python.xml"
+    ],
+    "cwd": "cli",
+    "exit_code": 0,
+    "result": {
+      "tests": 169,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 1,
+      "passed": 168
+    },
+    "new_regressions_executed": 24,
+    "skips": [
+      {
+        "selector": "tests.test_lsp_conversation_service::test_registry_rejects_symlinked_documentation_shard_outside_workspace",
+        "reason": "platform cannot create symlinks: [WinError 1314] A required privilege is not held by the client: 'C:\\\\git\\\\modelable\\\\.agentbuild\\\\validation\\\\preview-capture-29ca7c33b64d4329a88d6d002edb7e6e\\\\test_registry_rejects_symlinke0\\\\outside-docs.json' -> 'C:\\\\git\\\\modelable\\\\.agentbuild\\\\validation\\\\preview-capture-29ca7c33b64d4329a88d6d002edb7e6e\\\\test_registry_rejects_symlinke0\\\\workspace\\\\docs-index\\\\docs\\\\outside-link.json'"
+      }
+    ]
+  },
+  "python": "3.14.5 (main, May 10 2026, 20:29:46) [MSC v.1944 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "imported_modelable": "C:\\git\\modelable\\cli\\src\\modelable\\__init__.py",
+  "packages": {
+    "modelable": "1.15.2",
+    "pytest": "9.1.1",
+    "pytest-lsp": "1.0.1",
+    "pygls": "2.1.1",
+    "lsprotocol": "2025.0.0",
+    "pydantic": "2.14.1",
+    "PyYAML": "6.0.3"
+  },
+  "dependency_locks": {
+    "cli/uv.lock": "8853fca6ec2ed6a94e9461bfe775cb418d0743c00fc7600b3ee3eb8500652b34",
+    "vscode/package-lock.json": "4b45033a21a4cbe69cd6bf7153e1f3a0f942643966a20bc22986f11ec820ea4f"
+  },
+  "selected_source_test_hashes": {
+    "cli/src/modelable/llm/filesystem_conversation.py": {
+      "checkout_sha256": "45b8335dcf23a76cfc899612e877dae6bcced0c38d0748f64559b2b698871de9",
+      "git_blob_sha256": "45b8335dcf23a76cfc899612e877dae6bcced0c38d0748f64559b2b698871de9"
+    },
+    "cli/src/modelable/llm/conversation.py": {
+      "checkout_sha256": "06713b7bfaeb8ad28fd001fbbccaf838600bc8e6a4d35951f22ed75703f8d67a",
+      "git_blob_sha256": "0fb32b4d285436cae5a4909f0297f682c5876e51fa6017be5b6303a64e2f5d8d"
+    },
+    "cli/src/modelable/llm/conversation_engine.py": {
+      "checkout_sha256": "72021d01ab0996e1e6c08538793dc68c639ae3e852eba0c2d5e01b2f3e8a1c07",
+      "git_blob_sha256": "8343d3640f664c769ccb3efdfd552cea38f3004f5c408a3ceb259d94a5eba328"
+    },
+    "cli/src/modelable/llm/context.py": {
+      "checkout_sha256": "1fdbd20f8aa95d6171ca2a28b3548882327c2f8420864b73f4e4be60fdeda571",
+      "git_blob_sha256": "90a0efa2ddd9f0a9bf7dd5694e9f7c6babcf847c6e02a2852486b260aea1d92c"
+    },
+    "cli/src/modelable/lsp/conversation_service.py": {
+      "checkout_sha256": "d492a25393150aa90273c546643a1560004ae803e550bb1e31383e3a389e78fe",
+      "git_blob_sha256": "d492a25393150aa90273c546643a1560004ae803e550bb1e31383e3a389e78fe"
+    },
+    "cli/src/modelable/lsp/conversation_protocol.py": {
+      "checkout_sha256": "c1217be0c82bcb9d13cfcb5af580adf59e1b39090514c95d3463c8802f8a7dd3",
+      "git_blob_sha256": "6e2d87b5e1b0654b0f125fc09178564c64fc2ac2e3b2376bf17f441b2c418681"
+    },
+    "cli/src/modelable/lsp/server.py": {
+      "checkout_sha256": "0e77c5aa492870db60e9f39d64e062abad971ba9a195d8e8e2e29ddef6aa6cb8",
+      "git_blob_sha256": "0e77c5aa492870db60e9f39d64e062abad971ba9a195d8e8e2e29ddef6aa6cb8"
+    },
+    "cli/src/modelable/lsp/definition.py": {
+      "checkout_sha256": "1eed242a76a153c7f3f59990ab21061d96bd4203361c3ccd502f8e412b72e755",
+      "git_blob_sha256": "1eed242a76a153c7f3f59990ab21061d96bd4203361c3ccd502f8e412b72e755"
+    },
+    "cli/src/modelable/language/definition.py": {
+      "checkout_sha256": "d42134f71394633c18dd6897673963838de88cca3c1a333c76d80b7f7619bf3c",
+      "git_blob_sha256": "4e73878230a7820a5b062a5b8bbe7705e0cf94e60f08b27b0c332d80e3bf30c1"
+    },
+    "cli/src/modelable/operations/compilation.py": {
+      "checkout_sha256": "b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3",
+      "git_blob_sha256": "f425a5d65977d48c0ab71061c93aa828dbc36d5f4b4562f39a07baf1b620ef7f"
+    },
+    "cli/src/modelable/operations/file_transaction.py": {
+      "checkout_sha256": "628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794",
+      "git_blob_sha256": "245dd333c909089a59a13fdb52dafc51c8b60d31b9bb879aa34ad4ab7f7a619d"
+    },
+    "cli/src/modelable/operations/compilation_audit.py": {
+      "checkout_sha256": "bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f",
+      "git_blob_sha256": "b85a6e5460ba07ca2bf560f00eb76939a11c851e59057d49bd60669b64d5cc51"
+    },
+    "cli/tests/test_conversation_preview_recovery.py": {
+      "checkout_sha256": "1d5aa9be9011990397e10cdac96baa3b958cde04e40e2c2b387bf3e31c0f74a4",
+      "git_blob_sha256": "1d5aa9be9011990397e10cdac96baa3b958cde04e40e2c2b387bf3e31c0f74a4"
+    },
+    "cli/tests/test_lsp_preview_recovery.py": {
+      "checkout_sha256": "a42dc6d31a11dd0bea49113c220ac34514595195083ea09c26ae4fc1bac958be",
+      "git_blob_sha256": "a42dc6d31a11dd0bea49113c220ac34514595195083ea09c26ae4fc1bac958be"
+    },
+    "cli/tests/test_compilation_failure_catalog.py": {
+      "checkout_sha256": "83c3fcf6a3d91396e5c3896959fd644ffd3425966fc84b9233c2d06064e3c223",
+      "git_blob_sha256": "83c3fcf6a3d91396e5c3896959fd644ffd3425966fc84b9233c2d06064e3c223"
+    },
+    "cli/tests/test_lsp_server.py": {
+      "checkout_sha256": "16a3ab81ac6cd7b758fc8453a74ad96d36bafde451129ceacfa4eee994be8c7e",
+      "git_blob_sha256": "f6a5a78bf23fecfaf8396af2672cb82f2bef81bb3eee5392d4f7b45cf4490834"
+    },
+    "cli/tests/test_conversation.py": {
+      "checkout_sha256": "082d22811ede92d07b910f3543d1c3d2db79d7badadadbe7ef138796fc03460c",
+      "git_blob_sha256": "d0afb582493f971558e4389356187a459a2eed906fd0c46b1d03318443aec007"
+    },
+    "cli/tests/test_lsp_conversation_service.py": {
+      "checkout_sha256": "8f2d84ac9d233df90496308512f65c4730595d00276dd22918b9694906a83658",
+      "git_blob_sha256": "536a32f2ad6497b4918ad612619a919cb33de21402984d9b8231183cbf348cbc"
+    },
+    "cli/tests/test_lsp_compilation_recovery.py": {
+      "checkout_sha256": "cf36144d125ecb9dae13a01da27509008ab311957e656a07176972f64ad152fa",
+      "git_blob_sha256": "cf36144d125ecb9dae13a01da27509008ab311957e656a07176972f64ad152fa"
+    },
+    "cli/tests/support/lsp_preview_recovery_server.py": {
+      "checkout_sha256": "d334992264d6cc1c0aa38087bb0bbcff2a8da5346c74584762b4000858a60fe2",
+      "git_blob_sha256": "d334992264d6cc1c0aa38087bb0bbcff2a8da5346c74584762b4000858a60fe2"
+    },
+    "vscode/src/test/suite/previewRecovery.test.ts": {
+      "checkout_sha256": "37327ca92a42ccb75450ef28a6b49c0c7e0587c16ef29f65d9105f487784ba17",
+      "git_blob_sha256": "37327ca92a42ccb75450ef28a6b49c0c7e0587c16ef29f65d9105f487784ba17"
+    },
+    "vscode/conversationClient.js": {
+      "checkout_sha256": "6d371e835522db527f41b1f6453e367e0260e1a07b43859d1b340ba68b2070fd",
+      "git_blob_sha256": "1aab7301429d0c31934baa6326cf62be384ee02c94ddf1034a534796c09d74db"
+    },
+    "vscode/conversationParticipant.js": {
+      "checkout_sha256": "d1a98581462cfce896b396c7c8075bfc1e7187c6725de826f0c41717b64ed5e4",
+      "git_blob_sha256": "d164e157a91dac034a110acf15487f43a03a9b754cf8b2b8dd4aee479c600cfd"
+    },
+    "vscode/conversationPreview.js": {
+      "checkout_sha256": "14ef6547b964458f7211de6056014a76f7a0fea4f069d888f6898a1663a68406",
+      "git_blob_sha256": "52732ab7773c6918ebc5b564a06f85cb7463170a84bd13b6c6ae2d470754fc59"
+    }
+  },
+  "red_phases": {
+    "preview_and_pending": {
+      "failed": 13,
+      "passed": 4
+    },
+    "actual_initialize": {
+      "failed": 1,
+      "passed": 0
+    },
+    "artifact_location": {
+      "failed": 4,
+      "passed": 2,
+      "deselected": 10
+    },
+    "native_capability_gate": {
+      "failed": 2,
+      "passed": 35
+    }
+  },
+  "red_capture_limits": "Incremental work-in-progress regression output before each respective repair; native red failed at capability negotiation before preview requests. Passing executions below bind to the immutable final test source.",
+  "artifacts": {
+    "preview-recovery-red.txt": "1ee659c0628398305b0c2f572bc9bc218bc7f68bcf5161f9bcf1241fb467d267",
+    "preview-recovery-initialize-red.txt": "f5b03aaaf51a034aa147cc6edf38073b1e0ef99dce80741fafbe84ae0fd9acee",
+    "preview-recovery-reference-red.txt": "85378047e9f73a213a656ba4c972125d227e57dcdbb67dc9fe5c05e790fb4226",
+    "preview-recovery-native-red.txt": "bced471905a468a91c6e9aa42ac25af6f6af3da5ae107bdb15c96af747ab4edc",
+    "preview-recovery-python.txt": "64c5116027e93c94dffedfecf2a2d1e3e4aee3285240960fccb07fc2722a23e7",
+    "preview-recovery-python.xml": "350b295143ac5b8a65434a8bdd4488d48a109b3cf590c342a3cce7eb2c3a9465",
+    "preview-recovery-native.txt": "c0384f46ab0c7b62628ac6113c207c5d7c70828df736f5e39431b42ccb04c849"
+  },
+  "limits": [
+    "SQLite failure is deterministic preview-only connection injection, not real storage exhaustion/corruption.",
+    "Unexpected programming/valid-reference lookup faults propagate; nonmodel reference parsing is optional navigation validation only.",
+    "Native tests use production client/participant/cache with real VS Code and Python RPC, driven programmatically; no live-model/manual chat acceptance.",
+    "Normal apply/reset/close cleanup is exercised; failed cleanup/crash recovery and unknown external consumers remain open.",
+    "Core contracts, historical source/evidence bindings and the unaccepted candidate are preserved."
+  ],
+  "native_tests": {
+    "source_revision": "2146fed9327b58518b9f1e67f3b7cc5b1aace7b8",
+    "commands": [
+      [
+        "npm",
+        "run",
+        "build"
+      ],
+      [
+        "npm",
+        "test"
+      ]
+    ],
+    "cwd": "vscode",
+    "exit_code": 0,
+    "passed": 37,
+    "new_real_rpc_editor_cases": 2,
+    "node": "v26.13.0",
+    "dependencies": {
+      "vscode-languageclient": "11.0.0",
+      "@vscode/test-electron": "3.1.0",
+      "typescript": "7.0.2",
+      "mocha": "12.0.3"
+    },
+    "native_log_sha256": "c0384f46ab0c7b62628ac6113c207c5d7c70828df736f5e39431b42ccb04c849",
+    "compiled_test_sha256": "98deae060dbc2fdb63b48ad7ca176f39dab7c225e69dd3f9473301e20619fa01",
+    "limits": "Real VS Code extension host, real LanguageClient/Python server and production conversation/cache code; chat registration and stream are driven by the test. No real model, manual UI acceptance or injected close-cleanup failure."
+  }
+}

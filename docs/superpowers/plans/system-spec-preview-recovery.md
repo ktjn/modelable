@@ -12,8 +12,8 @@
 - [x] Regression-first evidence: Python 13 expected failures / 4 passes; native editor 2 capability-gate failures / 35 existing passes. Both red outputs retained.
 - [x] Catch only named JSON/SQLite operational failures alongside existing CompilationError; attach live pending metadata at LSP serialization and intentionally update the old RPC defect assertion. Real initialize and artifact-reference failures have separate red regressions and narrow supporting fixes.
 - [x] Mandatory format/lint/mypy and full Python checks pass: 3247 passed, 67 skipped, zero reruns. Native editor suite passes all 37 tests. Commit immutable source; capture its new evidence separately from historical runs.
-- [ ] Update consumer recovery decisions, validation and upstream feedback; record remaining manual/model/external-consumer gates.
-- [ ] Prepare exact-commit native publication and PR/CI handoff.
+- [x] Source-bound capture: 168 Python/RPC passes / one existing symlink skip; 37 native passes. Consumer decisions, validation and remaining gates are recorded; upstream feedback is prepared for publication.
+- [x] Evidence hashes, 66 local documentation links and Git byte round trips verified; mandatory precommit checks pass again (3247 passed / 67 skipped / zero reruns). Native hook and PR handoff are prepared; exact-commit publication/CI and upstream feedback outcomes are recorded in the delivery PR. Two raw stack-trace whitespace diagnostics are retained and documented.
 
 ## Acceptance
 

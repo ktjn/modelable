@@ -1,0 +1,170 @@
+{
+  "date": "2026-11-01",
+  "source_revision": "2146fed9327b58518b9f1e67f3b7cc5b1aace7b8",
+  "validator": "system-spec-ref 0.2.0 intact offline export",
+  "validator_sha256": "8c8d508ddf0d407c7a1ef25c509ddaace22b0094610b1d5c305c0d160507389c",
+  "cases": {
+    "inventory": {
+      "command": [
+        "C:\\git\\modelable\\cli\\.venv\\Scripts\\python.exe",
+        "C:\\git\\modelable\\tools\\system-spec\\reference-implementation\\metamodel.py",
+        "docs/superpowers/specs/system-spec/inventory.yaml",
+        "--stage",
+        "inventory",
+        "--check-artifacts",
+        "--root",
+        ".",
+        "--json"
+      ],
+      "exit_code": 0,
+      "result": {
+        "valid": true,
+        "stage": "inventory",
+        "errors": [],
+        "residual_risks": [],
+        "waivers": []
+      }
+    },
+    "active": {
+      "command": [
+        "C:\\git\\modelable\\cli\\.venv\\Scripts\\python.exe",
+        "C:\\git\\modelable\\tools\\system-spec\\reference-implementation\\metamodel.py",
+        "docs/superpowers/specs/system-spec/compilation.yaml",
+        "--stage",
+        "verification",
+        "--check-artifacts",
+        "--root",
+        ".",
+        "--json"
+      ],
+      "exit_code": 0,
+      "result": {
+        "valid": true,
+        "stage": "verification",
+        "errors": [],
+        "residual_risks": [],
+        "waivers": [
+          "compilation-category-gap"
+        ]
+      }
+    },
+    "proposal": {
+      "command": [
+        "C:\\git\\modelable\\cli\\.venv\\Scripts\\python.exe",
+        "C:\\git\\modelable\\tools\\system-spec\\reference-implementation\\metamodel.py",
+        "docs/superpowers/specs/system-spec/compilation-contract-proposal.yaml",
+        "--stage",
+        "architecture",
+        "--check-artifacts",
+        "--root",
+        ".",
+        "--json"
+      ],
+      "exit_code": 0,
+      "result": {
+        "valid": true,
+        "stage": "architecture",
+        "errors": [],
+        "residual_risks": [],
+        "waivers": [
+          "compilation-category-gap"
+        ]
+      }
+    },
+    "release": {
+      "command": [
+        "C:\\git\\modelable\\cli\\.venv\\Scripts\\python.exe",
+        "C:\\git\\modelable\\tools\\system-spec\\reference-implementation\\metamodel.py",
+        "docs/superpowers/specs/system-spec/compilation.yaml",
+        "--stage",
+        "release",
+        "--check-artifacts",
+        "--root",
+        ".",
+        "--json"
+      ],
+      "exit_code": 1,
+      "result": {
+        "valid": false,
+        "stage": "release",
+        "errors": [
+          "[RISK-02] Risk 'compilation-category-gap' waiver expired (verification)",
+          "[REQ-01] Missing verification categories: ['performance', 'scalability', 'observability']",
+          "[STAT-04] System 'modelable-compilation-slice' status 'specified' below 'verified'",
+          "[STAT-04] Capability 'direct-compilation' status 'specified' below 'verified'",
+          "[STAT-04] Capability 'preview-compilation' status 'specified' below 'verified'",
+          "[STAT-04] Capability 'apply-compilation' status 'specified' below 'verified'",
+          "[STAT-04] Capability 'discard-compilation' status 'specified' below 'verified'",
+          "[STAT-04] Component 'compilation-unit' status 'specified' below 'verified'",
+          "[STAT-04] Requirement 'MOD-COMP-01' status 'specified' below 'verified'",
+          "[STAT-04] Requirement 'MOD-COMP-02' status 'specified' below 'verified'",
+          "[STAT-04] Requirement 'MOD-COMP-03' status 'specified' below 'verified'",
+          "[STAT-04] Requirement 'MOD-COMP-04' status 'specified' below 'verified'",
+          "[STAT-04] Requirement 'MOD-COMP-05' status 'specified' below 'verified'",
+          "[STAT-04] Requirement 'MOD-COMP-06' status 'specified' below 'verified'",
+          "[STAT-04] Requirement 'MOD-COMP-07' status 'specified' below 'verified'",
+          "[STAT-04] Requirement 'MOD-COMP-08' status 'specified' below 'verified'",
+          "[STAT-04] Requirement 'MOD-COMP-09' status 'specified' below 'verified'",
+          "[REQ-05] Requirement 'MOD-COMP-09@1.0' missing valid verification evidence",
+          "[RISK-04] Risk 'compilation-category-gap' has unverified mitigation 'MOD-COMP-09'",
+          "[RISK-08] Risk 'compilation-category-gap' waives 'verification-category'; no waivers permitted at release",
+          "[RISK-04] Risk 'compilation-failure-review-gap' has unverified mitigation 'MOD-COMP-09'"
+        ],
+        "residual_risks": [],
+        "waivers": []
+      }
+    },
+    "proposal_compatibility": {
+      "command": [
+        "C:\\git\\modelable\\cli\\.venv\\Scripts\\python.exe",
+        "C:\\git\\modelable\\tools\\system-spec\\reference-implementation\\metamodel.py",
+        "docs/superpowers/specs/system-spec/compilation-contract-proposal.yaml",
+        "--compat",
+        "docs/superpowers/specs/system-spec/compilation.yaml",
+        "--stage",
+        "architecture",
+        "--check-artifacts",
+        "--root",
+        ".",
+        "--json"
+      ],
+      "exit_code": 1,
+      "result": {
+        "valid": false,
+        "stage": "architecture",
+        "errors": [
+          "[COMPAT-04] Capability 'direct-compilation': Added failure modes: ['LockContentionError', 'OSError', 'RegistryIdLockContentionError', 'json.JSONDecodeError', 'sqlite3.OperationalError']",
+          "[COMPAT-04] Capability 'preview-compilation': Added failure modes: ['OSError', 'json.JSONDecodeError', 'sqlite3.OperationalError']",
+          "[COMPAT-04] Capability 'apply-compilation': Added failure modes: ['LockContentionError', 'OSError', 'RegistryIdLockContentionError']"
+        ],
+        "residual_risks": [],
+        "waivers": [
+          "compilation-category-gap"
+        ]
+      }
+    }
+  },
+  "unchanged_baseline_files": {
+    "docs/superpowers/specs/system-spec/inventory.yaml": "bd3627fe6aa59b6b4ecbed0c5f26235eb2768217057e705f04b225d9f7cb968e",
+    "docs/superpowers/specs/system-spec/compilation.yaml": "3b47c893c05b9ec39816ac3c464e1e0e4d17f652debee684c2f8be9150401525",
+    "docs/superpowers/specs/system-spec/compilation-contract-proposal.yaml": "7426d3614485ef270faaf14a841fef3852192c36d940e13922c7a8d86bbfe03e",
+    "docs/superpowers/specs/system-spec/adoption.json": "f45b4d3ca4f5c945200e05fd956181527f44c07018248fa378a857a5e3b8e3ef",
+    "docs/superpowers/specs/system-spec/schema.json": "68575c37f4adf8449e2ae1978ad78038c7c383ccef7953e7ce4b473aa1ed71ea"
+  },
+  "unchanged_core_source_hashes": {
+    "cli/src/modelable/operations/compilation.py": "b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3",
+    "cli/src/modelable/operations/file_transaction.py": "628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794",
+    "cli/src/modelable/operations/compilation_audit.py": "bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f"
+  },
+  "evidence_artifacts": {
+    "preview-recovery-environment.json": "4725010f0feda1abe21453bdb3ffe1484dec15f04122352f27be353a7ac8f900",
+    "preview-recovery-initialize-red.txt": "f5b03aaaf51a034aa147cc6edf38073b1e0ef99dce80741fafbe84ae0fd9acee",
+    "preview-recovery-native-red.txt": "bced471905a468a91c6e9aa42ac25af6f6af3da5ae107bdb15c96af747ab4edc",
+    "preview-recovery-native.txt": "c0384f46ab0c7b62628ac6113c207c5d7c70828df736f5e39431b42ccb04c849",
+    "preview-recovery-python.txt": "64c5116027e93c94dffedfecf2a2d1e3e4aee3285240960fccb07fc2722a23e7",
+    "preview-recovery-python.xml": "350b295143ac5b8a65434a8bdd4488d48a109b3cf590c342a3cce7eb2c3a9465",
+    "preview-recovery-red.txt": "1ee659c0628398305b0c2f572bc9bc218bc7f68bcf5161f9bcf1241fb467d267",
+    "preview-recovery-reference-red.txt": "85378047e9f73a213a656ba4c972125d227e57dcdbb67dc9fe5c05e790fb4226"
+  },
+  "acceptance": "Named operational preview recovery and bounded automated native/RPC behavior verified; active/candidate versions, historical evidence and open manual/external/quality/release obligations retained."
+}

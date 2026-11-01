@@ -1,0 +1,113 @@
+FFFF..                                                                   [100%]
+================================== FAILURES ===================================
+____ test_artifact_references_do_not_break_go_preview_serialization[none] _____
+tests\test_lsp_preview_recovery.py:132: in test_artifact_references_do_not_break_go_preview_serialization
+    reply = await client.protocol.send_request_async(TURN_METHOD, payload(root, True, target="go"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\pytest_lsp\protocol.py:81: in send_request_async
+    result = await super().send_request_async(method, params, msg_id)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pygls.exceptions.JsonRpcInternalError: ValueError: REF must be in the form domain.Model@version
+---------------------------- Captured stderr call -----------------------------
+Exception occurred for message "686f39d7-e954-4b3e-b282-390253e05836"
+
+Traceback (most recent call last):
+
+  File "C:\git\modelable\cli\.venv\Lib\site-packages\pygls\protocol\json_rpc.py", line 300, in _send_handler_result
+
+    self._send_response(msg_id, result=future.result())
+
+                                       ~~~~~~~~~~~~~^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\concurrent\futures\_base.py", line 443, in result
+
+    return self.__get_result()
+
+           ~~~~~~~~~~~~~~~~~^^
+
+  File "C:\Users\ktjn\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\concurrent\futures\_base.py", line 395, in __get_result
+
+    raise self._exception
+
+  File "C:\git\modelable\cli\.venv\Lib\site-packages\pygls\protocol\json_rpc.py", line 236, in _execute_handler
+
+    result = handler(*args, **kwargs)
+
+  File "C:\git\modelable\cli\src\modelable\lsp\server.py", line 143, in conversation_turn
+
+    return ls.conversations.turn(params, index=index)
+
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\lsp\conversation_service.py", line 130, in turn
+
+    return self._serialize(reply, params.session_id, entry)
+
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\lsp\conversation_service.py", line 408, in _serialize
+
+    if (location := definition_location_for_ref(entry.session.workspace, ref)) is not None
+
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "C:\git\modelable\cli\src\modelable\lsp\definition.py", line 30, in definition_location_for_ref
+
+    location = _definition_for_qualified_ref(workspace, ref)
+
+  File "C:\git\modelable\cli\src\modelable\language\definition.py", line 136, in _definition_for_qualified_ref
+
+    model_ref = parse_model_ref(ref)
+
+  File "C:\git\modelable\cli\src\modelable\llm\context.py", line 29, in parse_model_ref
+
+    raise ValueError("REF must be in the form domain.Model@version")
+
+ValueError: REF must be in the form domain.Model@version
+
+_______ test_nonmodel_reference_has_no_optional_model_location[go.mod] ________
+tests\test_lsp_preview_recovery.py:149: in test_nonmodel_reference_has_no_optional_model_location
+    assert definition_location_for_ref(load_workspace(root), ref) is None
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\lsp\definition.py:30: in definition_location_for_ref
+    location = _definition_for_qualified_ref(workspace, ref)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\language\definition.py:136: in _definition_for_qualified_ref
+    model_ref = parse_model_ref(ref)
+                ^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\context.py:29: in parse_model_ref
+    raise ValueError("REF must be in the form domain.Model@version")
+E   ValueError: REF must be in the form domain.Model@version
+______ test_nonmodel_reference_has_no_optional_model_location[customer] _______
+tests\test_lsp_preview_recovery.py:149: in test_nonmodel_reference_has_no_optional_model_location
+    assert definition_location_for_ref(load_workspace(root), ref) is None
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\lsp\definition.py:30: in definition_location_for_ref
+    location = _definition_for_qualified_ref(workspace, ref)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\language\definition.py:136: in _definition_for_qualified_ref
+    model_ref = parse_model_ref(ref)
+                ^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\context.py:29: in parse_model_ref
+    raise ValueError("REF must be in the form domain.Model@version")
+E   ValueError: REF must be in the form domain.Model@version
+_ test_nonmodel_reference_has_no_optional_model_location[customer.Customer@invalid] _
+tests\test_lsp_preview_recovery.py:149: in test_nonmodel_reference_has_no_optional_model_location
+    assert definition_location_for_ref(load_workspace(root), ref) is None
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\lsp\definition.py:30: in definition_location_for_ref
+    location = _definition_for_qualified_ref(workspace, ref)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\modelable\language\definition.py:136: in _definition_for_qualified_ref
+    model_ref = parse_model_ref(ref)
+                ^^^^^^^^^^^^^^^^^^^^
+src\modelable\llm\context.py:32: in parse_model_ref
+    return ModelRef(domain=domain, name=name, version=int(version_text))
+                                                      ^^^^^^^^^^^^^^^^^
+E   ValueError: invalid literal for int() with base 10: 'invalid'
+=========================== short test summary info ===========================
+FAILED tests/test_lsp_preview_recovery.py::test_artifact_references_do_not_break_go_preview_serialization[none]
+FAILED tests/test_lsp_preview_recovery.py::test_nonmodel_reference_has_no_optional_model_location[go.mod]
+FAILED tests/test_lsp_preview_recovery.py::test_nonmodel_reference_has_no_optional_model_location[customer]
+FAILED tests/test_lsp_preview_recovery.py::test_nonmodel_reference_has_no_optional_model_location[customer.Customer@invalid]
+4 failed, 2 passed, 10 deselected in 6.15s
