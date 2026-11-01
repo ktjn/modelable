@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -177,6 +179,8 @@ def compile(
         LockContentionError,
         RegistryIdLockContentionError,
         OSError,
+        json.JSONDecodeError,
+        sqlite3.OperationalError,
     ) as error:
         raise click.ClickException(str(error)) from error
 

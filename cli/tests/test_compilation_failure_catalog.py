@@ -199,7 +199,7 @@ def test_unspecified_programming_faults_are_not_normalized(catalog_workspace, mo
 @pytest.mark.parametrize(
     "error", [json.JSONDecodeError("injected invalid ledger", "{", 1), sqlite3.OperationalError("injected database IO")]
 )
-def test_current_cli_does_not_normalize_newly_observed_dependency_errors(catalog_workspace, monkeypatch, error):
+def test_cli_renders_named_dependency_operational_errors(catalog_workspace, monkeypatch, error):
     root, _stages, request, _service = catalog_workspace
     execute = Mock(side_effect=error)
     monkeypatch.setattr(CompilationService, "execute_direct", execute)
@@ -207,8 +207,9 @@ def test_current_cli_does_not_normalize_newly_observed_dependency_errors(catalog
     result = CliRunner().invoke(cli, ["compile", str(request.source), "--target", "rust"])
 
     assert result.exit_code == 1
-    assert result.exception is error
-    assert not result.output.startswith("Error: ")
+    assert isinstance(result.exception, SystemExit)
+    assert result.output.startswith("Error: ")
+    assert str(error) in result.output
     execute.assert_called_once()
     assert_no_publication(root)
 

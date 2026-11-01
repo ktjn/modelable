@@ -12,6 +12,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Render malformed registry-ledger JSON and SQLite operational failures as clear CLI errors, preserving nonzero status and input files.
+
 - Preserve committed compilation outcomes and written paths when final staging cleanup fails, including conversational apply.
 
 - Render known compilation transaction, lock and filesystem failures as CLI
