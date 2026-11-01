@@ -1,0 +1,50 @@
+{
+  "active_version": "1.0",
+  "proposed_versions": {
+    "direct-compilation": "2.0",
+    "preview-compilation": "2.0",
+    "apply-compilation": "2.0",
+    "discard-compilation": "1.0"
+  },
+  "runtime_change": false,
+  "named_additions": {
+    "direct-compilation": [
+      "RegistryIdLockContentionError",
+      "LockContentionError",
+      "OSError",
+      "json.JSONDecodeError",
+      "sqlite3.OperationalError"
+    ],
+    "preview-compilation": [
+      "OSError",
+      "json.JSONDecodeError",
+      "sqlite3.OperationalError"
+    ],
+    "apply-compilation": [
+      "RegistryIdLockContentionError",
+      "LockContentionError",
+      "OSError"
+    ]
+  },
+  "proposal_validation": {
+    "stage": "architecture",
+    "valid": true,
+    "errors": [],
+    "scope": "Metadata feasibility only; no passing candidate evidence or activation/consumer approval."
+  },
+  "same_version_probe": [
+    "[COMPAT-04] Capability 'direct-compilation': Added failure modes: ['LockContentionError', 'OSError', 'RegistryIdLockContentionError', 'json.JSONDecodeError', 'sqlite3.OperationalError']",
+    "[COMPAT-08] Capability 'direct-compilation': Breaking change requires major version bump (1.0 -> 1.0)",
+    "[COMPAT-04] Capability 'preview-compilation': Added failure modes: ['OSError', 'json.JSONDecodeError', 'sqlite3.OperationalError']",
+    "[COMPAT-08] Capability 'preview-compilation': Breaking change requires major version bump (1.0 -> 1.0)",
+    "[COMPAT-04] Capability 'apply-compilation': Added failure modes: ['LockContentionError', 'OSError', 'RegistryIdLockContentionError']",
+    "[COMPAT-08] Capability 'apply-compilation': Breaking change requires major version bump (1.0 -> 1.0)"
+  ],
+  "major_version_proposal": [
+    "[COMPAT-04] Capability 'direct-compilation': Added failure modes: ['LockContentionError', 'OSError', 'RegistryIdLockContentionError', 'json.JSONDecodeError', 'sqlite3.OperationalError']",
+    "[COMPAT-04] Capability 'preview-compilation': Added failure modes: ['OSError', 'json.JSONDecodeError', 'sqlite3.OperationalError']",
+    "[COMPAT-04] Capability 'apply-compilation': Added failure modes: ['LockContentionError', 'OSError', 'RegistryIdLockContentionError']"
+  ],
+  "data_models_identical": true,
+  "activation": "Rework until explicit consumer disposition, missing adapters/fault coverage and reviewed evidence/version alignment are accepted. A major version removes COMPAT-08 but COMPAT-04 remains."
+}

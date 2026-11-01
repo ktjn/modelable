@@ -33,3 +33,11 @@
 - [recovery-linux.txt](recovery-linux.txt), [JUnit](recovery-linux.xml), [environment](recovery-linux-environment.json), [runner](recovery-linux-run.py): same code, two symlink cases plus two cleanup cases, **four passed, zero skipped**; controlled LF export, verified Git bytes, offline pinned dependency image and current read-only source mount.
 - [compilation-before-recovery.yaml](compilation-before-recovery.yaml) and [adoption-before-recovery.json](adoption-before-recovery.json): prior active records retained as historical. `supersedes` is reserved for failed evidence, not passing-to-passing refresh. Git-byte and exact-checkout conventions remain distinct.
 - [recovery-validation.json](recovery-validation.json): active bindings/artifacts, unchanged declared contracts/dataclass shapes, historical preservation and negative integrity probes; release and broader conformance remain open.
+
+
+## Failure-catalog correction proposal
+
+- [contract-characterization.txt](contract-characterization.txt), [JUnit](contract-characterization.xml), [contract-review-environment.json](contract-review-environment.json): 35 passed, zero skipped/rerun; runtime files from merged `940a76b2`, separate exact hashes for new test definitions and reused test/launcher files.
+- [contract-compatibility.json](contract-compatibility.json): three retained `COMPAT-04` diagnostics at proposed major versions; same-version probe also retains three `COMPAT-08` diagnostics.
+- [contract-review-validation.json](contract-review-validation.json): active manifest/source integrity, proposal schema/architecture validation, baseline preservation, source/test artifact checks and acceptance limits. Active 1.0 evidence is unchanged; no passing evidence is attached to the candidate versions.
+- These are as-is observations, including known consumer defects. They are not evidence that the defects are remediated or that the proposed catalog is exhaustive/accepted.
