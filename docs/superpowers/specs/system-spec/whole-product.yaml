@@ -471,7 +471,7 @@ evidence:
     subject_version: "1.0"
     subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
     artifacts:
-      docs/superpowers/specs/system-spec/evidence/formal/CompilationProtocol.tla: 94d6c38cb1ffba10db16866c5d48119cf8e526e436c32fefe96c384dfe366f76
+      docs/superpowers/specs/system-spec/evidence/formal/CompilationProtocol.tla: dd505b32cb8fd23cb42fe93167bd9199eec063561f0ae70241defd1a49825d4e
       docs/superpowers/specs/system-spec/evidence/formal/A_no_faults.cfg: 055eca9784d67c3cf0787ea9fa8e53b6e26da151dde09f9add631525158767da
       docs/superpowers/specs/system-spec/evidence/formal/D_all_faults_safety.cfg: 04c9cf0833c6d019c726873867be61efeb1a6a1b9a18ef6d5ac8cb15c8c9dbd5
       docs/superpowers/specs/system-spec/evidence/formal/tlc-output.txt: bf4dca8eb76dd3e15cbc34ea4b036c3835aa1c9f709a7c42f4b4073543286f4c
@@ -491,7 +491,7 @@ evidence:
     subject_version: "1.0"
     subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
     artifacts:
-      docs/superpowers/specs/system-spec/evidence/formal/CompilationProtocol.tla: 94d6c38cb1ffba10db16866c5d48119cf8e526e436c32fefe96c384dfe366f76
+      docs/superpowers/specs/system-spec/evidence/formal/CompilationProtocol.tla: dd505b32cb8fd23cb42fe93167bd9199eec063561f0ae70241defd1a49825d4e
       docs/superpowers/specs/system-spec/evidence/formal/B_rollback_may_fail.cfg: 5e4b8c38f379f2da6a5f5e645d8889aaff9afbd70fe049706e7f55129aeb83d9
       docs/superpowers/specs/system-spec/evidence/formal/C_crash.cfg: 71cfe35c76a042e307245540b5a7d0cdb487608421c4d0e273a56dc3254fd38d
       docs/superpowers/specs/system-spec/evidence/formal/tlc-output.txt: bf4dca8eb76dd3e15cbc34ea4b036c3835aa1c9f709a7c42f4b4073543286f4c
