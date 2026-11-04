@@ -82,4 +82,5 @@ To reproduce, create a fresh temporary build context, extract `git -c core.autoc
 - Archive the merged [migration plan](../../plans/archived/system-spec-evidence-migration.md); the ongoing onboarding specification stays active.
 - Accept this bounded observed dependency/state map and the suitable-host execution of MOD-COMP-10 as supporting evidence. Preserve the original capability/data contracts and the existing category waiver.
 - Keep whole-product architecture/release open. MOD-COMP-09 still owns measured performance/scalability/observability requirements, complete public error/failure review, transitive IR/schema semantics and formal applicability. Provisional classification review is also open.
+- Registry transport, ledger and lock protocols are mapped in [registry-protocol-map.md](registry-protocol-map.md).
 - Next bounded review: reconcile the public error catalog and lock/compensation obligations, then map shared registry protocols and browser persistence against their existing authorities. Maintainers own acceptance and remediation scheduling.
