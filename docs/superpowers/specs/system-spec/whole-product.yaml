@@ -219,9 +219,176 @@ requirements:
     criteria:
       - Discover finer consistency boundaries inside semantic-toolchain before removing its context-budget override.
       - Map snapshot, usage, resolver, Apicurio, OpenLineage and Git source protocols, Pyodide worker state and AI provider state.
+  - id: MOD-PROD-01
+    version: "1.0"
+    status: verified
+    target: local-contract-toolchain
+    category: semantic
+    criteria:
+      - Registry IDs are never reassigned once allocated.
+  - id: MOD-PROD-02
+    version: "1.0"
+    status: verified
+    target: native-command-workflows
+    category: functional
+    criteria:
+      - Known compilation operational failures render as CLI errors with nonzero status.
+  - id: MOD-PROD-03
+    version: "1.0"
+    status: verified
+    target: desktop-language-and-conversation
+    category: functional
+    criteria:
+      - A failed conversation preview keeps the existing pending action over the language-server conversation service.
+  - id: MOD-PROD-04
+    version: "1.0"
+    status: verified
+    target: browser-compiler-api
+    category: contract
+    criteria:
+      - Native and browser compilation snapshots are deterministic for the same scenarios.
+  - id: MOD-PROD-05
+    version: "1.0"
+    status: verified
+    target: playground-workspace
+    category: functional
+    criteria:
+      - The workspace repository does not overwrite a stored record with a greater revision.
+  - id: MOD-PROD-06
+    version: "1.0"
+    status: specified
+    target: vscode-model-authoring
+    category: functional
+    criteria:
+      - A failed language-server start is reported to the user as an error message.
+      - Conversation apply crosses an explicit preview and confirm boundary in the extension.
 risks:
   - {id: incomplete-architecture-discovery, target: modelable-product, treatment: mitigation, mitigated_by: [MOD-ADOPT-01]}
   - {id: incomplete-product-characterization, target: modelable-product, treatment: mitigation, mitigated_by: [MOD-ADOPT-02]}
   - {id: provisional-data-classification, target: modelable-product, treatment: mitigation, mitigated_by: [MOD-ADOPT-03]}
+  - {id: product-category-gap, target: modelable-product, treatment: mitigation, mitigated_by: [MOD-ADOPT-02], waives: verification-category, expires: verification}
   - {id: coarse-toolchain-boundary, target: modelable-product, treatment: mitigation, mitigated_by: [MOD-ADOPT-04], waives: context-budget, expires: release}
-evidence: []
+evidence:
+  - id: ev-mod-prod-01
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    criteria:
+      - Registry IDs are never reassigned once allocated.
+    requirement_id: MOD-PROD-01
+    requirement_version: "1.0"
+    method: test
+    passed: true
+    provenance: "cli/tests/test_registry_ids.py::test_allocate_never_reassigns_existing_ids"
+    subject_id: local-contract-toolchain
+    subject_version: "1.0"
+    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
+      cli/tests/test_registry_ids.py: 24d66db6bac6e6b39c2d8f28a02c60c9a357acdcf04c164ed1954d7f30ba76c8
+    timestamp: "2026-11-04"
+    verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
+    bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
+  - id: ev-mod-prod-02
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    criteria:
+      - Known compilation operational failures render as CLI errors with nonzero status.
+    requirement_id: MOD-PROD-02
+    requirement_version: "1.0"
+    method: test
+    passed: true
+    provenance: "cli/tests/test_cli_compilation_errors.py::test_compile_renders_known_operational_errors[ledger-lock]"
+    subject_id: native-command-workflows
+    subject_version: "1.0"
+    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
+      cli/tests/test_cli_compilation_errors.py: f50ac380689c416c54999bd5b106fa3e8dbc42056a5f44c39b718531b1d3e820
+    timestamp: "2026-11-04"
+    verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
+    bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
+  - id: ev-mod-prod-03
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    criteria:
+      - A failed conversation preview keeps the existing pending action over the language-server conversation service.
+    requirement_id: MOD-PROD-03
+    requirement_version: "1.0"
+    method: test
+    passed: true
+    provenance: "cli/tests/test_conversation_preview_recovery.py::test_wire_error_keeps_existing_pending_source_action"
+    subject_id: desktop-language-and-conversation
+    subject_version: "1.0"
+    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
+      cli/tests/test_conversation_preview_recovery.py: 02c7881dbc5dd358bc64779d634a980a9d2061e0dea1c4a86f05c97bc4d5f795
+    timestamp: "2026-11-04"
+    verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
+    bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
+  - id: ev-mod-prod-04
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    criteria:
+      - Native and browser compilation snapshots are deterministic for the same scenarios.
+    requirement_id: MOD-PROD-04
+    requirement_version: "1.0"
+    method: test
+    passed: true
+    provenance: "cli/tests/test_browser_conformance.py::test_native_browser_snapshots_are_deterministic"
+    subject_id: browser-compiler-api
+    subject_version: "1.0"
+    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
+      cli/tests/test_browser_conformance.py: 6ee86288dfd252a670cf6d3ccecaa501a126e54bac8f7f7dfde08f883a7a808a
+    timestamp: "2026-11-04"
+    verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
+    bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
+  - id: ev-mod-prod-05
+    environment: "Windows; Node v26.13.0; vitest 4.1.10; 24 passed (4 files)"
+    criteria:
+      - The workspace repository does not overwrite a stored record with a greater revision.
+    requirement_id: MOD-PROD-05
+    requirement_version: "1.0"
+    method: test
+    passed: true
+    provenance: "web/src/workspace-repository.test.ts::a stale revision cannot overwrite a newer workspace"
+    subject_id: playground-workspace
+    subject_version: "1.0"
+    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/level2/web-level2.txt: ed7902e0714270e12d16b7ba3fb6ae7f3b5ad66d8fef0de0e61583e33c81091e
+      web/src/workspace-repository.test.ts: 4e62b239f2ab4d4b8bc61eb6d18def7ca537aed62efe7d67c6ddbb3eecc8584f
+    timestamp: "2026-11-04"
+    verifier: "Node v26.13.0; vitest 4.1.10; Windows"
+    bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
+subject_bindings:
+  local-contract-toolchain:
+    version: "1.0"
+    revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      cli/src/modelable/registry/ids.py: 7d0a7b260ae780ed338a6073c428407d84e56d88f0ec8e631b4538de6b801069
+  native-command-workflows:
+    version: "1.0"
+    revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      cli/src/modelable/commands/compile.py: 004ae26dfab6174fb3b9a73b5d4021a9ea5d36671662b7f4e54dd832db7490e8
+  desktop-language-and-conversation:
+    version: "1.0"
+    revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      cli/src/modelable/llm/filesystem_conversation.py: aafb5a26a9c4993505548be98b23fd144fe24f8685824261f2a7753b9fc2065f
+      cli/src/modelable/lsp/conversation_service.py: d492a25393150aa90273c546643a1560004ae803e550bb1e31383e3a389e78fe
+  browser-compiler-api:
+    version: "1.0"
+    revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      cli/src/modelable/browser/api.py: 47074420dc6f630d401e0f2514ecd0d183b42580f56eae5e5cbcc6afe98f9dfd
+      cli/src/modelable/browser/dispatch.py: f83e38aa01c9636f370d75c23b819e0912df654d763dc7fd9628c31e6e18fd13
+  playground-workspace:
+    version: "1.0"
+    revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      web/src/workspace-repository.ts: f9604c1768e472faab787efb2192ceb40e3f614c5fe2b0a6d5ff74c3a970ac39
+      web/src/usePersistentWorkspace.ts: 36fac0e43a22cca18d66ec629821abf9eeb2cfaae2e601660dd0ec8b00057b6c

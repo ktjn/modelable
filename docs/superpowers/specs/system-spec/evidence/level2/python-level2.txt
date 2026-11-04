@@ -1,0 +1,11 @@
+........................................................................ [ 23%]
+....................................................................s... [ 47%]
+........................................................................ [ 71%]
+...........................................................sss.......... [ 94%]
+.RR...............                                                       [100%]
+=========================== short test summary info ===========================
+SKIPPED [1] tests\test_lsp_conversation_service.py:486: platform cannot create symlinks: [WinError 1314] A required privilege is not held by the client: 'C:\\Users\\ktjn\\AppData\\Local\\Temp\\tmp.itZCJ4Zhmx\\pt\\test_registry_rejects_symlinke0\\outside-docs.json' -> 'C:\\Users\\ktjn\\AppData\\Local\\Temp\\tmp.itZCJ4Zhmx\\pt\\test_registry_rejects_symlinke0\\workspace\\docs-index\\docs\\outside-link.json'
+SKIPPED [1] tests\test_file_transaction.py:290: POSIX file metadata semantics
+SKIPPED [1] tests\test_file_transaction.py:308: POSIX file metadata semantics
+SKIPPED [1] tests\test_file_transaction.py:333: POSIX file metadata semantics
+300 passed, 4 skipped, 2 rerun in 52.51s
