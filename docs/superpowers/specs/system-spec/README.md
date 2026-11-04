@@ -3,6 +3,7 @@
 - Historical intake: 2026-10-31. Product baseline: `0fead2321bdef11c72b2746eb57f3a8b0e327c94` (Modelable 1.15.1).
 - Historical metamodel: system-specification `00188b037797fd37240dab9a0a11c431815e3ac9`; original schema retained as [schema-baseline.json](schema-baseline.json), original hashes/environment in [baseline.json](baseline.json). The manifest describes the original files at Modelable commit `5f48ed00`, not the migrated compilation/schema files.
 - Compilation characterization: Modelable `72de182a47e1c045f586be73a2c3a79b68f9130b` (1.15.2), capture validator `b187e43628c7dc89935d17c2c382094ad37eb2eb`. Current [schema.json](schema.json), pins/hashes in [adoption.json](adoption.json), and [current recovery checks](evidence/recovery-validation.json). Prior captures remain historical.
+- Whole-product Level 1 **draft** (not accepted): [whole-product.yaml](whole-product.yaml), [decision record](whole-product-level1.md).
 - Status: whole-product inventory recorded; compilation behavior pinned for the bounded scope below, with explicit source/version and artifact bindings. Whole-product Levels 1–3 remain open.
 - Live onboarding TODO: inventory and bounded compilation discovery recorded; [dependency/state map](compilation-map.md) covers 141 source modules and 19 declared dataclass shapes. The two missing symlink cases now pass on Linux. Shared IR/schema semantics, public failure catalog and remaining recovery/transport coverage, classification, quality criteria, formal assessment and release review remain open.
 - This is internal development metadata. Product authority remains [architecture.md](../../../architecture.md), the existing capability catalog and native acceptance gates. The metadata changes no language, dependencies, installed skills or product commands. The accompanying native-gate repair moves graph controls above the canvas and makes browser characterization wait for the requested layout.
@@ -92,6 +93,7 @@ system-spec --version
 system-spec docs/superpowers/specs/system-spec/inventory.yaml --stage inventory --check-artifacts --root .
 system-spec docs/superpowers/specs/system-spec/compilation.yaml --stage verification --check-artifacts --root .
 system-spec docs/superpowers/specs/system-spec/compilation-contract-proposal.yaml --stage architecture --check-artifacts --root .
+system-spec docs/superpowers/specs/system-spec/whole-product.yaml --stage architecture --check-artifacts --root .
 system-spec docs/superpowers/specs/system-spec/compilation.yaml --context compilation-unit
 system-spec docs/superpowers/specs/system-spec/compilation.yaml --impact apply-compilation
 system-spec docs/superpowers/specs/system-spec/inventory.yaml --plan local-contract-toolchain
