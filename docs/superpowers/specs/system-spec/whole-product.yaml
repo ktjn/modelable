@@ -262,6 +262,28 @@ requirements:
     criteria:
       - A failed language-server start is reported to the user as an error message.
       - Conversation apply crosses an explicit preview and confirm boundary in the extension.
+  - id: MOD-PROD-07
+    version: "1.0"
+    status: verified
+    target: local-contract-toolchain
+    category: serialization
+    criteria:
+      - The registry ID ledger round-trips through its JSON file sorted by id.
+  - id: MOD-PROD-08
+    version: "1.0"
+    status: verified
+    target: local-contract-toolchain
+    category: concurrency
+    criteria:
+      - Registry ID ledger access is serialized across processes by the ledger lock.
+  - id: MOD-PROD-09
+    version: "1.0"
+    status: verified
+    target: local-contract-toolchain
+    kind: non-functional
+    category: resilience
+    criteria:
+      - A promoted file whose hash does not verify is rolled back by the file transaction.
 risks:
   - {id: incomplete-architecture-discovery, target: modelable-product, treatment: mitigation, mitigated_by: [MOD-ADOPT-01]}
   - {id: incomplete-product-characterization, target: modelable-product, treatment: mitigation, mitigated_by: [MOD-ADOPT-02]}
@@ -363,12 +385,70 @@ evidence:
     timestamp: "2026-11-04"
     verifier: "Node v26.13.0; vitest 4.1.10; Windows"
     bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
+  - id: ev-mod-prod-07
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    criteria:
+      - The registry ID ledger round-trips through its JSON file sorted by id.
+    requirement_id: MOD-PROD-07
+    requirement_version: "1.0"
+    method: test
+    passed: true
+    provenance: "cli/tests/test_registry_ids.py::test_write_then_read_lock_file_round_trips_sorted_by_id"
+    subject_id: local-contract-toolchain
+    subject_version: "1.0"
+    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
+      cli/tests/test_registry_ids.py: 24d66db6bac6e6b39c2d8f28a02c60c9a357acdcf04c164ed1954d7f30ba76c8
+    timestamp: "2026-11-04"
+    verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
+    bounds: "Single named test only; the suite totals are in the retained output."
+  - id: ev-mod-prod-08
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    criteria:
+      - Registry ID ledger access is serialized across processes by the ledger lock.
+    requirement_id: MOD-PROD-08
+    requirement_version: "1.0"
+    method: test
+    passed: true
+    provenance: "cli/tests/test_registry_ids.py::test_registry_id_lock_serializes_processes"
+    subject_id: local-contract-toolchain
+    subject_version: "1.0"
+    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
+      cli/tests/test_registry_ids.py: 24d66db6bac6e6b39c2d8f28a02c60c9a357acdcf04c164ed1954d7f30ba76c8
+    timestamp: "2026-11-04"
+    verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
+    bounds: "Single named test only; the suite totals are in the retained output."
+  - id: ev-mod-prod-09
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    criteria:
+      - A promoted file whose hash does not verify is rolled back by the file transaction.
+    requirement_id: MOD-PROD-09
+    requirement_version: "1.0"
+    method: test
+    passed: true
+    provenance: "cli/tests/test_file_transaction.py::test_transaction_verifies_promoted_hash_and_rolls_back"
+    subject_id: local-contract-toolchain
+    subject_version: "1.0"
+    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
+      cli/tests/test_file_transaction.py: 135bcfa3c49ffb2500c8a4cce34f10dc9ea2dae76ad74e85fff476a0b8e58d8c
+    timestamp: "2026-11-04"
+    verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
+    bounds: "Single named test only; the suite totals are in the retained output."
 subject_bindings:
   local-contract-toolchain:
     version: "1.0"
     revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
     artifacts:
       cli/src/modelable/registry/ids.py: 7d0a7b260ae780ed338a6073c428407d84e56d88f0ec8e631b4538de6b801069
+      cli/src/modelable/operations/file_transaction.py: 628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794
   native-command-workflows:
     version: "1.0"
     revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
