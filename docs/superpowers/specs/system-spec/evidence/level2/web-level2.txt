@@ -1,0 +1,9 @@
+
+ RUN  v4.1.10 C:/git/modelable/web
+
+
+ Test Files  4 passed (4)
+      Tests  24 passed (24)
+   Start at  20:16:37
+   Duration  3.19s (transform 135ms, setup 104ms, import 1.12s, tests 405ms, environment 4.11s)
+

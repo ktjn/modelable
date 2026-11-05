@@ -164,6 +164,8 @@ class FilesystemConversationBackend:
             CompilationPolicy,
             CompilationRequest,
         )
+        from modelable.operations.file_transaction import LockContentionError
+        from modelable.registry.ids import RegistryIdLockContentionError
 
         replaced = self._pending
         actual_replaced_id = _pending_id(replaced)
@@ -182,7 +184,14 @@ class FilesystemConversationBackend:
                 ),
                 policy=CompilationPolicy.conversation(),
             )
-        except (CompilationError, json.JSONDecodeError, sqlite3.OperationalError) as error:
+        except (
+            CompilationError,
+            json.JSONDecodeError,
+            sqlite3.OperationalError,
+            LockContentionError,
+            RegistryIdLockContentionError,
+            OSError,
+        ) as error:
             return ConversationReply(
                 kind="error",
                 text=f"Could not preview compilation: {_escape_inline(error)}",

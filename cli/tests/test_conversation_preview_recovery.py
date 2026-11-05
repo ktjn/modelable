@@ -8,6 +8,16 @@ from test_compilation_failure_catalog import catalog_workspace as catalog_worksp
 
 from modelable.llm.conversation import ConversationSession
 from modelable.operations.compilation import CompilationError
+from modelable.operations.file_transaction import LockContentionError
+from modelable.registry.ids import RegistryIdLockContentionError
+
+OPERATIONAL_ERRORS = [
+    json.JSONDecodeError("bad ledger", "{", 1),
+    sqlite3.OperationalError("database unavailable"),
+    RegistryIdLockContentionError("ledger contention"),
+    LockContentionError("publication contention"),
+    OSError("staging allocation failure"),
+]
 
 
 @pytest.fixture
@@ -20,9 +30,7 @@ def preview_session(catalog_workspace):
         session.close()
 
 
-@pytest.mark.parametrize(
-    "error", [json.JSONDecodeError("bad ledger", "{", 1), sqlite3.OperationalError("database unavailable")]
-)
+@pytest.mark.parametrize("error", OPERATIONAL_ERRORS)
 def test_first_preview_operational_failure_is_a_domain_error(preview_session, monkeypatch, error):
     session, root, stages, request, service = preview_session
     original = request.source.read_bytes()
@@ -52,11 +60,7 @@ def test_preview_programming_faults_still_propagate(preview_session, monkeypatch
 
 @pytest.mark.parametrize(
     "error",
-    [
-        CompilationError("preview rejected"),
-        json.JSONDecodeError("bad ledger", "{", 1),
-        sqlite3.OperationalError("database unavailable"),
-    ],
+    [CompilationError("preview rejected"), *OPERATIONAL_ERRORS],
 )
 def test_failed_replacement_keeps_pending_stage_until_close(preview_session, monkeypatch, error):
     session, root, stages, _request, service = preview_session

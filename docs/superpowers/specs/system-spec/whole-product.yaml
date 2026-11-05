@@ -1,0 +1,531 @@
+# yaml-language-server: $schema=./schema.json
+# Level 1 DRAFT: observed whole-product dependency and data mapping. Not an acceptance claim.
+# Observed from source at Modelable 1.15.2 (branch fix/conversation-preview-operational-errors);
+# see compilation-map.md, registry-protocol-map.md, browser-persistence-map.md, whole-product-level1.md.
+# The bounded compilation slice stays in compilation.yaml and is not duplicated here.
+system:
+  id: modelable-product
+  version: "1.15.2"
+  status: specified
+  external_sources:
+    - user-mdl-workspaces
+    - modelable-config-and-facet-sidecars
+    - local-registry-snapshots-and-locks
+    - optional-oci-registries
+    - optional-apicurio-json-schema-registry
+    - optional-marquez-lineage-endpoint
+    - optional-dbt-fhir-odcs-specifications
+    - optional-llm-provider-endpoints
+    - browser-local-workspace-storage
+capabilities:
+  - id: local-contract-toolchain
+    version: "1.0"
+    status: specified
+    preconditions: [readable .mdl workspace supplied]
+    postconditions: [diagnostics, generated artifacts, plans and local registry state produced through the existing staging and promotion boundary]
+    invariants: [registry IDs and enum numbers are never reassigned or reused, OCI publication is unsupported and fails explicitly]
+    failure_modes: [CompilationError, CompilationDiagnosticsError, FileTransactionError, FileTransactionCommittedError, LockContentionError, RegistryIdLockContentionError, OCIRegistryError]
+    interface:
+      operation: "Python API: modelable.operations.compilation.CompilationService plus compiler, parser, validation, planner, emitters and registry modules"
+      idempotent: false
+      auth: caller filesystem permissions; explicit local invocation
+      errors: {CompilationError: python-exception, CompilationDiagnosticsError: python-exception, FileTransactionError: python-exception, FileTransactionCommittedError: committed-with-cleanup-error, LockContentionError: python-exception, RegistryIdLockContentionError: python-exception, OCIRegistryError: python-exception}
+  - id: native-command-workflows
+    version: "1.0"
+    status: specified
+    preconditions: [command invoked with local filesystem access]
+    postconditions: [command effects limited to the toolchain and optional configured integrations]
+    invariants: [known operational failures render as CLI errors with nonzero status]
+    failure_modes: [click-error]
+  - id: desktop-language-and-conversation
+    version: "1.0"
+    status: specified
+    preconditions: [stdio language-server session with workspace URI]
+    postconditions: [diagnostics and conversation previews returned; applying a preview requires explicit confirmation]
+    invariants: [conversation preview does not change workspace files, a failed preview keeps any pending action]
+    failure_modes: [error-reply]
+    interface:
+      operation: "stdio JSON-RPC language server started by 'modelable lsp', including the conversation protocol (protocolVersion 2 in tests)"
+      idempotent: false
+      auth: local stdio session; apply requires an exact confirmation binding
+      errors: {error-reply: "ConversationReply kind=error"}
+  - id: browser-compiler-api
+    version: "1.0"
+    status: specified
+    preconditions: [browser DTO request from the playground worker]
+    postconditions: [same Python semantics returned through browser DTOs]
+    invariants: [browser wheel targets Python 3.14 only]
+    failure_modes: [browser-error-dto]
+    interface:
+      operation: "modelable.browser.api.BrowserCompiler via browser dispatch in the Pyodide worker"
+      idempotent: false
+      auth: same-origin worker; no remote authentication
+      errors: {browser-error-dto: "browser error DTO"}
+  - id: playground-workspace
+    version: "1.0"
+    status: specified
+    preconditions: [browser with a Pyodide worker]
+    postconditions: [workspace source persisted to IndexedDB when available, otherwise held in memory]
+    invariants: [a stored record with a greater revision is not overwritten by the repository, derived results are memory-only]
+    failure_modes: [memory-only, recovery-required]
+  - id: vscode-model-authoring
+    version: "1.0"
+    status: specified
+    preconditions: [configured Python interpreter able to start the language server]
+    postconditions: [editor connected to the stdio language server]
+    invariants: [conversation apply crosses an explicit preview and confirm boundary]
+    failure_modes: [server-start-failure]
+components:
+  - id: semantic-toolchain
+    version: "1.15.2"
+    status: specified
+    provides: [local-contract-toolchain]
+    owns_data: [registry-id-ledger, enum-number-ledger, registry-index-db, registry-snapshot, usage-manifest]
+    # Coarse inventory-level boundary: spans compiler, parser, validation, planner, emitters, registry and operations.
+    # Override preserves the existing shared local-state boundary; splitting needs discovery (MOD-ADOPT-04).
+    context_budget: {max_owns_data: 5}
+    source_paths:
+      - cli/src/modelable/compiler
+      - cli/src/modelable/parser
+      - cli/src/modelable/validation
+      - cli/src/modelable/planner
+      - cli/src/modelable/emitters
+      - cli/src/modelable/registry
+      - cli/src/modelable/operations
+  - id: native-cli
+    version: "1.15.2"
+    status: specified
+    provides: [native-command-workflows]
+    requires: [local-contract-toolchain]
+    source_paths: [cli/src/modelable/cli.py, cli/src/modelable/commands, cli/src/modelable/llm, cli/src/modelable/specs]
+  - id: desktop-language-server
+    version: "1.15.2"
+    status: specified
+    provides: [desktop-language-and-conversation]
+    requires: [local-contract-toolchain]
+    source_paths: [cli/src/modelable/lsp, cli/src/modelable/language]
+  - id: browser-facade
+    version: "1.15.2"
+    status: specified
+    provides: [browser-compiler-api]
+    requires: [local-contract-toolchain]
+    source_paths: [cli/src/modelable/browser, cli/browser]
+  - id: browser-playground
+    version: "1.15.2"
+    status: specified
+    provides: [playground-workspace]
+    requires: [browser-compiler-api]
+    owns_data: [workspace-record, theme-preference]
+    source_paths: [web/src, web/package.json]
+  - id: vscode-extension
+    version: "1.15.2"
+    status: specified
+    provides: [vscode-model-authoring]
+    requires: [desktop-language-and-conversation]
+    source_paths: [vscode/extension.js, vscode/package.json]
+data_models:
+  - id: registry-id-ledger
+    version: "1.0"
+    owner: semantic-toolchain
+    classification: restricted
+    classification_review: MOD-ADOPT-03
+    fields:
+      entries: "dict[str, int] mapping 'domain.Name' to a never-reused small integer"
+  - id: enum-number-ledger
+    version: "1.0"
+    owner: semantic-toolchain
+    classification: restricted
+    classification_review: MOD-ADOPT-03
+    fields:
+      members: "list of {name, number} per qualified declaration"
+      reservations: "list of {name, number}; numbers and names of removed members, never reused"
+  - id: registry-index-db
+    version: "1.0"
+    owner: semantic-toolchain
+    classification: restricted
+    classification_review: MOD-ADOPT-03
+    schema_path: cli/src/modelable/registry/schema.sql
+    derived_from: [registry-id-ledger]
+    fields:
+      tables: "15 SQLite tables defined in schema.sql, rebuilt from the validated workspace on each build"
+  - id: registry-snapshot
+    version: "1.0"
+    owner: semantic-toolchain
+    classification: restricted
+    classification_review: MOD-ADOPT-03
+    fields:
+      lock_file: registry.lock under the snapshot root
+      objects_dir: registry/objects under the snapshot root
+  - id: usage-manifest
+    version: "1.0"
+    owner: semantic-toolchain
+    classification: restricted
+    classification_review: MOD-ADOPT-03
+    fields:
+      protocol: "modelable.usage/v0 JSON manifest; remaining fields not yet mapped"
+  - id: workspace-record
+    version: "1.0"
+    owner: browser-playground
+    classification: restricted
+    classification_review: MOD-ADOPT-03
+    external_source: browser-local-workspace-storage
+    fields:
+      schemaVersion: "1"
+      id: str
+      revision: int
+      files: "list of {path: str, content: str, version: int}"
+      activeFile: str
+      metadata: "optional {lastAiAccept: {provider, model, timestamp}}"
+  - id: theme-preference
+    version: "1.0"
+    owner: browser-playground
+    classification: internal
+    classification_review: MOD-ADOPT-03
+    external_source: browser-local-workspace-storage
+    fields:
+      modelable_theme: "'light' or 'dark'; absence means system"
+requirements:
+  - id: MOD-ADOPT-01
+    version: "1.0"
+    status: specified
+    target: modelable-product
+    category: functional
+    criteria:
+      - Complete ownership and dependency discovery before accepting whole-product architecture.
+      - Map native integrations, registry side effects, browser storage and all public protocol schemas.
+      - Preserve docs/architecture.md and modelable capabilities as existing product authorities.
+  - id: MOD-ADOPT-02
+    version: "1.0"
+    status: specified
+    target: modelable-product
+    category: functional
+    criteria:
+      - Expand characterization beyond compilation before accepting whole-product behavioral conformance.
+      - Review every verification category and applicable formal models with current evidence before release.
+  - id: MOD-ADOPT-03
+    version: "1.0"
+    status: specified
+    target: modelable-product
+    kind: non-functional
+    category: security
+    criteria:
+      - Replace each provisional classification on whole-product data models with a maintainer-reviewed classification.
+      - Classification labels in this draft are conservative handling policy, not observed product classifications.
+  - id: MOD-ADOPT-04
+    version: "1.0"
+    status: specified
+    target: modelable-product
+    category: functional
+    criteria:
+      - Discover finer consistency boundaries inside semantic-toolchain before removing its context-budget override.
+      - Map snapshot, usage, resolver, Apicurio, OpenLineage and Git source protocols, Pyodide worker state and AI provider state.
+  - id: MOD-PROD-01
+    version: "1.0"
+    status: verified
+    target: local-contract-toolchain
+    category: semantic
+    criteria:
+      - Registry IDs are never reassigned once allocated.
+  - id: MOD-PROD-02
+    version: "1.0"
+    status: verified
+    target: native-command-workflows
+    category: functional
+    criteria:
+      - Known compilation operational failures render as CLI errors with nonzero status.
+  - id: MOD-PROD-03
+    version: "1.0"
+    status: verified
+    target: desktop-language-and-conversation
+    category: functional
+    criteria:
+      - A failed conversation preview keeps the existing pending action over the language-server conversation service.
+  - id: MOD-PROD-04
+    version: "1.0"
+    status: verified
+    target: browser-compiler-api
+    category: contract
+    criteria:
+      - Native and browser compilation snapshots are deterministic for the same scenarios.
+  - id: MOD-PROD-05
+    version: "1.0"
+    status: verified
+    target: playground-workspace
+    category: functional
+    criteria:
+      - The workspace repository does not overwrite a stored record with a greater revision.
+  - id: MOD-PROD-06
+    version: "1.0"
+    status: specified
+    target: vscode-model-authoring
+    category: functional
+    criteria:
+      - A failed language-server start is reported to the user as an error message.
+      - Conversation apply crosses an explicit preview and confirm boundary in the extension.
+  - id: MOD-PROD-07
+    version: "1.0"
+    status: verified
+    target: local-contract-toolchain
+    category: serialization
+    criteria:
+      - The registry ID ledger round-trips through its JSON file sorted by id.
+  - id: MOD-PROD-08
+    version: "1.0"
+    status: verified
+    target: local-contract-toolchain
+    category: concurrency
+    criteria:
+      - Registry ID ledger access is serialized across processes by the ledger lock.
+  - id: MOD-PROD-09
+    version: "1.0"
+    status: verified
+    target: local-contract-toolchain
+    kind: non-functional
+    category: resilience
+    criteria:
+      - A promoted file whose hash does not verify is rolled back by the file transaction.
+  - id: MOD-PROD-10
+    version: "1.0"
+    status: verified
+    target: local-contract-toolchain
+    category: concurrency
+    criteria:
+      - "Promotion of staged files is exclusive, and an apply based on a stale preview cannot commit alongside a conflicting direct compilation (bounded model: two processes, two files)."
+  - id: MOD-PROD-11
+    version: "1.0"
+    status: specified
+    kind: non-functional
+    target: local-contract-toolchain
+    category: resilience
+    criteria:
+      - Promotion leaves destination files consistent after a process crash or a failed compensation.
+risks:
+  - {id: incomplete-architecture-discovery, target: modelable-product, treatment: mitigation, mitigated_by: [MOD-ADOPT-01]}
+  - {id: incomplete-product-characterization, target: modelable-product, treatment: mitigation, mitigated_by: [MOD-ADOPT-02]}
+  - {id: provisional-data-classification, target: modelable-product, treatment: mitigation, mitigated_by: [MOD-ADOPT-03]}
+  - {id: product-category-gap, target: modelable-product, treatment: mitigation, mitigated_by: [MOD-ADOPT-02], waives: verification-category, expires: verification}
+  - {id: promotion-not-crash-atomic, target: modelable-product, treatment: mitigation, mitigated_by: [MOD-PROD-11]}
+  - {id: coarse-toolchain-boundary, target: modelable-product, treatment: mitigation, mitigated_by: [MOD-ADOPT-04], waives: context-budget, expires: release}
+evidence:
+  - id: ev-mod-prod-01
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    criteria:
+      - Registry IDs are never reassigned once allocated.
+    requirement_id: MOD-PROD-01
+    requirement_version: "1.0"
+    method: test
+    passed: true
+    provenance: "cli/tests/test_registry_ids.py::test_allocate_never_reassigns_existing_ids"
+    subject_id: local-contract-toolchain
+    subject_version: "1.0"
+    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
+      cli/tests/test_registry_ids.py: 24d66db6bac6e6b39c2d8f28a02c60c9a357acdcf04c164ed1954d7f30ba76c8
+    timestamp: "2026-11-04"
+    verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
+    bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
+  - id: ev-mod-prod-02
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    criteria:
+      - Known compilation operational failures render as CLI errors with nonzero status.
+    requirement_id: MOD-PROD-02
+    requirement_version: "1.0"
+    method: test
+    passed: true
+    provenance: "cli/tests/test_cli_compilation_errors.py::test_compile_renders_known_operational_errors[ledger-lock]"
+    subject_id: native-command-workflows
+    subject_version: "1.0"
+    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
+      cli/tests/test_cli_compilation_errors.py: f50ac380689c416c54999bd5b106fa3e8dbc42056a5f44c39b718531b1d3e820
+    timestamp: "2026-11-04"
+    verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
+    bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
+  - id: ev-mod-prod-03
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    criteria:
+      - A failed conversation preview keeps the existing pending action over the language-server conversation service.
+    requirement_id: MOD-PROD-03
+    requirement_version: "1.0"
+    method: test
+    passed: true
+    provenance: "cli/tests/test_conversation_preview_recovery.py::test_wire_error_keeps_existing_pending_source_action"
+    subject_id: desktop-language-and-conversation
+    subject_version: "1.0"
+    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
+      cli/tests/test_conversation_preview_recovery.py: 02c7881dbc5dd358bc64779d634a980a9d2061e0dea1c4a86f05c97bc4d5f795
+    timestamp: "2026-11-04"
+    verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
+    bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
+  - id: ev-mod-prod-04
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    criteria:
+      - Native and browser compilation snapshots are deterministic for the same scenarios.
+    requirement_id: MOD-PROD-04
+    requirement_version: "1.0"
+    method: test
+    passed: true
+    provenance: "cli/tests/test_browser_conformance.py::test_native_browser_snapshots_are_deterministic"
+    subject_id: browser-compiler-api
+    subject_version: "1.0"
+    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
+      cli/tests/test_browser_conformance.py: 6ee86288dfd252a670cf6d3ccecaa501a126e54bac8f7f7dfde08f883a7a808a
+    timestamp: "2026-11-04"
+    verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
+    bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
+  - id: ev-mod-prod-05
+    environment: "Windows; Node v26.13.0; vitest 4.1.10; 24 passed (4 files)"
+    criteria:
+      - The workspace repository does not overwrite a stored record with a greater revision.
+    requirement_id: MOD-PROD-05
+    requirement_version: "1.0"
+    method: test
+    passed: true
+    provenance: "web/src/workspace-repository.test.ts::a stale revision cannot overwrite a newer workspace"
+    subject_id: playground-workspace
+    subject_version: "1.0"
+    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/level2/web-level2.txt: ed7902e0714270e12d16b7ba3fb6ae7f3b5ad66d8fef0de0e61583e33c81091e
+      web/src/workspace-repository.test.ts: 4e62b239f2ab4d4b8bc61eb6d18def7ca537aed62efe7d67c6ddbb3eecc8584f
+    timestamp: "2026-11-04"
+    verifier: "Node v26.13.0; vitest 4.1.10; Windows"
+    bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
+  - id: ev-mod-prod-07
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    criteria:
+      - The registry ID ledger round-trips through its JSON file sorted by id.
+    requirement_id: MOD-PROD-07
+    requirement_version: "1.0"
+    method: test
+    passed: true
+    provenance: "cli/tests/test_registry_ids.py::test_write_then_read_lock_file_round_trips_sorted_by_id"
+    subject_id: local-contract-toolchain
+    subject_version: "1.0"
+    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
+      cli/tests/test_registry_ids.py: 24d66db6bac6e6b39c2d8f28a02c60c9a357acdcf04c164ed1954d7f30ba76c8
+    timestamp: "2026-11-04"
+    verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
+    bounds: "Single named test only; the suite totals are in the retained output."
+  - id: ev-mod-prod-08
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    criteria:
+      - Registry ID ledger access is serialized across processes by the ledger lock.
+    requirement_id: MOD-PROD-08
+    requirement_version: "1.0"
+    method: test
+    passed: true
+    provenance: "cli/tests/test_registry_ids.py::test_registry_id_lock_serializes_processes"
+    subject_id: local-contract-toolchain
+    subject_version: "1.0"
+    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
+      cli/tests/test_registry_ids.py: 24d66db6bac6e6b39c2d8f28a02c60c9a357acdcf04c164ed1954d7f30ba76c8
+    timestamp: "2026-11-04"
+    verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
+    bounds: "Single named test only; the suite totals are in the retained output."
+  - id: ev-mod-prod-09
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    criteria:
+      - A promoted file whose hash does not verify is rolled back by the file transaction.
+    requirement_id: MOD-PROD-09
+    requirement_version: "1.0"
+    method: test
+    passed: true
+    provenance: "cli/tests/test_file_transaction.py::test_transaction_verifies_promoted_hash_and_rolls_back"
+    subject_id: local-contract-toolchain
+    subject_version: "1.0"
+    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
+      cli/tests/test_file_transaction.py: 135bcfa3c49ffb2500c8a4cce34f10dc9ea2dae76ad74e85fff476a0b8e58d8c
+    timestamp: "2026-11-04"
+    verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
+    bounds: "Single named test only; the suite totals are in the retained output."
+  - id: ev-mod-prod-10-tla
+    environment: "Windows; TLC 2.19 (tla2tools.jar v1.7.4); OpenJDK 25.0.5"
+    criteria:
+      - "Promotion of staged files is exclusive, and an apply based on a stale preview cannot commit alongside a conflicting direct compilation (bounded model: two processes, two files)."
+    requirement_id: MOD-PROD-10
+    requirement_version: "1.0"
+    method: model-check
+    passed: true
+    provenance: "tla+::docs/superpowers/specs/system-spec/evidence/formal/CompilationProtocol.tla"
+    subject_id: local-contract-toolchain
+    subject_version: "1.0"
+    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/formal/CompilationProtocol.tla: dd505b32cb8fd23cb42fe93167bd9199eec063561f0ae70241defd1a49825d4e
+      docs/superpowers/specs/system-spec/evidence/formal/A_no_faults.cfg: 055eca9784d67c3cf0787ea9fa8e53b6e26da151dde09f9add631525158767da
+      docs/superpowers/specs/system-spec/evidence/formal/D_all_faults_safety.cfg: 04c9cf0833c6d019c726873867be61efeb1a6a1b9a18ef6d5ac8cb15c8c9dbd5
+      docs/superpowers/specs/system-spec/evidence/formal/tlc-output.txt: bf4dca8eb76dd3e15cbc34ea4b036c3835aa1c9f709a7c42f4b4073543286f4c
+    timestamp: "2026-11-04"
+    verifier: "TLC 2.19 model checker"
+    bounds: "Two processes (direct d, apply a), two destination files, one workspace lock, ID and enum locks as an ordered pair; configs A (no faults) and D (rollback may fail and crash; safety invariants only) explored exhaustively, 171 and 530 states. Abstraction assumptions are listed in the module header; this is a bounded model of the observed protocol, not a proof of the implementation."
+  - id: ev-mod-prod-11-tla
+    environment: "Windows; TLC 2.19 (tla2tools.jar v1.7.4); OpenJDK 25.0.5"
+    criteria:
+      - Promotion leaves destination files consistent after a process crash or a failed compensation.
+    requirement_id: MOD-PROD-11
+    requirement_version: "1.0"
+    method: model-check
+    passed: false
+    provenance: "tla+::docs/superpowers/specs/system-spec/evidence/formal/CompilationProtocol.tla"
+    subject_id: local-contract-toolchain
+    subject_version: "1.0"
+    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      docs/superpowers/specs/system-spec/evidence/formal/CompilationProtocol.tla: dd505b32cb8fd23cb42fe93167bd9199eec063561f0ae70241defd1a49825d4e
+      docs/superpowers/specs/system-spec/evidence/formal/B_rollback_may_fail.cfg: 5e4b8c38f379f2da6a5f5e645d8889aaff9afbd70fe049706e7f55129aeb83d9
+      docs/superpowers/specs/system-spec/evidence/formal/C_crash.cfg: 71cfe35c76a042e307245540b5a7d0cdb487608421c4d0e273a56dc3254fd38d
+      docs/superpowers/specs/system-spec/evidence/formal/tlc-output.txt: bf4dca8eb76dd3e15cbc34ea4b036c3835aa1c9f709a7c42f4b4073543286f4c
+    timestamp: "2026-11-04"
+    verifier: "TLC 2.19 model checker"
+    bounds: "Same bounds. TLC found counterexamples in config B (compensation may fail) and config C (crash mid-promotion): destination files end in different versions. This records an as-is gap in the observed protocol (no commit journal), not a defect confirmed by a product test."
+subject_bindings:
+  local-contract-toolchain:
+    version: "1.0"
+    revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      cli/src/modelable/registry/ids.py: 7d0a7b260ae780ed338a6073c428407d84e56d88f0ec8e631b4538de6b801069
+      cli/src/modelable/operations/file_transaction.py: 628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794
+      cli/src/modelable/operations/compilation.py: b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3
+  native-command-workflows:
+    version: "1.0"
+    revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      cli/src/modelable/commands/compile.py: 004ae26dfab6174fb3b9a73b5d4021a9ea5d36671662b7f4e54dd832db7490e8
+  desktop-language-and-conversation:
+    version: "1.0"
+    revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      cli/src/modelable/llm/filesystem_conversation.py: aafb5a26a9c4993505548be98b23fd144fe24f8685824261f2a7753b9fc2065f
+      cli/src/modelable/lsp/conversation_service.py: d492a25393150aa90273c546643a1560004ae803e550bb1e31383e3a389e78fe
+  browser-compiler-api:
+    version: "1.0"
+    revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      cli/src/modelable/browser/api.py: 47074420dc6f630d401e0f2514ecd0d183b42580f56eae5e5cbcc6afe98f9dfd
+      cli/src/modelable/browser/dispatch.py: f83e38aa01c9636f370d75c23b819e0912df654d763dc7fd9628c31e6e18fd13
+  playground-workspace:
+    version: "1.0"
+    revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    artifacts:
+      web/src/workspace-repository.ts: f9604c1768e472faab787efb2192ceb40e3f614c5fe2b0a6d5ff74c3a970ac39
+      web/src/usePersistentWorkspace.ts: 36fac0e43a22cca18d66ec629821abf9eeb2cfaae2e601660dd0ec8b00057b6c

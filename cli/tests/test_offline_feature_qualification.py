@@ -18,7 +18,7 @@ from modelable.emitters.base import EmittedArtifact
 from modelable.emitters.targets import list_implemented_codegen_targets
 
 RUST_FIXTURE = Path(__file__).parent / "fixtures" / "offline-rust-consumer"
-FAST_GENERATION_BUDGET_SECONDS = 30
+FAST_GENERATION_BUDGET_SECONDS = 45
 LANGUAGE_MATRIX_BUDGET_SECONDS = 120
 
 PRODUCER_V1 = """

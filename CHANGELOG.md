@@ -12,6 +12,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Keep conversation compilation previews recoverable after lock-contention and filesystem errors, returning an error reply and preserving pending actions instead of failing the turn.
+
 - Preserve affected artifact references such as `go.mod` in conversation previews without treating them as source-model locations.
 
 - Advertise conversation protocol support in the actual LSP initialize response so native editor chat can pass capability negotiation.

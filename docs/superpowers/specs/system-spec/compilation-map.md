@@ -64,6 +64,7 @@ Direct and conversational policies differ. Direct path mapping preserves the exi
 - Compensation restores backups/removes newly written files where possible. Errors and preserved backups are reported. Cleanup can leave quarantined `.modelable-cleanup-*` files or released-lock artifacts; they are operational recovery state, not accepted product output.
 - These are multiple per-file replacements with compensation. No durable multi-file commit journal or crash-atomicity proof is asserted. PID-based stale-lock reclamation is observed behavior, not formal assurance against every crash/race scenario.
 - `LockContentionError` and `RegistryIdLockContentionError`, plus lower-level filesystem failures, can cross helper boundaries beyond the short service exception list in the original specification. Complete adapter translation/error-catalog review remains under MOD-COMP-09; this map does not silently redefine the frozen contract or claim those cases are covered by the original characterization record.
+- Conversation preview (`filesystem_conversation.py`) now returns a `kind="error"` reply for `LockContentionError`, `RegistryIdLockContentionError` and `OSError`, keeping any pending action; characterized in `cli/tests/test_conversation_preview_recovery.py`. Apply already caught all exceptions. The service contract and other adapters (LSP wire, editor) are unchanged; this is not a full error-catalog closure.
 - Formal applicability remains open for lock ordering, freshness under contention, rollback and crash windows. Existing unit tests are supporting behavior evidence; this source map is not a proof.
 
 ## Symlink coverage decision
@@ -81,4 +82,6 @@ To reproduce, create a fresh temporary build context, extract `git -c core.autoc
 - Archive the merged [migration plan](../../plans/archived/system-spec-evidence-migration.md); the ongoing onboarding specification stays active.
 - Accept this bounded observed dependency/state map and the suitable-host execution of MOD-COMP-10 as supporting evidence. Preserve the original capability/data contracts and the existing category waiver.
 - Keep whole-product architecture/release open. MOD-COMP-09 still owns measured performance/scalability/observability requirements, complete public error/failure review, transitive IR/schema semantics and formal applicability. Provisional classification review is also open.
+- Browser workspace persistence is mapped in [browser-persistence-map.md](browser-persistence-map.md).
+- Registry transport, ledger and lock protocols are mapped in [registry-protocol-map.md](registry-protocol-map.md).
 - Next bounded review: reconcile the public error catalog and lock/compensation obligations, then map shared registry protocols and browser persistence against their existing authorities. Maintainers own acceptance and remediation scheduling.
