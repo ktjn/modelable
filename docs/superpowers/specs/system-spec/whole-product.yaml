@@ -322,7 +322,7 @@ evidence:
     artifacts:
       docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 8e71367d6459c0028f709f814b96f3c72e4144574be28c15c7dd62e0485b2fda
       docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: be8fd7e5faced7388ee46e633bf9323c04e5b1f1d3801bd7d03dbb58938fa9c5
-      cli/tests/test_registry_ids.py: 24d66db6bac6e6b39c2d8f28a02c60c9a357acdcf04c164ed1954d7f30ba76c8
+      cli/tests/test_registry_ids.py: cffb020d4d2fc1980c1a7988aed8799b2b7e617b0088c2bbc5abec7723400ae8
     timestamp: "2026-11-05"
     verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
     bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
@@ -341,7 +341,7 @@ evidence:
     artifacts:
       docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 8e71367d6459c0028f709f814b96f3c72e4144574be28c15c7dd62e0485b2fda
       docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: be8fd7e5faced7388ee46e633bf9323c04e5b1f1d3801bd7d03dbb58938fa9c5
-      cli/tests/test_cli_compilation_errors.py: f50ac380689c416c54999bd5b106fa3e8dbc42056a5f44c39b718531b1d3e820
+      cli/tests/test_cli_compilation_errors.py: 4acdf153840682d3db98a8a4c16e115ae13b7b7bef9c663bfc9cc26b1ce6a235
     timestamp: "2026-11-05"
     verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
     bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
@@ -360,7 +360,7 @@ evidence:
     artifacts:
       docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 8e71367d6459c0028f709f814b96f3c72e4144574be28c15c7dd62e0485b2fda
       docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: be8fd7e5faced7388ee46e633bf9323c04e5b1f1d3801bd7d03dbb58938fa9c5
-      cli/tests/test_conversation_preview_recovery.py: 02c7881dbc5dd358bc64779d634a980a9d2061e0dea1c4a86f05c97bc4d5f795
+      cli/tests/test_conversation_preview_recovery.py: d5f2dfa0d29c0302af3c8f92eb8371bc9f697e1fcbcfe3482252db6302b380c6
     timestamp: "2026-11-05"
     verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
     bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
@@ -379,7 +379,7 @@ evidence:
     artifacts:
       docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 8e71367d6459c0028f709f814b96f3c72e4144574be28c15c7dd62e0485b2fda
       docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: be8fd7e5faced7388ee46e633bf9323c04e5b1f1d3801bd7d03dbb58938fa9c5
-      cli/tests/test_browser_conformance.py: 6ee86288dfd252a670cf6d3ccecaa501a126e54bac8f7f7dfde08f883a7a808a
+      cli/tests/test_browser_conformance.py: 34461c2448cb1057173e4a792c0be44b044a09ba9abf65e767d66dc86ec23583
     timestamp: "2026-11-05"
     verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
     bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
@@ -397,7 +397,7 @@ evidence:
     subject_revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
       docs/superpowers/specs/system-spec/evidence/level2/web-level2.txt: de7aa5fb8350d2b38760cf44a41f85e1c4b73c55384193f73621c714ac628c8f
-      web/src/workspace-repository.test.ts: 4e62b239f2ab4d4b8bc61eb6d18def7ca537aed62efe7d67c6ddbb3eecc8584f
+      web/src/workspace-repository.test.ts: 3914e3c5751d0b0f0c51a5c87d14b0b1c43e7474d286aea1da19f30cb87b6da7
     timestamp: "2026-11-05"
     verifier: "Node v26.13.0; vitest 4.1.10; Windows"
     bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
@@ -416,7 +416,7 @@ evidence:
     artifacts:
       docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 8e71367d6459c0028f709f814b96f3c72e4144574be28c15c7dd62e0485b2fda
       docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: be8fd7e5faced7388ee46e633bf9323c04e5b1f1d3801bd7d03dbb58938fa9c5
-      cli/tests/test_registry_ids.py: 24d66db6bac6e6b39c2d8f28a02c60c9a357acdcf04c164ed1954d7f30ba76c8
+      cli/tests/test_registry_ids.py: cffb020d4d2fc1980c1a7988aed8799b2b7e617b0088c2bbc5abec7723400ae8
     timestamp: "2026-11-05"
     verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
     bounds: "Single named test only; the suite totals are in the retained output."
@@ -435,7 +435,7 @@ evidence:
     artifacts:
       docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 8e71367d6459c0028f709f814b96f3c72e4144574be28c15c7dd62e0485b2fda
       docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: be8fd7e5faced7388ee46e633bf9323c04e5b1f1d3801bd7d03dbb58938fa9c5
-      cli/tests/test_registry_ids.py: 24d66db6bac6e6b39c2d8f28a02c60c9a357acdcf04c164ed1954d7f30ba76c8
+      cli/tests/test_registry_ids.py: cffb020d4d2fc1980c1a7988aed8799b2b7e617b0088c2bbc5abec7723400ae8
     timestamp: "2026-11-05"
     verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
     bounds: "Single named test only; the suite totals are in the retained output."
@@ -454,7 +454,7 @@ evidence:
     artifacts:
       docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 8e71367d6459c0028f709f814b96f3c72e4144574be28c15c7dd62e0485b2fda
       docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: be8fd7e5faced7388ee46e633bf9323c04e5b1f1d3801bd7d03dbb58938fa9c5
-      cli/tests/test_file_transaction.py: 7757da8d9f92b697d9eeda58aa71f372b84db762ee6f4e3f5c16476e056cabaa
+      cli/tests/test_file_transaction.py: e64f21fc56037e5f84d28e5b6c322808fd037bd725c3cf28db19494892f1cadf
     timestamp: "2026-11-05"
     verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
     bounds: "Single named test only; the suite totals are in the retained output."
@@ -503,29 +503,29 @@ subject_bindings:
     version: "1.0"
     revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      cli/src/modelable/registry/ids.py: 7d0a7b260ae780ed338a6073c428407d84e56d88f0ec8e631b4538de6b801069
-      cli/src/modelable/operations/file_transaction.py: 882f5272e813eb0e5e74768d4c90551a3bcdf43b38339d5648913884414f6963
-      cli/src/modelable/operations/compilation.py: e97c6b06adf258771e272f6232f6596ee79f9d437699c52064be062566d24eaf
+      cli/src/modelable/registry/ids.py: 9c1053d0f8927b66b04d1b1a1df4bd841fabc1ffb00a41eccc3ca6322956aa3b
+      cli/src/modelable/operations/file_transaction.py: 041988323be33210b958b79072302e3d974f00233705da212c437b8794fdec7c
+      cli/src/modelable/operations/compilation.py: b5bf90092d9b9d1503c4a791bdf0c7b9a72cadb7e810f186a68c223d35b65e1f
   native-command-workflows:
     version: "1.0"
     revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      cli/src/modelable/commands/compile.py: 3abb2bde882c61e6edf4630c8380160f41140d6ff22366cc743fe8d2362c37f6
+      cli/src/modelable/commands/compile.py: 004ae26dfab6174fb3b9a73b5d4021a9ea5d36671662b7f4e54dd832db7490e8
   desktop-language-and-conversation:
     version: "1.0"
     revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      cli/src/modelable/llm/filesystem_conversation.py: aafb5a26a9c4993505548be98b23fd144fe24f8685824261f2a7753b9fc2065f
-      cli/src/modelable/lsp/conversation_service.py: 4dd86850a4b8b846ef23ce58ba55c924c4c8a50df93e480f88a7f48d721924d4
+      cli/src/modelable/llm/filesystem_conversation.py: 5f287fcb78cedc8b127ebb51958c715fa421bdf048090ca96a3b34afd61e0082
+      cli/src/modelable/lsp/conversation_service.py: d492a25393150aa90273c546643a1560004ae803e550bb1e31383e3a389e78fe
   browser-compiler-api:
     version: "1.0"
     revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      cli/src/modelable/browser/api.py: 47074420dc6f630d401e0f2514ecd0d183b42580f56eae5e5cbcc6afe98f9dfd
-      cli/src/modelable/browser/dispatch.py: f83e38aa01c9636f370d75c23b819e0912df654d763dc7fd9628c31e6e18fd13
+      cli/src/modelable/browser/api.py: 066eeae1a89af090c436fdaf00771dd7d7871d9528ae7d8690904efcd4d3bf4e
+      cli/src/modelable/browser/dispatch.py: 15ecc536c6721368c5917add0148364fab4b55c0c418c9da07217045ae0afa2a
   playground-workspace:
     version: "1.0"
     revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      web/src/workspace-repository.ts: f9604c1768e472faab787efb2192ceb40e3f614c5fe2b0a6d5ff74c3a970ac39
-      web/src/usePersistentWorkspace.ts: d6b68d38829618fdd1b943f35909c60d01ce895d685b2032bfb6cbfc2a35b7e3
+      web/src/workspace-repository.ts: ce9eb8723e639e82cdd56078841411065a58ee86df5c348a94b5748f8e353adf
+      web/src/usePersistentWorkspace.ts: 1bc6322a09e41c34ea63b3571c1837e9e620f72542e5a2db4f6bcbdb01faac6a
