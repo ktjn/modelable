@@ -172,3 +172,135 @@ test('retry saves newer in-memory work instead of loading older storage', async 
   expect(repository.save).toHaveBeenCalledWith(edited);
   expect(repository.load).toHaveBeenCalledTimes(1);
 });
+
+test('a stale save result is not reported as saved', async () => {
+  const edited = mutateWorkspace(defaultWorkspace, {
+    type: 'update',
+    path: 'main.mdl',
+    content: 'domain edited {}',
+  });
+  const repository: WorkspaceRepository = {
+    load: vi.fn(async (): Promise<WorkspaceLoadResult> => ({
+      status: 'ready',
+      workspace: defaultWorkspace,
+    })),
+    save: vi.fn(async (): Promise<WorkspaceSaveResult> => 'stale'),
+    remove: vi.fn(async () => undefined),
+  };
+  const { result } = renderHook(() =>
+    usePersistentWorkspace({ repository, defaultWorkspace, debounceMs: 1 }),
+  );
+  await waitFor(() => expect(result.current.phase).toBe('saved'));
+
+  act(() => result.current.replace(edited, { immediate: true }));
+
+  await waitFor(() => expect(result.current.phase).toBe('memory-only'));
+  expect(result.current.workspace).toEqual(edited);
+});
+
+class FakeChannel {
+  static instances: FakeChannel[] = [];
+  onmessage: ((event: { data: unknown }) => void) | null = null;
+  posted: unknown[] = [];
+  constructor(public name: string) {
+    FakeChannel.instances.push(this);
+  }
+  postMessage(data: unknown): void {
+    this.posted.push(data);
+  }
+  close(): void {
+    FakeChannel.instances = FakeChannel.instances.filter((c) => c !== this);
+  }
+}
+
+function channelRepository(stored: () => WorkspaceLoadResult) {
+  const repository: WorkspaceRepository = {
+    load: vi.fn(async () => stored()),
+    save: vi.fn(async (): Promise<WorkspaceSaveResult> => 'saved'),
+    remove: vi.fn(async () => undefined),
+  };
+  return repository;
+}
+
+test('announces saved revisions to other tabs', async () => {
+  FakeChannel.instances = [];
+  vi.stubGlobal('BroadcastChannel', FakeChannel);
+  try {
+    const repository = channelRepository(() => ({
+      status: 'ready',
+      workspace: defaultWorkspace,
+    }));
+    const { result } = renderHook(() =>
+      usePersistentWorkspace({ repository, defaultWorkspace, debounceMs: 1 }),
+    );
+    await waitFor(() => expect(result.current.phase).toBe('saved'));
+    act(() => result.current.replace(restoredWorkspace, { immediate: true }));
+    await waitFor(() => expect(result.current.phase).toBe('saved'));
+    expect(FakeChannel.instances[0]?.posted).toContainEqual({
+      id: defaultWorkspace.id,
+      revision: restoredWorkspace.revision,
+    });
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+test('a clean tab reloads when another tab saves a newer revision', async () => {
+  FakeChannel.instances = [];
+  vi.stubGlobal('BroadcastChannel', FakeChannel);
+  try {
+    let stored: WorkspaceLoadResult = {
+      status: 'ready',
+      workspace: defaultWorkspace,
+    };
+    const repository = channelRepository(() => stored);
+    const { result } = renderHook(() =>
+      usePersistentWorkspace({ repository, defaultWorkspace, debounceMs: 1 }),
+    );
+    await waitFor(() => expect(result.current.phase).toBe('saved'));
+    stored = { status: 'ready', workspace: restoredWorkspace };
+
+    act(() =>
+      FakeChannel.instances[0]?.onmessage?.({
+        data: { id: defaultWorkspace.id, revision: restoredWorkspace.revision },
+      }),
+    );
+
+    await waitFor(() => expect(result.current.workspace).toEqual(restoredWorkspace));
+    expect(result.current.phase).toBe('saved');
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+test('a dirty tab is flagged memory-only when another tab saves newer', async () => {
+  FakeChannel.instances = [];
+  vi.stubGlobal('BroadcastChannel', FakeChannel);
+  try {
+    const repository = channelRepository(() => ({
+      status: 'ready',
+      workspace: defaultWorkspace,
+    }));
+    const { result } = renderHook(() =>
+      usePersistentWorkspace({ repository, defaultWorkspace, debounceMs: 60_000 }),
+    );
+    await waitFor(() => expect(result.current.phase).toBe('saved'));
+    const edited = mutateWorkspace(defaultWorkspace, {
+      type: 'update',
+      path: 'main.mdl',
+      content: 'domain local {}',
+    });
+    act(() => result.current.replace(edited));
+
+    act(() =>
+      FakeChannel.instances[0]?.onmessage?.({
+        data: { id: defaultWorkspace.id, revision: edited.revision + 5 },
+      }),
+    );
+
+    expect(result.current.phase).toBe('memory-only');
+    expect(result.current.workspace).toEqual(edited);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
