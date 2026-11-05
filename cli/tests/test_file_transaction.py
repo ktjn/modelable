@@ -658,3 +658,158 @@ def test_concurrent_virgin_lock_parent_creation_enters_normal_contention(
 
     assert results == [(workspace / "first.txt",), (workspace / "second.txt",)]
     assert not (workspace / ".modelable" / "locks").exists()
+
+
+class SimulatedCrash(BaseException):
+    """Process death: skips every ``except Exception`` handler in the transaction."""
+
+
+def _crash_on_replace(fail_after: int):
+    seen = {"count": 0}
+
+    def replace(source: str | Path, destination: str | Path) -> None:
+        if ".modelable-tmp-" in Path(source).name:
+            if seen["count"] == fail_after:
+                raise SimulatedCrash
+            seen["count"] += 1
+        os.replace(source, destination)
+
+    return replace
+
+
+def _simulate_dead_owner(workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # The crashed "process" was this one, whose PID is alive; make it look dead.
+    monkeypatch.setattr("modelable.operations.file_transaction._process_alive", lambda pid: False)
+    assert (workspace / ".modelable" / "locks" / "compilation.lock").exists()
+
+
+@pytest.mark.parametrize("fail_after", [0, 1, 2])
+def test_crash_mid_promotion_is_rolled_back_by_the_next_transaction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    fail_after: int,
+) -> None:
+    workspace = tmp_path / "workspace"
+    stage = tmp_path / "stage"
+    workspace.mkdir()
+    stage.mkdir()
+    destinations = [workspace / f"{index}.txt" for index in range(3)]
+    for index, destination in enumerate(destinations):
+        destination.write_bytes(f"before-{index}".encode())
+    before = _snapshot(workspace)
+
+    with pytest.raises(SimulatedCrash):
+        FileTransaction(workspace_root=workspace, replace=_crash_on_replace(fail_after)).promote(
+            _staged_files(stage, destinations)
+        )
+    _simulate_dead_owner(workspace, monkeypatch)
+
+    other = workspace / "other.txt"
+    other_stage = tmp_path / "stage2"
+    other_stage.mkdir()
+    FileTransaction(workspace_root=workspace).promote(_staged_files(other_stage, [other]))
+
+    after = _snapshot(workspace)
+    assert after.pop(Path("other.txt")) == b"after-0"
+    assert after == before
+    assert not list(workspace.rglob("*.modelable-*"))
+    assert not (workspace / ".modelable").exists()
+
+
+def test_crash_recovery_removes_new_files_and_created_directories(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "workspace"
+    stage = tmp_path / "stage"
+    workspace.mkdir()
+    stage.mkdir()
+    destinations = [workspace / "new" / "a.txt", workspace / "new" / "b.txt"]
+
+    with pytest.raises(SimulatedCrash):
+        FileTransaction(workspace_root=workspace, replace=_crash_on_replace(1)).promote(
+            _staged_files(stage, destinations)
+        )
+    assert destinations[0].exists()
+    _simulate_dead_owner(workspace, monkeypatch)
+
+    other_stage = tmp_path / "stage2"
+    other_stage.mkdir()
+    FileTransaction(workspace_root=workspace).promote(_staged_files(other_stage, [workspace / "other.txt"]))
+
+    assert not (workspace / "new").exists()
+    assert not list(workspace.rglob("*.modelable-*"))
+
+
+def test_crash_after_all_replacements_but_before_commit_rolls_back(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "workspace"
+    stage = tmp_path / "stage"
+    workspace.mkdir()
+    stage.mkdir()
+    destination = workspace / "result.txt"
+    destination.write_bytes(b"before")
+
+    def crash_on_journal_removal(path: Path, *, missing_ok: bool = False) -> None:
+        if path.name == "compilation.journal":
+            raise SimulatedCrash
+        path.unlink(missing_ok=missing_ok)
+
+    with pytest.raises(SimulatedCrash):
+        FileTransaction(workspace_root=workspace, unlink=crash_on_journal_removal).promote(
+            _staged_files(stage, [destination])
+        )
+    assert destination.read_bytes() == b"after-0"
+    _simulate_dead_owner(workspace, monkeypatch)
+
+    other_stage = tmp_path / "stage2"
+    other_stage.mkdir()
+    FileTransaction(workspace_root=workspace).promote(_staged_files(other_stage, [workspace / "other.txt"]))
+
+    assert destination.read_bytes() == b"before"
+
+
+def test_crash_recovery_leaves_new_file_alone_when_content_changed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "workspace"
+    stage = tmp_path / "stage"
+    workspace.mkdir()
+    stage.mkdir()
+    destination = workspace / "new.txt"
+
+    with pytest.raises(SimulatedCrash):
+        FileTransaction(workspace_root=workspace, replace=_crash_on_replace(1)).promote(
+            _staged_files(stage, [destination, workspace / "second.txt"])
+        )
+    destination.write_bytes(b"edited by someone else")
+    _simulate_dead_owner(workspace, monkeypatch)
+
+    other_stage = tmp_path / "stage2"
+    other_stage.mkdir()
+    FileTransaction(workspace_root=workspace).promote(_staged_files(other_stage, [workspace / "other.txt"]))
+
+    assert destination.read_bytes() == b"edited by someone else"
+
+
+def test_unreadable_journal_blocks_promotion_and_keeps_the_journal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "workspace"
+    stage = tmp_path / "stage"
+    workspace.mkdir()
+    stage.mkdir()
+    journal = workspace / ".modelable" / "locks" / "compilation.journal"
+    journal.parent.mkdir(parents=True)
+    journal.write_bytes(b"{not json")
+
+    with pytest.raises(FileTransactionError, match="journal"):
+        FileTransaction(workspace_root=workspace).promote(_staged_files(stage, [workspace / "x.txt"]))
+
+    assert journal.read_bytes() == b"{not json"
+    assert not (workspace / "x.txt").exists()
+    assert not (workspace / ".modelable" / "locks" / "compilation.lock").exists()

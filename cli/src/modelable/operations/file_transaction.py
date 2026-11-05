@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import shutil
 import sys
@@ -55,6 +56,10 @@ class FileTransactionError(Exception):
             details = "\n".join(f"  - {item}" for item in self.rollback_errors)
             message += f"\nRollback errors:\n{details}"
         super().__init__(message)
+
+
+class _JournalError(Exception):
+    """The promotion journal was unreadable or could not be fully replayed."""
 
 
 class FileTransactionCommittedError(Exception):
@@ -132,6 +137,13 @@ class FileTransaction:
             release_errors = self._release_lock()
             raise FileTransactionError(error, release_errors) from error
 
+        try:
+            self._recover_interrupted_promotion()
+        except Exception as error:
+            recovery_errors = [RollbackError(self._journal_path(), error)] if isinstance(error, _JournalError) else []
+            recovery_errors.extend(self._release_lock())
+            raise FileTransactionError(error, recovery_errors) from error
+
         if validate is not None:
             try:
                 validate()
@@ -176,6 +188,8 @@ class FileTransaction:
             if validate is not None:
                 validate()
 
+            self._write_journal(promotions, created_directories)
+
             for promotion in promotions:
                 metadata_source = (
                     promotion.file.destination if promotion.backup is not None else promotion.file.staged_path
@@ -187,12 +201,19 @@ class FileTransaction:
             for promotion in promotions:
                 if _file_hash(promotion.file.destination) != promotion.file.content_hash:
                     raise OSError(f"post-write hash verification failed for {promotion.file.destination}")
+
+            # Removing the journal is the commit point: until it is gone, a
+            # crash is rolled back by the next transaction.
+            self._unlink(self._journal_path(), missing_ok=True)
         except Exception as error:
             rollback_errors = self._rollback(
                 promoted,
                 promotions,
                 created_directories,
             )
+            if not rollback_errors:
+                with suppress(OSError):
+                    self._unlink(self._journal_path(), missing_ok=True)
             rollback_errors.extend(self._release_lock())
             raise FileTransactionError(error, rollback_errors) from error
 
@@ -202,6 +223,111 @@ class FileTransaction:
         if cleanup_errors:
             raise FileTransactionCommittedError(written_paths, cleanup_errors)
         return written_paths
+
+    def recover(self) -> None:
+        """Roll back a promotion interrupted by a dead process, if one left a journal.
+
+        Callers that read workspace state before promoting call this first, so
+        they never stage output derived from a half-promoted workspace.
+        """
+        if self.workspace_root is None:
+            raise ValueError("recover() requires workspace_root")
+        journal = self.workspace_root / ".modelable" / "locks" / "compilation.journal"
+        if not journal.exists():
+            return
+        self._acquire_lock(self.workspace_root)
+        try:
+            self._recover_interrupted_promotion()
+        except Exception as error:
+            recovery_errors = [RollbackError(journal, error)] if isinstance(error, _JournalError) else []
+            recovery_errors.extend(self._release_lock())
+            raise FileTransactionError(error, recovery_errors) from error
+        release_errors = self._release_lock()
+        if release_errors:
+            raise FileTransactionError(OSError("could not release the workspace lock"), release_errors)
+
+    def _journal_path(self) -> Path:
+        assert self._lock_path is not None
+        return self._lock_path.with_name("compilation.journal")
+
+    def _write_journal(
+        self,
+        promotions: Sequence[_Promotion],
+        created_directories: Sequence[Path],
+    ) -> None:
+        journal = {
+            "version": 1,
+            "entries": [
+                {
+                    "destination": str(item.file.destination),
+                    "temporary": str(item.temporary),
+                    "backup": str(item.backup) if item.backup is not None else None,
+                    "hash": item.file.content_hash,
+                }
+                for item in promotions
+            ],
+            "created_directories": [str(path) for path in dict.fromkeys(created_directories)],
+        }
+        path = self._journal_path()
+        temporary = path.with_name(f"{path.name}.{self._token}.tmp")
+        descriptor = os.open(
+            temporary,
+            os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0),
+            0o600,
+        )
+        try:
+            os.write(descriptor, json.dumps(journal).encode())
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        os.replace(temporary, path)
+
+    def _recover_interrupted_promotion(self) -> None:
+        """Roll back a promotion whose process died before it committed.
+
+        Runs under the workspace lock. A journal that still exists means the
+        commit point was never reached, so every destination is returned to its
+        pre-promotion state. A journal that cannot be read blocks the
+        transaction and is kept for inspection.
+        """
+        path = self._journal_path()
+        try:
+            data = path.read_bytes()
+        except FileNotFoundError:
+            return
+        try:
+            journal = json.loads(data)
+            entries = [
+                (
+                    Path(entry["destination"]),
+                    Path(entry["temporary"]),
+                    Path(entry["backup"]) if entry["backup"] is not None else None,
+                    str(entry["hash"]),
+                )
+                for entry in journal["entries"]
+            ]
+            created = [Path(item) for item in journal["created_directories"]]
+        except (ValueError, KeyError, TypeError) as error:
+            raise _JournalError(f"Unreadable compilation journal {path}: {error}") from error
+
+        errors: list[RollbackError] = []
+        for destination, temporary, backup, content_hash in reversed(entries):
+            try:
+                if backup is not None:
+                    if backup.exists():
+                        self._replace(backup, destination)
+                elif destination.exists() and _file_hash(destination) == content_hash:
+                    self._unlink(destination, missing_ok=True)
+                self._unlink(temporary, missing_ok=True)
+            except Exception as error:
+                errors.append(RollbackError(destination, error))
+        for directory in reversed(created):
+            with suppress(OSError):
+                directory.rmdir()
+        if errors:
+            details = os.linesep.join(f"  - {item}" for item in errors)
+            raise _JournalError(f"Could not recover interrupted compilation promotion:{os.linesep}{details}")
+        self._unlink(path, missing_ok=True)
 
     def _acquire_lock(self, root: Path) -> None:
         lock_path = root / ".modelable" / "locks" / "compilation.lock"

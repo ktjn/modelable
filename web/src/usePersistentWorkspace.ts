@@ -28,6 +28,8 @@ export interface PersistentWorkspaceState {
   reset(): Promise<void>;
 }
 
+const CHANNEL_NAME = 'modelable:workspace-saved';
+
 export function usePersistentWorkspace({
   repository,
   defaultWorkspace,
@@ -46,13 +48,22 @@ export function usePersistentWorkspace({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveSequenceRef = useRef(0);
   const mountedRef = useRef(true);
+  const channelRef = useRef<BroadcastChannel | null>(null);
 
   const save = useCallback(
     async (snapshot: PlaygroundWorkspace): Promise<void> => {
       const sequence = saveSequenceRef.current + 1;
       saveSequenceRef.current = sequence;
       try {
-        await repository.save(snapshot);
+        const outcome = await repository.save(snapshot);
+        if (outcome === 'stale') {
+          // A newer revision is already stored (e.g. another tab); the write
+          // was rejected, so this work is not persisted.
+          if (mountedRef.current && sequence === saveSequenceRef.current) {
+            setPhase('memory-only');
+          }
+          return;
+        }
         if (
           mountedRef.current &&
           sequence === saveSequenceRef.current &&
@@ -60,6 +71,10 @@ export function usePersistentWorkspace({
         ) {
           dirtyRef.current = false;
           setPhase('saved');
+          channelRef.current?.postMessage({
+            id: snapshot.id,
+            revision: snapshot.revision,
+          });
         }
       } catch {
         if (mountedRef.current && sequence === saveSequenceRef.current) {
@@ -126,6 +141,50 @@ export function usePersistentWorkspace({
       }
     };
   }, [applyLoadResult, defaultWorkspace.id, repository]);
+
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') {
+      return undefined;
+    }
+    // Other tabs announce the revision they saved. A clean tab adopts it; a tab
+    // with unsaved edits can no longer save over it, so it is marked unsaved.
+    const channel = new BroadcastChannel(CHANNEL_NAME);
+    channelRef.current = channel;
+    channel.onmessage = (event: MessageEvent<unknown>): void => {
+      const message = event.data as { id?: unknown; revision?: unknown } | null;
+      if (
+        message === null ||
+        message.id !== defaultWorkspace.id ||
+        typeof message.revision !== 'number' ||
+        message.revision <= workspaceRef.current.revision
+      ) {
+        return;
+      }
+      if (dirtyRef.current) {
+        setPhase('memory-only');
+        return;
+      }
+      void repository.load(defaultWorkspace.id).then(
+        (result) => {
+          if (
+            mountedRef.current &&
+            !dirtyRef.current &&
+            result.status === 'ready' &&
+            result.workspace.revision > workspaceRef.current.revision
+          ) {
+            workspaceRef.current = result.workspace;
+            setWorkspace(result.workspace);
+            setPhase('saved');
+          }
+        },
+        () => undefined,
+      );
+    };
+    return () => {
+      channel.close();
+      channelRef.current = null;
+    };
+  }, [defaultWorkspace.id, repository]);
 
   useEffect(() => {
     const handlePageHide = (): void => {

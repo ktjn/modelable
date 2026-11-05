@@ -308,7 +308,7 @@ risks:
   - {id: coarse-toolchain-boundary, target: modelable-product, treatment: mitigation, mitigated_by: [MOD-ADOPT-04], waives: context-budget, expires: release}
 evidence:
   - id: ev-mod-prod-01
-    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 307 passed, 4 skipped"
     criteria:
       - Registry IDs are never reassigned once allocated.
     requirement_id: MOD-PROD-01
@@ -318,16 +318,16 @@ evidence:
     provenance: "cli/tests/test_registry_ids.py::test_allocate_never_reassigns_existing_ids"
     subject_id: local-contract-toolchain
     subject_version: "1.0"
-    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    subject_revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
-      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
-      cli/tests/test_registry_ids.py: 24d66db6bac6e6b39c2d8f28a02c60c9a357acdcf04c164ed1954d7f30ba76c8
-    timestamp: "2026-11-04"
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 8e71367d6459c0028f709f814b96f3c72e4144574be28c15c7dd62e0485b2fda
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: be8fd7e5faced7388ee46e633bf9323c04e5b1f1d3801bd7d03dbb58938fa9c5
+      cli/tests/test_registry_ids.py: cffb020d4d2fc1980c1a7988aed8799b2b7e617b0088c2bbc5abec7723400ae8
+    timestamp: "2026-11-05"
     verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
     bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
   - id: ev-mod-prod-02
-    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 307 passed, 4 skipped"
     criteria:
       - Known compilation operational failures render as CLI errors with nonzero status.
     requirement_id: MOD-PROD-02
@@ -337,16 +337,16 @@ evidence:
     provenance: "cli/tests/test_cli_compilation_errors.py::test_compile_renders_known_operational_errors[ledger-lock]"
     subject_id: native-command-workflows
     subject_version: "1.0"
-    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    subject_revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
-      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
-      cli/tests/test_cli_compilation_errors.py: f50ac380689c416c54999bd5b106fa3e8dbc42056a5f44c39b718531b1d3e820
-    timestamp: "2026-11-04"
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 8e71367d6459c0028f709f814b96f3c72e4144574be28c15c7dd62e0485b2fda
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: be8fd7e5faced7388ee46e633bf9323c04e5b1f1d3801bd7d03dbb58938fa9c5
+      cli/tests/test_cli_compilation_errors.py: 4acdf153840682d3db98a8a4c16e115ae13b7b7bef9c663bfc9cc26b1ce6a235
+    timestamp: "2026-11-05"
     verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
     bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
   - id: ev-mod-prod-03
-    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 307 passed, 4 skipped"
     criteria:
       - A failed conversation preview keeps the existing pending action over the language-server conversation service.
     requirement_id: MOD-PROD-03
@@ -356,16 +356,16 @@ evidence:
     provenance: "cli/tests/test_conversation_preview_recovery.py::test_wire_error_keeps_existing_pending_source_action"
     subject_id: desktop-language-and-conversation
     subject_version: "1.0"
-    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    subject_revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
-      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
-      cli/tests/test_conversation_preview_recovery.py: 02c7881dbc5dd358bc64779d634a980a9d2061e0dea1c4a86f05c97bc4d5f795
-    timestamp: "2026-11-04"
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 8e71367d6459c0028f709f814b96f3c72e4144574be28c15c7dd62e0485b2fda
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: be8fd7e5faced7388ee46e633bf9323c04e5b1f1d3801bd7d03dbb58938fa9c5
+      cli/tests/test_conversation_preview_recovery.py: d5f2dfa0d29c0302af3c8f92eb8371bc9f697e1fcbcfe3482252db6302b380c6
+    timestamp: "2026-11-05"
     verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
     bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
   - id: ev-mod-prod-04
-    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 307 passed, 4 skipped"
     criteria:
       - Native and browser compilation snapshots are deterministic for the same scenarios.
     requirement_id: MOD-PROD-04
@@ -375,16 +375,16 @@ evidence:
     provenance: "cli/tests/test_browser_conformance.py::test_native_browser_snapshots_are_deterministic"
     subject_id: browser-compiler-api
     subject_version: "1.0"
-    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    subject_revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
-      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
-      cli/tests/test_browser_conformance.py: 6ee86288dfd252a670cf6d3ccecaa501a126e54bac8f7f7dfde08f883a7a808a
-    timestamp: "2026-11-04"
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 8e71367d6459c0028f709f814b96f3c72e4144574be28c15c7dd62e0485b2fda
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: be8fd7e5faced7388ee46e633bf9323c04e5b1f1d3801bd7d03dbb58938fa9c5
+      cli/tests/test_browser_conformance.py: 34461c2448cb1057173e4a792c0be44b044a09ba9abf65e767d66dc86ec23583
+    timestamp: "2026-11-05"
     verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
     bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
   - id: ev-mod-prod-05
-    environment: "Windows; Node v26.13.0; vitest 4.1.10; 24 passed (4 files)"
+    environment: "Windows; Node v26.13.0; vitest 4.1.10; 28 passed (4 files)"
     criteria:
       - The workspace repository does not overwrite a stored record with a greater revision.
     requirement_id: MOD-PROD-05
@@ -394,15 +394,15 @@ evidence:
     provenance: "web/src/workspace-repository.test.ts::a stale revision cannot overwrite a newer workspace"
     subject_id: playground-workspace
     subject_version: "1.0"
-    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    subject_revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      docs/superpowers/specs/system-spec/evidence/level2/web-level2.txt: ed7902e0714270e12d16b7ba3fb6ae7f3b5ad66d8fef0de0e61583e33c81091e
-      web/src/workspace-repository.test.ts: 4e62b239f2ab4d4b8bc61eb6d18def7ca537aed62efe7d67c6ddbb3eecc8584f
-    timestamp: "2026-11-04"
+      docs/superpowers/specs/system-spec/evidence/level2/web-level2.txt: de7aa5fb8350d2b38760cf44a41f85e1c4b73c55384193f73621c714ac628c8f
+      web/src/workspace-repository.test.ts: 3914e3c5751d0b0f0c51a5c87d14b0b1c43e7474d286aea1da19f30cb87b6da7
+    timestamp: "2026-11-05"
     verifier: "Node v26.13.0; vitest 4.1.10; Windows"
     bounds: "Single named test only; the suite totals are in the retained output. Does not cover other behavior of the capability."
   - id: ev-mod-prod-07
-    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 307 passed, 4 skipped"
     criteria:
       - The registry ID ledger round-trips through its JSON file sorted by id.
     requirement_id: MOD-PROD-07
@@ -412,16 +412,16 @@ evidence:
     provenance: "cli/tests/test_registry_ids.py::test_write_then_read_lock_file_round_trips_sorted_by_id"
     subject_id: local-contract-toolchain
     subject_version: "1.0"
-    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    subject_revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
-      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
-      cli/tests/test_registry_ids.py: 24d66db6bac6e6b39c2d8f28a02c60c9a357acdcf04c164ed1954d7f30ba76c8
-    timestamp: "2026-11-04"
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 8e71367d6459c0028f709f814b96f3c72e4144574be28c15c7dd62e0485b2fda
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: be8fd7e5faced7388ee46e633bf9323c04e5b1f1d3801bd7d03dbb58938fa9c5
+      cli/tests/test_registry_ids.py: cffb020d4d2fc1980c1a7988aed8799b2b7e617b0088c2bbc5abec7723400ae8
+    timestamp: "2026-11-05"
     verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
     bounds: "Single named test only; the suite totals are in the retained output."
   - id: ev-mod-prod-08
-    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 307 passed, 4 skipped"
     criteria:
       - Registry ID ledger access is serialized across processes by the ledger lock.
     requirement_id: MOD-PROD-08
@@ -431,16 +431,16 @@ evidence:
     provenance: "cli/tests/test_registry_ids.py::test_registry_id_lock_serializes_processes"
     subject_id: local-contract-toolchain
     subject_version: "1.0"
-    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    subject_revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
-      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
-      cli/tests/test_registry_ids.py: 24d66db6bac6e6b39c2d8f28a02c60c9a357acdcf04c164ed1954d7f30ba76c8
-    timestamp: "2026-11-04"
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 8e71367d6459c0028f709f814b96f3c72e4144574be28c15c7dd62e0485b2fda
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: be8fd7e5faced7388ee46e633bf9323c04e5b1f1d3801bd7d03dbb58938fa9c5
+      cli/tests/test_registry_ids.py: cffb020d4d2fc1980c1a7988aed8799b2b7e617b0088c2bbc5abec7723400ae8
+    timestamp: "2026-11-05"
     verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
     bounds: "Single named test only; the suite totals are in the retained output."
   - id: ev-mod-prod-09
-    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 300 passed, 4 skipped, 2 reruns (flaky-marked test_file_transaction case, not cited)"
+    environment: "Windows; CPython 3.14.5; pytest 9.1.1; 307 passed, 4 skipped"
     criteria:
       - A promoted file whose hash does not verify is rolled back by the file transaction.
     requirement_id: MOD-PROD-09
@@ -450,12 +450,12 @@ evidence:
     provenance: "cli/tests/test_file_transaction.py::test_transaction_verifies_promoted_hash_and_rolls_back"
     subject_id: local-contract-toolchain
     subject_version: "1.0"
-    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    subject_revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 70bc4fb81cc7dcd5bd4c15ff51cb4bb2f5a452d033e9d3a16790700538a80aba
-      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: 10397146c4a586399b55aa4b1e2878b3a7e971be1b0af97cacf969ec47144561
-      cli/tests/test_file_transaction.py: 135bcfa3c49ffb2500c8a4cce34f10dc9ea2dae76ad74e85fff476a0b8e58d8c
-    timestamp: "2026-11-04"
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.xml: 8e71367d6459c0028f709f814b96f3c72e4144574be28c15c7dd62e0485b2fda
+      docs/superpowers/specs/system-spec/evidence/level2/python-level2.txt: be8fd7e5faced7388ee46e633bf9323c04e5b1f1d3801bd7d03dbb58938fa9c5
+      cli/tests/test_file_transaction.py: e64f21fc56037e5f84d28e5b6c322808fd037bd725c3cf28db19494892f1cadf
+    timestamp: "2026-11-05"
     verifier: "CPython 3.14.5; pytest 9.1.1; Windows"
     bounds: "Single named test only; the suite totals are in the retained output."
   - id: ev-mod-prod-10-tla
@@ -469,15 +469,15 @@ evidence:
     provenance: "tla+::docs/superpowers/specs/system-spec/evidence/formal/CompilationProtocol.tla"
     subject_id: local-contract-toolchain
     subject_version: "1.0"
-    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    subject_revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      docs/superpowers/specs/system-spec/evidence/formal/CompilationProtocol.tla: dd505b32cb8fd23cb42fe93167bd9199eec063561f0ae70241defd1a49825d4e
-      docs/superpowers/specs/system-spec/evidence/formal/A_no_faults.cfg: 055eca9784d67c3cf0787ea9fa8e53b6e26da151dde09f9add631525158767da
-      docs/superpowers/specs/system-spec/evidence/formal/D_all_faults_safety.cfg: 04c9cf0833c6d019c726873867be61efeb1a6a1b9a18ef6d5ac8cb15c8c9dbd5
-      docs/superpowers/specs/system-spec/evidence/formal/tlc-output.txt: bf4dca8eb76dd3e15cbc34ea4b036c3835aa1c9f709a7c42f4b4073543286f4c
-    timestamp: "2026-11-04"
+      docs/superpowers/specs/system-spec/evidence/formal/CompilationProtocol.tla: bcfd020946a0439f8b98c0bbfbe01da6cfbabb91743b7e350c4c28d000eace65
+      docs/superpowers/specs/system-spec/evidence/formal/A_no_faults.cfg: 3a047430c4b4260ce9ea0f867956515b39519a1025eb82d4314cce52b277bd21
+      docs/superpowers/specs/system-spec/evidence/formal/D_all_faults_safety.cfg: 1851cc2f6b8155f53f5ade855fcff0b669c41515c2026de0e5de94066ccbcb88
+      docs/superpowers/specs/system-spec/evidence/formal/tlc-output.txt: 562deb7f51390aff5da77cb028c35d0602ba7c4507f85ab389a4f1dd88b01097
+    timestamp: "2026-11-05"
     verifier: "TLC 2.19 model checker"
-    bounds: "Two processes (direct d, apply a), two destination files, one workspace lock, ID and enum locks as an ordered pair; configs A (no faults) and D (rollback may fail and crash; safety invariants only) explored exhaustively, 171 and 530 states. Abstraction assumptions are listed in the module header; this is a bounded model of the observed protocol, not a proof of the implementation."
+    bounds: "Two processes (direct d, apply a), two destination files, one workspace lock, ID and enum locks as an ordered pair; configs A (no faults) and D (rollback may fail and crash; safety invariants only) explored exhaustively, 194 and 574 states. The model includes the promotion journal and recovery added in the working tree after this revision (file_transaction.py), so it describes that code, not the pinned revision. Abstraction assumptions are listed in the module header; this is a bounded model of the observed protocol, not a proof of the implementation."
   - id: ev-mod-prod-11-tla
     environment: "Windows; TLC 2.19 (tla2tools.jar v1.7.4); OpenJDK 25.0.5"
     criteria:
@@ -485,47 +485,47 @@ evidence:
     requirement_id: MOD-PROD-11
     requirement_version: "1.0"
     method: model-check
-    passed: false
+    passed: true
     provenance: "tla+::docs/superpowers/specs/system-spec/evidence/formal/CompilationProtocol.tla"
     subject_id: local-contract-toolchain
     subject_version: "1.0"
-    subject_revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    subject_revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      docs/superpowers/specs/system-spec/evidence/formal/CompilationProtocol.tla: dd505b32cb8fd23cb42fe93167bd9199eec063561f0ae70241defd1a49825d4e
+      docs/superpowers/specs/system-spec/evidence/formal/CompilationProtocol.tla: bcfd020946a0439f8b98c0bbfbe01da6cfbabb91743b7e350c4c28d000eace65
       docs/superpowers/specs/system-spec/evidence/formal/B_rollback_may_fail.cfg: 5e4b8c38f379f2da6a5f5e645d8889aaff9afbd70fe049706e7f55129aeb83d9
-      docs/superpowers/specs/system-spec/evidence/formal/C_crash.cfg: 71cfe35c76a042e307245540b5a7d0cdb487608421c4d0e273a56dc3254fd38d
-      docs/superpowers/specs/system-spec/evidence/formal/tlc-output.txt: bf4dca8eb76dd3e15cbc34ea4b036c3835aa1c9f709a7c42f4b4073543286f4c
-    timestamp: "2026-11-04"
+      docs/superpowers/specs/system-spec/evidence/formal/C_crash.cfg: db56af8fab6ef072f2135020826e6efb3b9d823447d65b67022c0f0455baeaff
+      docs/superpowers/specs/system-spec/evidence/formal/tlc-output.txt: 562deb7f51390aff5da77cb028c35d0602ba7c4507f85ab389a4f1dd88b01097
+    timestamp: "2026-11-05"
     verifier: "TLC 2.19 model checker"
-    bounds: "Same bounds. TLC found counterexamples in config B (compensation may fail) and config C (crash mid-promotion): destination files end in different versions. This records an as-is gap in the observed protocol (no commit journal), not a defect confirmed by a product test."
+    bounds: "Same bounds. Configs B (compensation may fail) and C (crash mid-promotion) pass exhaustively (300 and 422 states) with the promotion journal, recovery by the next lock holder, and direct compilation recovering before it stages. An earlier model without the pre-staging recovery had counterexamples in B and C; a mutant that removes that recovery violates FilesConsistent again. Not modeled: a crash during preparation or during recovery, more than two processes, PID reuse. A bounded model of the working-tree code, not a proof of the implementation."
 subject_bindings:
   local-contract-toolchain:
     version: "1.0"
-    revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      cli/src/modelable/registry/ids.py: 7d0a7b260ae780ed338a6073c428407d84e56d88f0ec8e631b4538de6b801069
-      cli/src/modelable/operations/file_transaction.py: 628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794
-      cli/src/modelable/operations/compilation.py: b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3
+      cli/src/modelable/registry/ids.py: 9c1053d0f8927b66b04d1b1a1df4bd841fabc1ffb00a41eccc3ca6322956aa3b
+      cli/src/modelable/operations/file_transaction.py: 041988323be33210b958b79072302e3d974f00233705da212c437b8794fdec7c
+      cli/src/modelable/operations/compilation.py: b5bf90092d9b9d1503c4a791bdf0c7b9a72cadb7e810f186a68c223d35b65e1f
   native-command-workflows:
     version: "1.0"
-    revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
       cli/src/modelable/commands/compile.py: 004ae26dfab6174fb3b9a73b5d4021a9ea5d36671662b7f4e54dd832db7490e8
   desktop-language-and-conversation:
     version: "1.0"
-    revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      cli/src/modelable/llm/filesystem_conversation.py: aafb5a26a9c4993505548be98b23fd144fe24f8685824261f2a7753b9fc2065f
+      cli/src/modelable/llm/filesystem_conversation.py: 5f287fcb78cedc8b127ebb51958c715fa421bdf048090ca96a3b34afd61e0082
       cli/src/modelable/lsp/conversation_service.py: d492a25393150aa90273c546643a1560004ae803e550bb1e31383e3a389e78fe
   browser-compiler-api:
     version: "1.0"
-    revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      cli/src/modelable/browser/api.py: 47074420dc6f630d401e0f2514ecd0d183b42580f56eae5e5cbcc6afe98f9dfd
-      cli/src/modelable/browser/dispatch.py: f83e38aa01c9636f370d75c23b819e0912df654d763dc7fd9628c31e6e18fd13
+      cli/src/modelable/browser/api.py: 066eeae1a89af090c436fdaf00771dd7d7871d9528ae7d8690904efcd4d3bf4e
+      cli/src/modelable/browser/dispatch.py: 15ecc536c6721368c5917add0148364fab4b55c0c418c9da07217045ae0afa2a
   playground-workspace:
     version: "1.0"
-    revision: dbd8807977bafdfdd4981596045a2cbdaab12efb
+    revision: 68d8cf8ccabb7e3797c949c402d82d31e05279eb
     artifacts:
-      web/src/workspace-repository.ts: f9604c1768e472faab787efb2192ceb40e3f614c5fe2b0a6d5ff74c3a970ac39
-      web/src/usePersistentWorkspace.ts: 36fac0e43a22cca18d66ec629821abf9eeb2cfaae2e601660dd0ec8b00057b6c
+      web/src/workspace-repository.ts: ce9eb8723e639e82cdd56078841411065a58ee86df5c348a94b5748f8e353adf
+      web/src/usePersistentWorkspace.ts: 1bc6322a09e41c34ea63b3571c1837e9e620f72542e5a2db4f6bcbdb01faac6a
