@@ -1717,3 +1717,72 @@ def test_committed_outcome_survives_staging_cleanup_failure(
     if pending is not None:
         audit = tmp_path / ".modelable" / "audit" / "compilations" / f"{pending.action_id}.json"
         assert audit.exists()
+
+
+class _SimulatedProcessDeath(BaseException):
+    """Skips every ``except Exception`` handler, like a killed process."""
+
+
+def test_direct_compilation_recovers_an_interrupted_promotion_before_staging(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class RecordingTransaction(FileTransaction):
+        def recover(self) -> None:
+            events.append("recover")
+            super().recover()
+
+        def promote(self, files, **kwargs):  # type: ignore[no-untyped-def]
+            events.append("promote")
+            return super().promote(files, **kwargs)
+
+    source = write_workspace(tmp_path)
+    request = request_for(tmp_path, source, "rust")
+    CompilationService(
+        transaction_factory=lambda root: RecordingTransaction(workspace_root=root),
+    ).execute_direct(request)
+
+    assert events == ["recover", "promote"]
+
+
+def test_direct_compilation_after_a_crashed_promotion_matches_a_clean_run(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def crash_on_second_replace(source_path, destination_path):
+        if ".modelable-tmp-" in Path(source_path).name:
+            if crash_on_second_replace.count == 1:  # type: ignore[attr-defined]
+                raise _SimulatedProcessDeath
+            crash_on_second_replace.count += 1  # type: ignore[attr-defined]
+        os.replace(source_path, destination_path)
+
+    crash_on_second_replace.count = 0  # type: ignore[attr-defined]
+
+    control = tmp_path / "control"
+    control.mkdir()
+    csrc = write_workspace(control)
+    CompilationService().execute_direct(request_for(control, csrc, "rust"))
+
+    crashed = tmp_path / "crashed"
+    crashed.mkdir()
+    source = write_workspace(crashed)
+    with pytest.raises(_SimulatedProcessDeath):
+        CompilationService(
+            transaction_factory=lambda root: FileTransaction(workspace_root=root, replace=crash_on_second_replace),
+        ).execute_direct(request_for(crashed, source, "rust"))
+    monkeypatch.setattr("modelable.operations.file_transaction._process_alive", lambda pid: False)
+    monkeypatch.setattr("modelable.registry.ids._process_alive", lambda pid: False, raising=False)
+
+    CompilationService().execute_direct(request_for(crashed, source, "rust"))
+
+    def snapshot(root: Path) -> dict[str, bytes]:
+        return {
+            path.relative_to(root).as_posix(): path.read_bytes()
+            for path in sorted(root.rglob("*"))
+            if path.is_file() and ".modelable-" not in path.name and path.name != "registry.db"
+        }
+
+    assert snapshot(crashed) == snapshot(control)
+    assert not list(crashed.rglob("compilation.journal"))

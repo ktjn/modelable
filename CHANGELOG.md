@@ -8,9 +8,15 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Keep multiple playground tabs on the same workspace in sync: a tab without unsaved edits adopts a newer revision saved by another tab, and a tab with unsaved edits is marked memory-only instead of silently losing the race.
+
 ### Changed
 
 ### Fixed
+
+- Recover from a compilation that was killed mid-promotion: the next compilation rolls the workspace back to its pre-promotion files using a journal kept under `.modelable/locks`. An unreadable journal blocks compilation instead of being ignored.
+
+- Show the playground as memory-only instead of saved when a workspace save is rejected because a newer revision is already stored (for example from another tab).
 
 - Keep conversation compilation previews recoverable after lock-contention and filesystem errors, returning an error reply and preserving pending actions instead of failing the turn.
 

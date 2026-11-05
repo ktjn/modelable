@@ -307,6 +307,9 @@ class CompilationService:
         workspace_root: Path,
         staging_dir: Path,
     ) -> DirectCompilationResult:
+        # Finish or undo a promotion that a dead process left behind before
+        # reading any workspace state to stage from.
+        self.transaction_factory(workspace_root).recover()
         staged_output = staging_dir / "output"
         staged_registry_ids = staging_dir / "registry-ids.lock"
         staged_enum_numbers = staging_dir / "enum-numbers.lock"
