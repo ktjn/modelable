@@ -3,190 +3,39 @@ tla2tools.jar v1.7.4 sha256 936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b
 Model checking completed. No error has been found.
   Estimates of the probability that TLC did not check all reachable states
   because two distinct states had the same fingerprint:
-  calculated (optimistic):  val = 2.7E-16
-171 states generated, 133 distinct states found, 0 states left on queue.
-The depth of the complete state graph search is 16.
+  calculated (optimistic):  val = 3.2E-16
+194 states generated, 156 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 21.
 The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 3 and the 95th percentile is 3).
-Finished in 00s at (2026-11-04 20:27:23)
-##### B_rollback_may_fail.cfg (expected: FilesConsistent violated)
-Error: Invariant FilesConsistent is violated.
-Error: The behavior up to this point is:
-State 1: <Initial predicate>
-/\ rbFailed = FALSE
-/\ wsLock = "none"
-/\ done = [a |-> {}, d |-> {}]
-/\ todo = [a |-> {}, d |-> {}]
-/\ idLock = "none"
-/\ base = [a |-> <<0, 0>>, d |-> <<0, 0>>]
-/\ pc = [a |-> "start", d |-> "start"]
-/\ disk = <<0, 0>>
-/\ enumLock = "none"
-
-State 2: <DAcqId line 53, col 11 to line 55, col 69 of module CompilationProtocol>
-/\ rbFailed = FALSE
-/\ wsLock = "none"
-/\ done = [a |-> {}, d |-> {}]
-/\ todo = [a |-> {}, d |-> {}]
-/\ idLock = "d"
-/\ base = [a |-> <<0, 0>>, d |-> <<0, 0>>]
-/\ pc = [a |-> "start", d |-> "hasId"]
-/\ disk = <<0, 0>>
-/\ enumLock = "none"
-
-State 3: <DAcqEnum line 56, col 13 to line 59, col 61 of module CompilationProtocol>
-/\ rbFailed = FALSE
-/\ wsLock = "none"
-/\ done = [a |-> {}, d |-> {}]
-/\ todo = [a |-> {}, d |-> {}]
-/\ idLock = "d"
-/\ base = [a |-> <<0, 0>>, d |-> <<0, 0>>]
-/\ pc = [a |-> "start", d |-> "hasBoth"]
-/\ disk = <<0, 0>>
-/\ enumLock = "d"
-
-State 4: <DAcqWs line 60, col 11 to line 63, col 57 of module CompilationProtocol>
-/\ rbFailed = FALSE
-/\ wsLock = "d"
-/\ done = [a |-> {}, d |-> {}]
-/\ todo = [a |-> {}, d |-> {1, 2}]
-/\ idLock = "d"
-/\ base = [a |-> <<0, 0>>, d |-> <<0, 0>>]
-/\ pc = [a |-> "start", d |-> "promote"]
-/\ disk = <<0, 0>>
-/\ enumLock = "d"
-
-State 5: <Promote line 85, col 15 to line 90, col 63 of module CompilationProtocol>
-/\ rbFailed = FALSE
-/\ wsLock = "d"
-/\ done = [a |-> {}, d |-> {1}]
-/\ todo = [a |-> {}, d |-> {2}]
-/\ idLock = "d"
-/\ base = [a |-> <<0, 0>>, d |-> <<0, 0>>]
-/\ pc = [a |-> "start", d |-> "promote"]
-/\ disk = <<1, 0>>
-/\ enumLock = "d"
-
-State 6: <Fail line 94, col 12 to line 96, col 77 of module CompilationProtocol>
-/\ rbFailed = FALSE
-/\ wsLock = "d"
-/\ done = [a |-> {}, d |-> {1}]
-/\ todo = [a |-> {}, d |-> {2}]
-/\ idLock = "d"
-/\ base = [a |-> <<0, 0>>, d |-> <<0, 0>>]
-/\ pc = [a |-> "start", d |-> "rollback"]
-/\ disk = <<1, 0>>
-/\ enumLock = "d"
-
-State 7: <Rollback line 97, col 16 to line 104, col 59 of module CompilationProtocol>
-/\ rbFailed = TRUE
-/\ wsLock = "d"
-/\ done = [a |-> {}, d |-> {}]
-/\ todo = [a |-> {}, d |-> {2}]
-/\ idLock = "d"
-/\ base = [a |-> <<0, 0>>, d |-> <<0, 0>>]
-/\ pc = [a |-> "start", d |-> "rollback"]
-/\ disk = <<1, 0>>
-/\ enumLock = "d"
-
-State 8: <RolledBack line 105, col 18 to line 107, col 51 of module CompilationProtocol>
-/\ rbFailed = TRUE
-/\ wsLock = "none"
-/\ done = [a |-> {}, d |-> {}]
-/\ todo = [a |-> {}, d |-> {2}]
-/\ idLock = "none"
-/\ base = [a |-> <<0, 0>>, d |-> <<0, 0>>]
-/\ pc = [a |-> "start", d |-> "rolledBack"]
-/\ disk = <<1, 0>>
-/\ enumLock = "none"
-
-33 states generated, 31 distinct states found, 9 states left on queue.
-The depth of the complete state graph search is 8.
-The average outdegree of the complete state graph is 1 (minimum is 1, the maximum 3 and the 95th percentile is 3).
-Finished in 00s at (2026-11-04 20:27:24)
-##### C_crash.cfg (expected: FilesConsistent violated)
-Error: Invariant FilesConsistent is violated.
-Error: The behavior up to this point is:
-State 1: <Initial predicate>
-/\ rbFailed = FALSE
-/\ wsLock = "none"
-/\ done = [a |-> {}, d |-> {}]
-/\ todo = [a |-> {}, d |-> {}]
-/\ idLock = "none"
-/\ base = [a |-> <<0, 0>>, d |-> <<0, 0>>]
-/\ pc = [a |-> "start", d |-> "start"]
-/\ disk = <<0, 0>>
-/\ enumLock = "none"
-
-State 2: <DAcqId line 53, col 11 to line 55, col 69 of module CompilationProtocol>
-/\ rbFailed = FALSE
-/\ wsLock = "none"
-/\ done = [a |-> {}, d |-> {}]
-/\ todo = [a |-> {}, d |-> {}]
-/\ idLock = "d"
-/\ base = [a |-> <<0, 0>>, d |-> <<0, 0>>]
-/\ pc = [a |-> "start", d |-> "hasId"]
-/\ disk = <<0, 0>>
-/\ enumLock = "none"
-
-State 3: <DAcqEnum line 56, col 13 to line 59, col 61 of module CompilationProtocol>
-/\ rbFailed = FALSE
-/\ wsLock = "none"
-/\ done = [a |-> {}, d |-> {}]
-/\ todo = [a |-> {}, d |-> {}]
-/\ idLock = "d"
-/\ base = [a |-> <<0, 0>>, d |-> <<0, 0>>]
-/\ pc = [a |-> "start", d |-> "hasBoth"]
-/\ disk = <<0, 0>>
-/\ enumLock = "d"
-
-State 4: <DAcqWs line 60, col 11 to line 63, col 57 of module CompilationProtocol>
-/\ rbFailed = FALSE
-/\ wsLock = "d"
-/\ done = [a |-> {}, d |-> {}]
-/\ todo = [a |-> {}, d |-> {1, 2}]
-/\ idLock = "d"
-/\ base = [a |-> <<0, 0>>, d |-> <<0, 0>>]
-/\ pc = [a |-> "start", d |-> "promote"]
-/\ disk = <<0, 0>>
-/\ enumLock = "d"
-
-State 5: <Promote line 85, col 15 to line 90, col 63 of module CompilationProtocol>
-/\ rbFailed = FALSE
-/\ wsLock = "d"
-/\ done = [a |-> {}, d |-> {1}]
-/\ todo = [a |-> {}, d |-> {2}]
-/\ idLock = "d"
-/\ base = [a |-> <<0, 0>>, d |-> <<0, 0>>]
-/\ pc = [a |-> "start", d |-> "promote"]
-/\ disk = <<1, 0>>
-/\ enumLock = "d"
-
-State 6: <Crash line 108, col 13 to line 110, col 51 of module CompilationProtocol>
-/\ rbFailed = FALSE
-/\ wsLock = "none"
-/\ done = [a |-> {}, d |-> {1}]
-/\ todo = [a |-> {}, d |-> {2}]
-/\ idLock = "none"
-/\ base = [a |-> <<0, 0>>, d |-> <<0, 0>>]
-/\ pc = [a |-> "start", d |-> "crashed"]
-/\ disk = <<1, 0>>
-/\ enumLock = "none"
-
-15 states generated, 15 distinct states found, 6 states left on queue.
-The depth of the complete state graph search is 6.
-The average outdegree of the complete state graph is 2 (minimum is 1, the maximum 4 and the 95th percentile is 4).
-Finished in 00s at (2026-11-04 20:27:25)
+Finished in 00s at (2026-11-05 07:18:06)
+##### B_rollback_may_fail.cfg (expected: no error)
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 8.6E-16
+300 states generated, 232 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 21.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 3 and the 95th percentile is 2).
+Finished in 00s at (2026-11-05 07:18:07)
+##### C_crash.cfg (expected: no error)
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.9E-15
+422 states generated, 308 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 21.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 4 and the 95th percentile is 3).
+Finished in 00s at (2026-11-05 07:18:07)
 ##### D_all_faults_safety.cfg (expected: no error)
 Model checking completed. No error has been found.
   Estimates of the probability that TLC did not check all reachable states
   because two distinct states had the same fingerprint:
-  calculated (optimistic):  val = 3.2E-15
-530 states generated, 368 distinct states found, 0 states left on queue.
-The depth of the complete state graph search is 16.
+  calculated (optimistic):  val = 3.6E-15
+574 states generated, 412 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 21.
 The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 4 and the 95th percentile is 3).
-Finished in 00s at (2026-11-04 20:27:26)
-##### Sanity probes (manual, temporary invariants appended to a temp copy; outputs not retained)
-- config A with Probe == pc["a"] # "committed": violated (apply can commit)
-- config A with Probe == pc["a"] # "rejected": violated (stale apply is rejected)
-- config A with Probe == pc["d"] # "committed": violated (direct can commit)
-- mutant with both apply freshness checks replaced by TRUE, invariant NoLostUpdate: violated (the property detects a missing freshness check)
+Finished in 00s at (2026-11-05 07:18:08)
+##### Mutation probes (temporary copies of the module, config C_crash.cfg; outputs not retained)
+- direct compilation reads state without calling recover (DRecover does not roll back the journal): FilesConsistent violated (the pre-staging recovery is necessary)
+- Recover inside promotion ignores the journal: no violation in the bounded model (that recovery is a backstop here: apply's freshness checks reject stale previews and direct already recovered before staging)
+- Earlier probes (apply can commit, apply can be rejected, direct can commit, and removal of both apply freshness checks violating NoLostUpdate) applied to the pre-journal model and were not repeated.

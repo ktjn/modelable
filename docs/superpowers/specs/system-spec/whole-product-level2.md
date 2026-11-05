@@ -7,8 +7,8 @@
 
 | Suite | Result | Output |
 |---|---|---|
-| Python: 13 test modules across browser API/conformance/conversation, LSP conversation/integration/server, CLI compile/errors, registry IDs, file transaction, preview recovery (`-n 0`) | 300 passed, 4 skipped, 2 reruns | [txt](evidence/level2/python-level2.txt), [JUnit](evidence/level2/python-level2.xml) |
-| Web (vitest): workspace repository, persistent-workspace hook, workspace model, recovery UI | 24 passed, 4 files | [txt](evidence/level2/web-level2.txt) |
+| Python: 13 test modules across browser API/conformance/conversation, LSP conversation/integration/server, CLI compile/errors, registry IDs, file transaction, preview recovery (`-n 0`) | 307 passed, 4 skipped | [txt](evidence/level2/python-level2.txt), [JUnit](evidence/level2/python-level2.xml) |
+| Web (vitest): workspace repository, persistent-workspace hook, workspace model, recovery UI | 28 passed, 4 files | [txt](evidence/level2/web-level2.txt) |
 
 - The 2 reruns come from the one `flaky`-marked case in `test_file_transaction.py` (project policy: pytest-rerunfailures with a recorded cause). No cited evidence record uses that test.
 - The 4 skips are Windows symlink and POSIX-metadata cases; none is cited as passing evidence.
