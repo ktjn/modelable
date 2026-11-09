@@ -1,0 +1,6 @@
+{
+  "checked": 283,
+  "resolved": 283,
+  "missing": [],
+  "disposition": "All local Markdown link targets resolve within the published 0.5.0 export; the previous PACKAGING.md -> RELEASING.md gap was resolved upstream."
+}

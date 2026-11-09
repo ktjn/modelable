@@ -2,6 +2,36 @@
 
 Toolkit versions (`system-spec --version`) are independent of a modeled system's `system.version`. Spec files stay valid across releases when changes only add optional fields; a validator older than a field rejects specs that use it.
 
+## Unreleased
+
+## 0.5.0
+
+Compatibility: component isolation is opt-in (`standalone_harness`, `provided_mocks`, `--check-isolation`); existing specs validate unchanged. `--check-isolation` executes project code from `--root`; run it only on trusted repositories.
+
+- Component isolation ([`COMPONENT-ISOLATION.md`](COMPONENT-ISOLATION.md)): `Component.standalone_harness` and `Component.provided_mocks` (`MockBinding`: `path`, `contract_suite`, `scenarios`); `--check-isolation --root` runs each harness with dependency fakes and each provided capability's contract suite against the real provider and its programmable mock. Example: [`examples/components/`](examples/components/README.md).
+- Docs: [`REPLACEMENT.md`](REPLACEMENT.md) (implementation replacement); greenfield/brownfield convergence clarified.
+
+Compatibility: additions to the optional experience extension; existing experience specs validate unchanged. Specs that use the new fields need this validator.
+
+- Experience feedback from the observability-spec pilot (#99 to #106): `Scenario.requirements` (several requirements, all must pass); `Experience.entries` and `Interaction.from_entry` (starts that are not views); `Spec.state_sets` and `View.state_sets` (shared view states); `Constraint` (`value`, `requirement`) in `Experience.constraints`; `VisualReference.consistent_with`; `Experience.exhaustive` and `not_exercised` with new `EXP-08`. `EXP-02` and `EXP-07` cover the new references. Documented in-view actions as self-transitions and the split between failure modes and invariants.
+Compatibility: the experience extension is optional; specs without `views` and `experiences` validate unchanged. Specs that use it need this validator.
+
+- Optional experience specification ([`EXPERIENCE.md`](EXPERIENCE.md), `spec.md` § 13): `Spec.views` and `Spec.experiences` (interactions, view-scoped states, scenarios, visual references with illustrative/normative authority). Invariants `EXP-01` to `EXP-07`, applied only to declared experiences; `--check-artifacts` checks reference files. Example: [`examples/experience/`](examples/experience/README.md). Addresses issue #97 (adoption steps 1-3).
+Compatibility: all additions are optional; existing specs validate unchanged. Specs that use the new fields need this validator (older ones reject unknown fields). `REQ-09` applies only where `superseded_by` is set.
+
+- `Requirement.statement`, `priority`, `owner` and `superseded_by`; `description` on `Capability`, `Component` and `Risk`; `owner` on `Component` and `Risk`. `priority` has no effect on invariants and is listed by `--plan`. `REQ-09` (inventory): `superseded_by` is set only on deprecated requirements and names an active requirement.
+- `system.verification_categories` narrows `REQ-01` to a project profile; omitted categories are reported (`omitted_categories` with `--json`, a `note:` line otherwise).
+- Docs: `refines` means co-obligation (`REQ-08`); use `depends_on` across priority or phase.
+- Example: [`examples/business/`](examples/business/README.md), a business-level specification validated at `verification`.
+- Docs: [`FEATURE.md`](FEATURE.md) § Decompose and hand off states the requirement-first order, sub-requirement split per component, wave-based parallelism, handoff bundle and join in one place; no behavior change.
+- Docs: [`FEATURE.md`](FEATURE.md) § Using with OpenSpec maps an OpenSpec change workflow onto the feature steps; no integration is provided.
+- Skill [`quint`](.github/skills/quint/SKILL.md): Quint models (typecheck, `run` simulation as `analysis`, `verify` bounded check as `model-check`) recorded as Evidence.
+Compatibility: `REQ-08` is a new release-stage invariant. Specs where a mandatory or mitigating requirement is refined (`refines`) by a requirement without passing evidence now fail at `release`; the new flags are opt-in.
+
+- `REQ-08` (release): obligation passes to refining requirements (sub-requirements), and obligated or mitigating requirements are verified only when every sub-requirement is. A parent still needs its own (integration) evidence.
+- `--check-report JUNIT` / `--emit-evidence JUNIT`: tests bind exactly one requirement version through a `verifies` JUnit property; `test` evidence must agree with the run reports and can be derived from them. `reference-implementation/conftest.py` shows a pytest `verifies` marker.
+- Docs: [`MODEL-SCOPE.md`](MODEL-SCOPE.md) states that the metamodel is conceptual and platform independent; methodology and the reference validator are optional, and acceptance policy belongs to the consuming project.
+
 ## 0.4.0
 
 Compatibility: all additions are optional or opt-in (`imports`, `include`, `domain`, `external`, `via`, `test_scope`, `Evidence.criteria`); existing specs validate unchanged. Specs that use them need a 0.4.0+ validator (older ones reject unknown fields). New invariants apply only when their feature is used (`IMP-01`, `EV-06`, `COMP-11`, `DOM-*`).

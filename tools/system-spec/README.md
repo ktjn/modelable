@@ -1,6 +1,8 @@
-# AI-Native System Specification
+# System Specification — Platform-Independent Metamodel
 
-Contract-first metamodel, development workflows, and reference tooling for designing **greenfield** systems and onboarding **brownfield** systems with bounded AI context.
+A platform-independent metamodel for describing systems, components, capabilities, data, requirements, risks and verification. AI-driven development is one supported application, not a requirement.
+
+**[Scope and authority](MODEL-SCOPE.md):** projects choose their development methodology, policies, verification criteria and enforcement. The reference implementation is optional, illustrative tooling—not a strict or authoritative validator.
 
 ## Overview
 
@@ -10,7 +12,24 @@ Implementations are not the source of truth — capabilities, invariants, contra
 Capability → Contract → Data Model → Verification → Implementation → Evidence
 ```
 
-## Standalone Components
+## Implementation-independent development lifecycle
+
+The durable system definition is its capabilities, requirements, risks, contracts, invariants and verification obligations. Source code is a replaceable realization, not the specification's authority. Passing checks provides evidence for the behaviors and conditions they cover; it does not establish exhaustive behavioral completeness.
+
+Two optional entry tracks converge on an accepted, reviewed specification:
+
+- **Greenfield:** intended outcomes → behavioral contracts and risks → logical composition → verification design → implementation → evidence and acceptance.
+- **Brownfield:** existing behavior and code → observed inventory → logical and behavioral characterization → explicit decisions about preserved versus corrected behavior → accepted specification. Scope maturity is recorded per slice, not automatically for the whole product.
+
+After convergence, both use the [feature change workflow](FEATURE.md) for evolution, or the [replacement workflow](REPLACEMENT.md) to construct a new implementation without depending on the old source. The acceptance authority remains the consuming project. Architecture layers/domains and source/test organization are optional constraints, not intrinsic measures of behavioral conformance.
+
+## Component isolation and replaceability
+
+The optional [component isolation methodology](COMPONENT-ISOLATION.md) requires standalone execution with substituted dependencies and programmable mocks of provided capabilities. The opt-in reference check `--check-isolation --root <repo>` executes standalone harnesses and the same capability contract suite against the real and mock adapters. It checks declared bindings and executed outcomes, **not** complete semantic equivalence, security sandboxing or exhaustive scenario coverage.
+
+## Standalone Components (Optional AI-Driven Workflow)
+
+The following describes one reference methodology; adopting projects may choose different work boundaries, testing strategies and gates.
 
 A component is the unit of work: it should be buildable and testable from its own `--context` slice, so an agent needs that slice, not the whole repository. The model supports this with explicit boundaries:
 
@@ -19,16 +38,19 @@ A component is the unit of work: it should be buildable and testable from its ow
 - Each required capability has a fake under `test_paths` (`fakes`, `COMP-09`), and tests may not import other components (`--check-drift`), so tests run against fakes only; `test_scope: integration` exempts assembly/end-to-end tests, which may use providers of required capabilities.
 - Platforms and third-party APIs are `external` components (`COMP-11`): contracts only, drawn outside the system; runtime-mediated dependencies name their mediator in `via`.
 - A faked capability needs a verified `contract` requirement at its provider (`COMP-10`).
-- Not enforced: that a fake matches the provider's contract tests, or that a slice alone suffices to build the component. See [`examples/components/`](examples/components/README.md).
+- Not enforced: that a fake matches the provider's contract tests, that a slice alone suffices to build the component, or that a provider publishes a programmable mock. See [component isolation](COMPONENT-ISOLATION.md).
+- In the stricter component isolation methodology, providers publish configurable mocks of their own capabilities, consumers run against substitutes, and shared contract suites exercise real and mock adapters.
 
 | Check | Command | Verifies | Does not verify |
 |---|---|---|---|
 | Metadata | `system-spec spec.yaml --stage <stage>` | Invariants for the stage, incl. `COMP-08` | Any file on disk |
+| Isolation | `--check-isolation --root <repo>` | Standalone commands execute successfully, dependency substitutes exist, and shared real/mock contract suites pass | Hermetic isolation, untested scenarios or full behavioral equivalence |
 | Artifacts | `--check-artifacts --root <repo>` | Declared source/test/schema paths exist, stay inside the root, and hashes match | Content correctness |
 | Drift | `--check-drift --root <repo>` | Python and JS/TS imports vs `requires`/`bindings`; tests importing other components; JSON Schema properties vs model fields | Other languages/formats, field types |
 | Compatibility | `--compat OLD.yaml` | Capability and data-model changes vs the old spec | Clause semantics |
 | Plan | `--plan ID` | Provider-first waves of affected components, their bindings, requirements and evidence to revisit (no validation) | That the plan is sufficient |
 | Export | `--export backstage\|structurizr` | One-way catalog / C4 workspace output from the spec | Round-tripping; ownership (Backstage `--owner` is a parameter) |
+| Test report | `--check-report JUNIT` (repeatable) | Every test binds exactly one current requirement version (`verifies` property); `test` evidence matches the reports (present, same requirement, version and result). `--emit-evidence JUNIT` derives the records | That tests are meaningful or cover every criterion |
 | Return | `--check-return FILE` | An implementer's handoff return covers every requirement of the component, versions are current, failures are unmet, changes stay in scope | That results are true or tests meaningful |
 | Scope | `--check-scope COMPONENT --changed FILE\|-` | Changed paths stay inside the component's source/test/fake/owned-schema paths (path comparison only; `--allow` extras) | File contents, selector-based tests |
 
@@ -36,11 +58,13 @@ A component is the unit of work: it should be buildable and testable from its ow
 
 - **Core Rules & Metamodel**
   - [`CONSTITUTION.md`](CONSTITUTION.md) — shared principles, artifact rules, 10 verification categories, gate decision records, implementation handoffs, and change/reverification loop.
-  - [`spec.md`](spec.md) — normative metamodel, 73 stage/compatibility invariants (§ 11), and reference serialization format.
+  - [`spec.md`](spec.md) — normative metamodel, 83 stage/compatibility invariants (§ 11), and reference serialization format.
 - **Development Tracks**
   - [`GREENFIELD.md`](GREENFIELD.md) — 12-phase, 4-gate workflow (`discovery` → `architecture` → `verification` → `release`), AI Execution Rule, and prompts for new systems.
   - [`BROWNFIELD.md`](BROWNFIELD.md) — 4 adoption levels (`inventory` → `architecture` → `verification` → `release`), 5-step reverse-discovery protocol, risk waivers, and strangler migration prompts for existing systems.
+  - [`COMPONENT-ISOLATION.md`](COMPONENT-ISOLATION.md) — standalone execution, dependency substitution, provider-owned programmable mocks and contract-fidelity verification.
   - [`FEATURE.md`](FEATURE.md) — 10-step workflow for adding or changing behavior in an already-specified system: impact, compatibility, per-component handoffs with fakes and tests, re-verification.
+  - [`EXPERIENCE.md`](EXPERIENCE.md) — optional experience specification: views, interactions, view states, scenarios and visual references for UI/UX, CLI and conversational interfaces.
 - **Worked Examples**
   - [`examples/greenfield/`](examples/greenfield/README.md) — end-to-end commerce checkout & inventory walkthrough ([`spec.yaml`](examples/greenfield/spec.yaml), [`Inventory.tla`](examples/greenfield/Inventory.tla), [`Inventory.als`](examples/greenfield/Inventory.als)).
   - [`examples/components/`](examples/components/README.md) — standalone components with their own source, tests, schema and drift/`COMP-08` checks.
@@ -50,6 +74,7 @@ A component is the unit of work: it should be buildable and testable from its ow
 - **Skills**
   - [`.github/skills/tla/SKILL.md`](.github/skills/tla/SKILL.md) — TLA+/TLC concurrency and protocol verification.
   - [`.github/skills/alloy/SKILL.md`](.github/skills/alloy/SKILL.md) — Alloy structural and relational invariant verification.
+  - [`.github/skills/quint/SKILL.md`](.github/skills/quint/SKILL.md) — Quint typed state-machine verification (simulation and bounded model checking).
   - [`.github/skills/modelable/SKILL.md`](.github/skills/modelable/SKILL.md) — deriving `.mdl` data contracts, typed codegen, and field-level compatibility checks.
 - **Distribution & Adoption**
   - [`WIRING.md`](WIRING.md) — connecting an exported toolkit to a project, agent instructions, skills, CI and upgrades.
