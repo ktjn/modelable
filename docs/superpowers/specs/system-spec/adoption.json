@@ -1,6 +1,6 @@
 {
-  "recorded_date": "2026-10-31",
-  "source_revision": "72de182a47e1c045f586be73a2c3a79b68f9130b",
+  "recorded_date": "2026-11-09",
+  "source_revision": "deb6d668f4f0b3d3bafe60c715e1d3e6904f1609",
   "product_version": "1.15.2",
   "system_spec_revision": "b187e43628c7dc89935d17c2c382094ad37eb2eb",
   "validator_sha256": "fd773d80d64938a66f0300a0067c86fbd014531bc5feef3933c35463723e3795",
@@ -11,18 +11,18 @@
     "modelable_commit_containing_original_artifacts": "5f48ed00654ed336bcce96acc954e7a7ebfe423c"
   },
   "source_sha256": {
-    "cli/src/modelable/operations/compilation.py": "b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3",
-    "cli/src/modelable/operations/file_transaction.py": "628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794",
+    "cli/src/modelable/operations/compilation.py": "e97c6b06adf258771e272f6232f6596ee79f9d437699c52064be062566d24eaf",
+    "cli/src/modelable/operations/file_transaction.py": "882f5272e813eb0e5e74768d4c90551a3bcdf43b38339d5648913884414f6963",
     "cli/src/modelable/operations/compilation_audit.py": "bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f"
   },
   "dependency_sha256": {
-    "cli/uv.lock": "8853fca6ec2ed6a94e9461bfe775cb418d0743c00fc7600b3ee3eb8500652b34",
-    "cli/pyproject.toml": "1e83d0f2722bc192a7d7bb4c323c3019e5d3480867331b460d7c048a34801c74"
+    "cli/uv.lock": "408d47014a4aa33b08e9391fe9d3812a02948eaccbbef5aec835d7d5110b48e2",
+    "cli/pyproject.toml": "028b8cd32882e2d14d930a363ad0471dc949b977b04dec8013e8d4c614b3255e"
   },
   "artifact_sha256": {
-    "compilation.yaml": "c8a58420b8416f26d0b21d13057fdd2974b233f6209e4ef70068cf21f50d9743",
+    "compilation.yaml": "b2164a27c6351f239216941aa35534c17bdb7ff7916259d4a84762c6510c830a",
     "inventory.yaml": "bd3627fe6aa59b6b4ecbed0c5f26235eb2768217057e705f04b225d9f7cb968e",
-    "schema.json": "abc8a1b150435aacf52af4d53c0811507af6462b640480fcc360d81d0c2fdf13",
+    "schema.json": "84596ec00f8ed866bcce2d90d2e844ae16b46c980ba568a1ba0f7530a3486595",
     "schema-baseline.json": "3ae1d114cf78793e8573f97995a74befa56c6c9f9de45e547f5282e8af745d22",
     "evidence/characterization-current.txt": "8de6688dad28a3bb24e3291aafb08854d2a4fe26663de071cd91ac38ab563c88",
     "evidence/characterization-environment.json": "aaa032a3966d46f74dc03a774c62b15a1f5e4a1f75d10fe5f1d4018e2c1ec080",
@@ -50,12 +50,25 @@
     "evidence/adoption-before-recovery.json": "17871aba228a5fb23c2f3d7e7e8cad89fcfbd2d545ef14824e817069f6638d4e",
     "evidence/compilation-before-recovery.yaml": "eb35b4f727f6f2aa3cea367d1258fe9ee99f675a32975ce2465caa44d8518486",
     "compilation-recovery.md": "4f3d8507e379c87b2fdb6a3e970eb472ea56632543f379ea169880fe51b9f85a",
-    "evidence/recovery-validation.json": "fcd703e5809076897bf8c0372669cbd44587e69b4c950b09b30d94dd9eb02ab3"
+    "evidence/recovery-validation.json": "fcd703e5809076897bf8c0372669cbd44587e69b4c950b09b30d94dd9eb02ab3",
+    "whole-product.yaml": "5ef86ded0f343cbacf54f25aa13b13246199d7451382d27d81b7c2585febe33a",
+    "compilation-contract-proposal.yaml": "d1b7d07c7c082fd0adb5e150f304423b6878b5dcd7f951f093e198ee1c13f6fe",
+    "evidence/journal-characterization.txt": "0cfc69d1323b5b558d01f4d1aab1f21cc6d1145e53db89193fa09b4758dd1044",
+    "evidence/journal-characterization.xml": "05ad0fa43d46d09120e4e444969fdd6fe9caf578ab544c86e1e5580407e3b53d",
+    "evidence/journal-environment.json": "71aba5e1ef305964278d53be1630a803f425b1ebc85f963aaa9982312443c174",
+    "evidence/journal-linux.txt": "d3f8c9392ee704e205e85e774d8da8b572042b2734cb0e1a1dfccc70b3c5a3e3",
+    "evidence/journal-linux.xml": "2f55e51e25fa5956e227ef06519beb6baa18c580f2cf56c0bd6093f5f30ea46b",
+    "evidence/journal-linux-environment.json": "dfc6a066affb75d5de0d3d8d8a0f13e39611dec3c812081de3c011d0af999495",
+    "evidence/journal-linux-run.py": "83580a8e6784dfd0af990e31f1a5b176a38bc829aa45c8fa4527174c2af7374d",
+    "evidence/compilation-before-toolkit-0.5.0.yaml": "c8a58420b8416f26d0b21d13057fdd2974b233f6209e4ef70068cf21f50d9743",
+    "evidence/whole-product-before-toolkit-0.5.0.yaml": "9039af241a8a18fcaea38c7469f6d491e45f0207523975f03f8c2b0ee9d78f81",
+    "evidence/adoption-before-toolkit-0.5.0.json": "1882b67f94c5d61638eedd2ce25de1862b4a1dd6975f6dea854ee77bea69ef95",
+    "evidence/schema-before-toolkit-0.5.0.json": "abc8a1b150435aacf52af4d53c0811507af6462b640480fcc360d81d0c2fdf13"
   },
   "scope": "Current bounded compilation evidence only; inventory.yaml and baseline.json preserve the original whole-product observation.",
   "classification_policy": "Existing restricted handling policy retained; observed product classification and full data mapping remain open.",
   "result": {
-    "passed": 238,
+    "passed": 240,
     "failed": 0,
     "skipped": 2
   },
@@ -65,7 +78,7 @@
   ],
   "byte_convention": "SHA-256 of exact worktree bytes including checkout line endings",
   "dto_field_sets_match_source": true,
-  "historical_adoption": "evidence/adoption-before-recovery.json",
+  "historical_adoption": "evidence/adoption-before-toolkit-0.5.0.json",
   "supplemental_runs": [
     {
       "requirement_id": "MOD-COMP-10",
@@ -85,19 +98,31 @@
       "skipped": 0,
       "source_revision": "72de182a47e1c045f586be73a2c3a79b68f9130b",
       "platform": "Linux Docker filesystem",
-      "scope": "Two symlink cases and two cleanup regressions; only the named symlink cases establish MOD-COMP-10."
+      "scope": "Two symlink cases and two cleanup regressions; only the named symlink cases establish MOD-COMP-10.",
+      "historical": true
+    },
+    {
+      "requirement_id": "MOD-COMP-10",
+      "evidence_id": "ev-mod-comp-10-recovery-linux",
+      "environment": "evidence/journal-linux-environment.json",
+      "passed": 4,
+      "skipped": 0,
+      "source_revision": "deb6d668f4f0b3d3bafe60c715e1d3e6904f1609",
+      "platform": "Linux Docker filesystem",
+      "scope": "Two symlink cases and two cleanup regressions against current promotion-journal source; only the named symlink cases establish MOD-COMP-10."
     }
   ],
   "current_toolkit": {
     "distribution": "system-spec-ref",
-    "version": "0.4.0",
-    "receipt": "evidence/toolkit-pypi-0.4.0.json",
-    "schema_sha256": "abc8a1b150435aacf52af4d53c0811507af6462b640480fcc360d81d0c2fdf13",
-    "validator_sha256": "18f6384a950d4ef85857e80aee48a40d46a052287f73d5406e8c2bdd52348f12",
-    "migration": "toolkit-upgrade-0.4.0.md",
-    "prior_specification": "evidence/compilation-before-toolkit-0.4.0.yaml",
-    "prior_manifest": "evidence/adoption-before-toolkit-0.4.0.json",
-    "prior_schema": "evidence/schema-before-toolkit-0.4.0.json",
-    "capture_policy": "Original source/evidence/schema verifier pins describe retained historical execution. Added test paths, criterion mappings and environment fields are reviewed metadata, not reruns or contract activation."
+    "version": "0.5.0",
+    "receipt": "evidence/toolkit-pypi-0.5.0.json",
+    "schema_sha256": "84596ec00f8ed866bcce2d90d2e844ae16b46c980ba568a1ba0f7530a3486595",
+    "validator_sha256": "1c97b345060ae60763c073f5aeacf8d15e4680ca7dacafce5007b5deea7c117c",
+    "migration": "toolkit-upgrade-0.5.0.md",
+    "prior_specification": "evidence/compilation-before-toolkit-0.5.0.yaml",
+    "prior_whole_product_specification": "evidence/whole-product-before-toolkit-0.5.0.yaml",
+    "prior_manifest": "evidence/adoption-before-toolkit-0.5.0.json",
+    "prior_schema": "evidence/schema-before-toolkit-0.5.0.json",
+    "capture_policy": "Compilation source/evidence pins are refreshed at deb6d668 with fresh Windows (240 passed, 2 skipped) and Linux Docker (4 passed, 0 skipped) runs following PR #908. Prior 0.4.0 specification, schema, manifest and captures remain historical."
   }
 }

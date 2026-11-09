@@ -12,6 +12,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Raise the VS Code extension's `engines.vscode` to `^1.144.0` so the published package matches the `@types/vscode` API surface it is compiled against.
+
 ### Fixed
 
 - Recover from a compilation that was killed mid-promotion: the next compilation rolls the workspace back to its pre-promotion files using a journal kept under `.modelable/locks`. An unreadable journal blocks compilation instead of being ignored.

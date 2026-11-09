@@ -29,7 +29,7 @@ Rules:
 
 1. **Discovery** (`--stage discovery`): Phases 1–2; capabilities `specified` with non-empty contract clauses.
 2. **Architecture** (`--stage architecture`): Phases 3–6, 9–10; components `specified`, dependencies resolved, layer rules, data models, interface contracts and context budgets satisfied.
-3. **Verification** (`--stage verification`): Phases 7–8; requirements `specified` across all 10 categories; formal models checked with [`tla`](.github/skills/tla/SKILL.md) or [`alloy`](.github/skills/alloy/SKILL.md) where indicated.
+3. **Verification** (`--stage verification`): Phases 7–8; requirements `specified` across all 10 categories; formal models checked with [`tla`](.github/skills/tla/SKILL.md), [`quint`](.github/skills/quint/SKILL.md) or [`alloy`](.github/skills/alloy/SKILL.md) where indicated.
 4. **Release** (`--stage release`): Phases 11–12; all active entities `verified`, passing current `Evidence` for all mandatory and mitigating requirements, all risks disposed, zero waivers.
 
 For each gate, use the [shared decision record](CONSTITUTION.md#gate-decision-record): review the artifacts, record findings and decide whether to proceed or rework.
@@ -42,6 +42,18 @@ For each gate, use the [shared decision record](CONSTITUTION.md#gate-decision-re
 | Release | Requirement-linked execution results for current revisions, traceability, consumer compatibility/migration results and risk dispositions | All mandatory and mitigating obligations are satisfied, unresolved failures are addressed and no waiver remains |
 
 If a gate fails, return to the earliest affected phase; do not advance by relabeling an incomplete artifact. Validate each gate with `metamodel.py <spec> --stage <gate>` and pass only the target component's slice (`--context <component-id>`) to the coding agent. At implementation (AI Execution Rule step 9), derive `.mdl` and typed data artifacts with [`modelable`](.github/skills/modelable/SKILL.md).
+
+## Handoff to specification-controlled development
+
+Greenfield work begins with intended outcomes rather than preexisting code. Discovery establishes observable behavior, invariants and failures; architecture identifies logical boundaries, layers and domains independently of physical source layout. Verification obligations are specified before implementation, including assumptions and applicable failure scenarios.
+
+At the verification gate, the scope's reviewed specification becomes the accepted behavioral baseline for implementation. Record any unknown or deliberately unconstrained behavior; do not substitute implementation details for missing contracts. Implementation agents may choose language, algorithm and physical decomposition within the project's adopted constraints.
+
+After acceptance, use [FEATURE.md](FEATURE.md) for behavioral evolution and [REPLACEMENT.md](REPLACEMENT.md) for an independently constructed alternative implementation. New evidence is required for each new implementation revision.
+
+## Component isolation
+
+When [component isolation](COMPONENT-ISOLATION.md) is adopted, derive required/provided capability seams at architecture design time; specify a standalone invocation harness and a programmable provider-owned mock for each provided capability. Build consumers against those published mocks without waiting for real providers. At verification, check both standalone execution and mock-versus-provider contract conformance; integration verification remains separate.
 
 ## Implementation and Acceptance Loop
 

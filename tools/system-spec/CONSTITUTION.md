@@ -1,12 +1,14 @@
 # AI System Development Constitution
 
-Shared fundamentals for all work. Track-specific sequencing: [greenfield](GREENFIELD.md) (new systems), [brownfield](BROWNFIELD.md) (existing systems). Metamodel: [`spec.md`](spec.md).
+**Optional development methodology.** This constitution describes one opinionated way to apply the [metamodel](MODEL-SCOPE.md); its rules, architecture choices, gates and acceptance criteria are not universally binding. Consuming projects select or adapt them.
+
+Shared fundamentals for projects adopting this methodology. Track-specific sequencing: [greenfield](GREENFIELD.md) (new systems), [brownfield](BROWNFIELD.md) (existing systems). Metamodel: [`spec.md`](spec.md).
 
 This document defines shared obligations; tracks define sequencing. Tools may check parts of an artifact, but gate decisions require review of its meaning and evidence.
 
 ## Fundamental Principle
 
-Implementations are not the source of truth. The source of truth is:
+Within this methodology, implementations are not the source of truth. The source of truth is:
 
 1. Capabilities
 2. Business rules
@@ -65,6 +67,10 @@ components:
 - Contracts and invariants belong to `capabilities`; requirements target capabilities, components or data models.
 - No implementation details in component specifications.
 
+### Independent component execution and programmable mocks
+
+For projects adopting [component isolation](COMPONENT-ISOLATION.md), every component is independently runnable/invocable with substituted required capabilities; every provided capability has a provider-owned, versioned programmable mock for consumers. Consumer-owned `fakes` alone are insufficient. Mocks implement accepted behavioral contracts, support controlled scenarios and resettable state, and are verified against provider contract tests. Use separate integration tests with real providers. These are optional methodology obligations, not universal metamodel invariants.
+
 ## Data Contracts
 
 - Every externally visible structure is explicitly defined.
@@ -102,7 +108,7 @@ No implementation is accepted until all categories are addressed:
 ## Formal Verification
 
 - Assess per component. Indicators: concurrency, distributed state, financial transactions, safety-critical logic, complex state machines, protocols.
-- If applicable, produce TLA+/Alloy models or state machines; see skills [`tla`](.github/skills/tla/SKILL.md) (concurrency, protocols) and [`alloy`](.github/skills/alloy/SKILL.md) (structure, relations).
+- If applicable, produce TLA+/Alloy/Quint models or state machines; see skills [`tla`](.github/skills/tla/SKILL.md) (concurrency, protocols), [`quint`](.github/skills/quint/SKILL.md) (typed state machines) and [`alloy`](.github/skills/alloy/SKILL.md) (structure, relations).
 - Record bounded checks as `method: model-check` with explicit `bounds` and unbounded proofs as `method: proof` ([`spec.md` § 8](spec.md#8-verification)).
 
 ## Layering
@@ -126,7 +132,7 @@ For each bounded change, give the implementer:
 
 - The capability and expected outcome; accepted contract and data-model versions; affected invariants.
 - For local multi-step APIs, the state transitions, confirmation/freshness obligations, committed writes and recovery for each failure outcome. An exception after commit does not imply rollback.
-- The component boundary (`source_paths`, `test_paths`), permitted dependencies and relevant consumer/provider contracts. The component's own tests live under `test_paths` and reach other components only through declared required capabilities, so the handoff is buildable and testable from its `--context` slice.
+- The component boundary (`source_paths`, `test_paths`), permitted dependencies, relevant consumer/provider contracts, standalone harness and runnable dependency substitutions where component isolation is adopted. Include published programmable mocks for provided capabilities and their contract-suite evidence.- The component boundary (`source_paths`, `test_paths`), permitted dependencies and relevant consumer/provider contracts. The component's own tests live under `test_paths` and reach other components only through declared required capabilities, so the handoff is buildable and testable from its `--context` slice.
 - Requirement IDs, measurable acceptance criteria, verification procedures and expected failure cases.
 - Applicable formal-model conclusions, assumptions, open risks and active waivers.
 - Allowed change scope and the evidence to return. Include neighboring contracts without importing unrelated implementation context.

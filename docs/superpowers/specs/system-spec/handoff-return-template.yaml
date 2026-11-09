@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../../../tools/system-spec/reference-implementation/handoff-return.schema.json
 # Starting template, not execution evidence. Replace unmet entries with actual results for the task.
 component: compilation-unit
-base: 0aa1949afea74e4ba1daa17c312996b7982caa29
+base: deb6d668f4f0b3d3bafe60c715e1d3e6904f1609
 results: []
 unmet:
 - requirement: MOD-COMP-01

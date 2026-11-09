@@ -325,20 +325,20 @@ evidence: []
 subject_bindings:
   direct-compilation:
     version: '2.0'
-    revision: 72de182a47e1c045f586be73a2c3a79b68f9130b
+    revision: deb6d668f4f0b3d3bafe60c715e1d3e6904f1609
     artifacts: &id001
-      cli/src/modelable/operations/compilation.py: b003590e348e061f684a9f78b98a9ae61e8f8748afb3f8ff324e3df04f7d7cc3
-      cli/src/modelable/operations/file_transaction.py: 628fe1a047fb8ecd682ba5eb2f1d1545665f84dd90a4038da1e6a6e5e3785794
+      cli/src/modelable/operations/compilation.py: e97c6b06adf258771e272f6232f6596ee79f9d437699c52064be062566d24eaf
+      cli/src/modelable/operations/file_transaction.py: 882f5272e813eb0e5e74768d4c90551a3bcdf43b38339d5648913884414f6963
       cli/src/modelable/operations/compilation_audit.py: bd899bd3b6d80a7641426dc892779f8bdd73987f5ba743a04b3cd164dce4a96f
   preview-compilation:
     version: '2.0'
-    revision: 72de182a47e1c045f586be73a2c3a79b68f9130b
+    revision: deb6d668f4f0b3d3bafe60c715e1d3e6904f1609
     artifacts: *id001
   apply-compilation:
     version: '2.0'
-    revision: 72de182a47e1c045f586be73a2c3a79b68f9130b
+    revision: deb6d668f4f0b3d3bafe60c715e1d3e6904f1609
     artifacts: *id001
   discard-compilation:
     version: '1.0'
-    revision: 72de182a47e1c045f586be73a2c3a79b68f9130b
+    revision: deb6d668f4f0b3d3bafe60c715e1d3e6904f1609
     artifacts: *id001

@@ -2,7 +2,7 @@
 
 - Historical intake: 2026-10-31. Product baseline: `0fead2321bdef11c72b2746eb57f3a8b0e327c94` (Modelable 1.15.1).
 - Historical metamodel: system-specification `00188b037797fd37240dab9a0a11c431815e3ac9`; original schema retained as [schema-baseline.json](schema-baseline.json), original hashes/environment in [baseline.json](baseline.json). The manifest describes the original files at Modelable commit `5f48ed00`, not the migrated compilation/schema files.
-- Compilation characterization: Modelable `72de182a47e1c045f586be73a2c3a79b68f9130b` (1.15.2), capture validator `b187e43628c7dc89935d17c2c382094ad37eb2eb`. Current [schema.json](schema.json), pins/hashes in [adoption.json](adoption.json), and [current recovery checks](evidence/recovery-validation.json). Prior captures remain historical.
+- Compilation characterization: Modelable `deb6d668f4f0b3d3bafe60c715e1d3e6904f1609` (1.15.2, after #908 promotion journaling), validated with `system-spec-ref==0.5.0` (historical `72de182a47e1c045f586be73a2c3a79b68f9130b` capture retained). Current [schema.json](schema.json), pins/hashes in [adoption.json](adoption.json), and [current toolkit validation](evidence/packaged-toolkit-validation-0.5.0.json). Prior captures remain historical.
 - Whole-product Level 3 **readiness record** (not accepted; release stage fails): [whole-product-level3.md](whole-product-level3.md).
 - Whole-product Level 2 **draft** (not accepted): five pinned behaviors with evidence in [evidence/level2](evidence/level2), [decision record](whole-product-level2.md); validates at `verification`.
 - Whole-product Level 1 **draft** (not accepted): [whole-product.yaml](whole-product.yaml), [decision record](whole-product-level1.md).
@@ -46,9 +46,9 @@
 
 ## Characterization and gate record
 
-Current run: **238 passed, 2 skipped, zero reruns**, CPython 3.14.5 / pytest 9.1.1 / Windows at `72de182a`. [Output](evidence/recovery-characterization.txt), [command/environment/source pins](evidence/recovery-environment.json), [manifest](adoption.json). Fresh Linux symlink/cleanup follow-up: **4 passed, 0 skipped**. [Current review](compilation-recovery.md).
+Current run: **240 passed, 2 skipped, zero reruns**, CPython 3.14.5 / pytest 9.1.1 / Windows at `deb6d668`. [Output](evidence/journal-characterization.txt), [command/environment/source pins](evidence/journal-environment.json), [manifest](adoption.json). Fresh Linux symlink/cleanup follow-up: **4 passed, 0 skipped**. [Current review](compilation-recovery.md), [toolkit upgrade](toolkit-upgrade-0.5.0.md).
 
-Earlier 221/2 and 295/6 captures retain their original source and limits. The [prior specification](evidence/compilation-before-recovery.yaml), [manifest](evidence/adoption-before-recovery.json), [Windows output](evidence/characterization-current.txt) and [environment](evidence/characterization-environment.json) are historical; they are not evidence for the changed implementation.
+Earlier 221/2, 295/6, and 238/2 (`72de182a`) captures retain their original source and limits. The [pre-0.5.0 specification](evidence/compilation-before-toolkit-0.5.0.yaml), [pre-0.5.0 manifest](evidence/adoption-before-toolkit-0.5.0.json), [recovery Windows output](evidence/recovery-characterization.txt), [recovery environment](evidence/recovery-environment.json), [prior specification](evidence/compilation-before-recovery.yaml), [manifest](evidence/adoption-before-recovery.json), [Windows output](evidence/characterization-current.txt) and [environment](evidence/characterization-environment.json) are historical; they are not evidence for the changed implementation.
 
 Run from `cli/` with a fresh, unused temp directory (do not point pytest at an existing valuable directory):
 
@@ -57,7 +57,7 @@ $onboardingTemp = Join-Path (Get-Location) ('.venv/system-spec-pytest-' + [guid]
 .\.venv\Scripts\python.exe -m pytest tests/test_compilation_service.py tests/test_identity.py tests/test_plan_protocol.py tests/test_browser_api.py tests/test_capabilities.py tests/test_spec_tracking.py tests/test_compilation_cleanup_outcome.py tests/test_lsp_compilation_recovery.py tests/test_cli_compilation_errors.py tests/test_lsp_conversation_integration.py -n 0 -q -r s --tb=short --basetemp=$onboardingTemp -p no:cacheprovider
 ```
 
-The two current Windows skips are the changed-resolved-parent and escaping-directory-symlink cases; directory symlink creation was unavailable. Both ran against the new pinned source on Linux alongside the two staging-cleanup regressions: **4 passed, 0 skipped**. Only the named symlink cases establish MOD-COMP-10. The new active Linux record supersedes the original failed Windows record; earlier Linux passes are retained as historical, not used with new source bindings. [Environment](evidence/recovery-linux-environment.json), [JUnit](evidence/recovery-linux.xml), and [recovery review](compilation-recovery.md) retain the limits. Windows privileges and universal filesystem conformance remain unproven.
+The two current Windows skips are the changed-resolved-parent and escaping-directory-symlink cases; directory symlink creation was unavailable. Both ran against the new pinned source on Linux alongside the two staging-cleanup regressions: **4 passed, 0 skipped**. Only the named symlink cases establish MOD-COMP-10. The new active Linux record supersedes the original failed Windows record; earlier Linux passes are retained as historical, not used with new source bindings. [Environment](evidence/journal-linux-environment.json), [JUnit](evidence/journal-linux.xml), and [recovery review](compilation-recovery.md) retain the limits. Windows privileges and universal filesystem conformance remain unproven.
 
 | Requirement | Source characterization in `cli/tests/test_compilation_service.py` |
 |---|---|
@@ -85,12 +85,12 @@ Prepared/reviewed by Codex from source and local test output; maintainers own ac
 
 ## Validation and bounded work
 
-Published toolkit onboarding: [toolkit-upgrade-0.4.0.md](toolkit-upgrade-0.4.0.md). Use PyPI `system-spec-ref==0.4.0`; its intact offline export is committed at [tools/system-spec](../../../../tools/system-spec/WIRING.md). Follow the exported constitution plus the brownfield track. Existing project specification paths remain authoritative; no duplicate idealized baseline is created.
+Published toolkit onboarding: [toolkit-upgrade-0.5.0.md](toolkit-upgrade-0.5.0.md) (previous: [toolkit-upgrade-0.4.0.md](toolkit-upgrade-0.4.0.md)). Use PyPI `system-spec-ref==0.5.0`; its intact offline export is committed at [tools/system-spec](../../../../tools/system-spec/WIRING.md). Follow the exported constitution plus the brownfield track. Existing project specification paths remain authoritative; no duplicate idealized baseline is created.
 
 Run from the Modelable repository root:
 
 ```powershell
-uv tool install --index-url https://pypi.org/simple system-spec-ref==0.4.0
+uv tool install --index-url https://pypi.org/simple system-spec-ref==0.5.0
 system-spec --version
 system-spec docs/superpowers/specs/system-spec/inventory.yaml --stage inventory --check-artifacts --root .
 system-spec docs/superpowers/specs/system-spec/compilation.yaml --stage verification --check-artifacts --root .
@@ -111,9 +111,9 @@ Offline fallback (Pydantic/PyYAML are already native CLI dependencies):
 uv run --project cli python tools/system-spec/reference-implementation/metamodel.py docs/superpowers/specs/system-spec/compilation.yaml --stage verification --check-artifacts --root .
 ```
 
-- [toolkit-pypi-0.4.0.json](evidence/toolkit-pypi-0.4.0.json) records the published wheel, verified installation/export bytes and current schema/validator hashes. [packaged-toolkit-validation-0.4.0.json](evidence/packaged-toolkit-validation-0.4.0.json) records installed/offline parity and remaining acceptance blockers.
-- [adoption.json](adoption.json) separates original capture/verifier pins from the current toolkit. Prior specification, schema and manifest are preserved in its `current_toolkit` record. Contracts/source bindings and verification state are unchanged; added test paths, explicit criterion mappings and environment fields are reviewed metadata, not reruns. The Linux test-file provenance correction retains its original execution artifacts and hashes.
-- Toolkit version 0.4.0 is separate from modeled contract versions. The proposal still has three expected `COMPAT-04` diagnostics; compilation release and whole-product conformance remain open.
+- [toolkit-pypi-0.5.0.json](evidence/toolkit-pypi-0.5.0.json) records the published wheel, verified installation/export bytes and current schema/validator hashes. [packaged-toolkit-validation-0.5.0.json](evidence/packaged-toolkit-validation-0.5.0.json) records installed/offline parity and remaining acceptance blockers.
+- [adoption.json](adoption.json) separates original capture/verifier pins from the current toolkit. Prior specifications, schemas and manifests are preserved in its `current_toolkit` and `previous_toolkit_0_4_0` records. Active compilation source/evidence bindings are refreshed at `deb6d668` following promotion-journaling changes (`cdab2da7`), and `whole-product.yaml` artifact hashes match worktree files.
+- Toolkit version 0.5.0 is separate from modeled contract versions. The proposal still has three expected `COMPAT-04` diagnostics; compilation release and whole-product conformance remain open.
 - Paths in source/provenance/artifact maps remain repository-relative. Review source/dependency/environment changes before reusing evidence; native semantic/manual gates remain authoritative.
 - Upgrade using a pinned package version and a fresh destination, for example `system-spec export tools/system-spec-next` (it must not exist). Compare snapshots and their provenance, follow [WIRING.md](../../../../tools/system-spec/WIRING.md), revalidate active specs at their stages, and retain historical captures/decisions.
 
