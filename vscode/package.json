@@ -16,7 +16,7 @@
     "directory": "vscode"
   },
   "engines": {
-    "vscode": "^1.140.0"
+    "vscode": "^1.144.0"
   },
   "categories": [
     "Programming Languages"
