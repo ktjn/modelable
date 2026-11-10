@@ -1,0 +1,47 @@
+name: Formal Verification
+
+on:
+  pull_request:
+    paths:
+      - 'formal/**'
+      - '.github/scripts/run_tla_verification.py'
+      - '.github/workflows/formal-verification.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'formal/**'
+      - '.github/scripts/run_tla_verification.py'
+      - '.github/workflows/formal-verification.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  formal-verification:
+    name: TLA+ Model Checking
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Java
+        uses: actions/setup-java@v5.1.0
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Python
+        uses: actions/setup-python@v6.2.0
+        with:
+          python-version: '3.14'
+
+      - name: Run TLC Model Checker
+        run: python .github/scripts/run_tla_verification.py
