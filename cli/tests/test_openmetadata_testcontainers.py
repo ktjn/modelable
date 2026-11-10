@@ -106,9 +106,10 @@ services:
       MYSQL_ROOT_PASSWORD: password
     healthcheck:
       test: mysql --user=root --password=$$MYSQL_ROOT_PASSWORD --silent --execute "use openmetadata_db"
-      interval: 15s
+      interval: 10s
       timeout: 10s
-      retries: 10
+      retries: 20
+      start_period: 30s
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:{ELASTICSEARCH_VERSION}
@@ -118,9 +119,10 @@ services:
       - xpack.security.enabled=false
     healthcheck:
       test: "curl -s http://localhost:9200/_cluster/health?pretty | grep status | grep -qE 'green|yellow' || exit 1"
-      interval: 15s
+      interval: 10s
       timeout: 10s
-      retries: 10
+      retries: 20
+      start_period: 30s
 
   execute-migrate-all:
     image: docker.getcollate.io/openmetadata/server:{OPENMETADATA_VERSION}
@@ -188,9 +190,10 @@ services:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8586/healthcheck"]
-      interval: 15s
+      interval: 10s
       timeout: 10s
-      retries: 10
+      retries: 20
+      start_period: 30s
 """,
         encoding="utf-8",
     )
