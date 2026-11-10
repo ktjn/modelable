@@ -12,7 +12,7 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
-- Raise the VS Code extension's `engines.vscode` to `^1.144.0` so the published package matches the `@types/vscode` API surface it is compiled against.
+- Raise the VS Code extension's `engines.vscode` to `^1.145.0` so the published package matches the `@types/vscode` API surface it is compiled against.
 
 ### Fixed
 
