@@ -124,7 +124,7 @@ Implementation is specified in
   compatibility invariants with TLC.
 - [x] Add pinned, bounded formal-verification CI with actionable counterexample
   traces.
-- [ ] Map formal transitions/invariants back to production boundaries and
+- [x] Map formal transitions/invariants back to production boundaries and
   regression tests.
 - [ ] Add package-resolution verification when OCI distribution implementation
   begins.
