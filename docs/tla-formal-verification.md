@@ -209,6 +209,50 @@ For every formal invariant, identify a corresponding production test boundary wh
 
 Trace-to-test generation is a possible later slice only if mapping to public Modelable operations is explicit and deterministic.
 
+## Implementation correspondence
+
+### Formal transition to production operation mapping
+
+| Formal Transition | Production Boundary / Module | Concrete Implementation | Status / Difference |
+|---|---|---|---|
+| `AdmitVersion(d, v, fp)` | `modelable.parser.ir`, `modelable.compiler.workspace` | Declaration version parsed into AST (`ModelVersion`, `ProjectionVersion`, `SemanticTypeDecl`, `EnumProjectionDecl`) in `MdlFile`. | Concrete compiler admission. |
+| `PublishVersion(d, v)` | `modelable.registry.signature`, `modelable.lifecycle` | Declaration canonical SHA-256 signature calculated via `compute_version_signature` and recorded as `LifecycleState.published`. | Concrete registry and signature engine. |
+| `RecordCompatibility(d, v1, v2, p, b)` | `modelable.compat.checker`, `modelable.compat.policy` | AST diff engine and policy evaluation (`analyze_impact`, `CompatibilityProfile`) determines pairwise compatibility under named profiles (`backward`, `forward`, `full`). | Abstracted: model records abstract boolean result; production derives it from AST comparison. |
+| `RecordUsage(c, d, v)` / `RemoveUsage(c, d, v)` | `modelable.registry.usage`, `modelable.lifecycle` | Cross-surface consumer tracking via `build_usage_graph` and dependency resolution in `find_lifecycle_reference_findings`. | Concrete usage graph and reference analysis. |
+| `DeprecateVersion(d, v)` | `modelable.lifecycle` | Monotonic transition in `modelable.lifecycle/v1` document validated by `validate_lifecycle_transition(published -> deprecated)`. | Concrete lifecycle document contract. |
+| `ApproveRetirement(d, v)` | External governance / host policy | Governance policy approval required before retirement status is accepted. | Explicitly abstract: human / CI approval gate outside compiler code. |
+| `RetireVersion(d, v)` | `modelable.lifecycle` | Monotonic transition in `modelable.lifecycle/v1` validated by `validate_lifecycle_transition(deprecated -> retired)` and gated by `find_lifecycle_reference_findings`. | Concrete lifecycle state machine and reference validator. |
+| `ResolveConsumer(c, d, reqV, p)` | `modelable.registry.resolver` | `resolve_declaration` and `resolve_model_ref` select the highest matching version (`MaxVersion`), enforce `ResolutionIsExact` via `resolved_version_spec`, and block on breaking changes. | Concrete compiler resolver. |
+
+### Formal invariant to production test mapping
+
+| Formal Invariant | Production Test / Boundary | Regression Test |
+|---|---|---|
+| `TypeOK` | `modelable.lifecycle.parse_lifecycle_document`, `modelable.lifecycle.v1.schema.json` | `tests/test_lifecycle.py::test_lifecycle_schema_is_valid_and_accepts_the_protocol_document` |
+| `PublishedIsKnown` | `modelable.registry.resolver._iter_declaration_candidates` | `tests/test_formal_correspondence.py::test_formal_published_is_known` |
+| `PublishedFingerprintUnchanged` | `modelable.registry.signature.compute_version_signature` | `tests/test_formal_correspondence.py::test_formal_published_fingerprint_unchanged` |
+| `RetiredIsPublished` | `modelable.lifecycle.validate_lifecycle_transition` | `tests/test_formal_correspondence.py::test_formal_retired_is_published` |
+| `ActiveConsumerNeverReferencesRetired` | `modelable.lifecycle.find_lifecycle_reference_findings` | `tests/test_formal_correspondence.py::test_formal_active_consumer_never_references_retired` |
+| `ResolutionIsExact` | `modelable.registry.resolver.resolved_version_spec` | `tests/test_formal_correspondence.py::test_formal_resolution_is_exact` |
+| `CompatibilityIsExplicit` | `modelable.registry.resolver.resolve_model_ref` | `tests/test_formal_correspondence.py::test_formal_compatibility_is_explicit_breaking_blocks` |
+| `NoEvidenceIsNotSafety` | `modelable.lifecycle.find_lifecycle_reference_findings` | `tests/test_formal_correspondence.py::test_formal_no_evidence_is_not_safety` |
+| `DeterministicResolution` | `modelable.registry.resolver.resolve_declaration` | `tests/test_formal_correspondence.py::test_formal_deterministic_resolution` |
+
+### Counterexample fixtures
+
+1. **Retirement with active consumers:**
+   - TLC Counterexample: TLC explores candidate -> published -> deprecated -> consumer recorded -> unsafe retirement without consumer removal, triggering violation of `ActiveConsumerNeverReferencesRetired`.
+   - Production Regression: `tests/test_formal_correspondence.py::test_formal_tlc_counterexample_trace_safe_retirement_gate` asserts that `find_lifecycle_reference_findings` flags any active consumer targeting a retired declaration, preventing unsafe retirement.
+2. **Breaking change blocks automatic resolution:**
+   - TLC Counterexample: Resolving a consumer across an incompatible version triggers `CompatibilityIsExplicit` violation.
+   - Production Regression: `tests/test_formal_correspondence.py::test_formal_compatibility_is_explicit_breaking_blocks` confirms that `resolve_model_ref` raises `LookupError` when encountering breaking versions in an open range.
+
+### Finite model differences and abstractions
+
+- **Domain bounds:** The TLC model limits state space to 2 declarations, 2 versions, 2 fingerprints, 1 consumer, and 1 profile (`full`). Production supports unbounded domains, semver/integer versions, multi-application consumer graphs, and multi-target profiles (`backward`, `forward`, `full`).
+- **Compatibility evaluation:** The TLC model treats compatibility as an abstract pairwise boolean matrix `compatibility[d, v1, v2, p]`. Production computes semantic compatibility via deep AST structural diffing (`modelable.compat.checker.analyze_impact`) and target policy evaluation.
+- **Retirement approval:** In the TLC model, `retirementApproved` is an explicit variable set. In production, retirement approval is an external organizational or governance decision recorded prior to publishing the retirement transition in `modelable.lifecycle/v1`.
+
 ## Follow-up models
 
 Add further models only after `ModelLifecycle.tla` demonstrates useful counterexamples or protects a concrete invariant.
@@ -229,29 +273,29 @@ Model pinned extension identity/hash, accepted plan versions, capability admissi
 
 ### Slice 1 — executable lifecycle model
 
-- [ ] Add `formal/tla/ModelLifecycle.tla`.
-- [ ] Add bounded `ModelLifecycle.cfg`.
-- [ ] Encode the safety properties above.
-- [ ] During development, deliberately break at least one transition and confirm TLC produces a useful counterexample; do not commit the broken form.
-- [ ] Document local execution.
+- [x] Add `formal/tla/ModelLifecycle.tla`.
+- [x] Add bounded `ModelLifecycle.cfg`.
+- [x] Encode the safety properties above.
+- [x] During development, deliberately break at least one transition and confirm TLC produces a useful counterexample; do not commit the broken form.
+- [x] Document local execution.
 
 **Done when:** TLC exhaustively checks the configured finite state space and the model documents the lifecycle/usage assumptions being verified.
 
 ### Slice 2 — required CI gate
 
-- [ ] Pin TLA+ tooling by version and digest.
-- [ ] Add the `formal-verification` job.
-- [ ] Preserve failure traces as CI artifacts.
-- [ ] Add a runtime/state budget.
+- [x] Pin TLA+ tooling by version and digest.
+- [x] Add the `formal-verification` job.
+- [x] Preserve failure traces as CI artifacts.
+- [x] Add a runtime/state budget.
 
 **Done when:** a PR violating a formal invariant fails without running Modelable runtime code.
 
 ### Slice 3 — implementation correspondence
 
-- [ ] Map each formal transition to an existing compiler/protocol operation or mark it explicitly abstract.
-- [ ] Map invariants to production tests where a concrete boundary exists.
-- [ ] Add regression fixtures for bugs found by TLC.
-- [ ] Document differences between the finite model and production implementation.
+- [x] Map each formal transition to an existing compiler/protocol operation or mark it explicitly abstract.
+- [x] Map invariants to production tests where a concrete boundary exists.
+- [x] Add regression fixtures for bugs found by TLC.
+- [x] Document differences between the finite model and production implementation.
 
 **Done when:** maintainers can identify exactly which production behavior each formal rule constrains.
 
