@@ -119,10 +119,10 @@ without introducing a second semantic implementation or runtime dependency.
 Implementation is specified in
 [docs/tla-formal-verification.md](docs/tla-formal-verification.md).
 
-- [ ] Add the bounded declaration lifecycle/usage/compatibility model.
-- [ ] Check immutability, exact resolution, retirement safety, and explicit
+- [x] Add the bounded declaration lifecycle/usage/compatibility model.
+- [x] Check immutability, exact resolution, retirement safety, and explicit
   compatibility invariants with TLC.
-- [ ] Add pinned, bounded formal-verification CI with actionable counterexample
+- [x] Add pinned, bounded formal-verification CI with actionable counterexample
   traces.
 - [ ] Map formal transitions/invariants back to production boundaries and
   regression tests.
