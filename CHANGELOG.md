@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [1.16.0] - 2026-11-17
+
+### Added
+
 - Select the Rust crate for temporal primitives once per workspace with `temporal = "chrono" | "jiff" | "time"` on the `rust` entry in `modelable.toml` (`[[target]]`), so a workspace can generate Rust with no `chrono` dependency (RUSTSEC-2026-0543) without annotating every field. `chrono` stays the default. The setting does not change `SCHEMA_CONTENT_SIGNATURE`; see the wire-format contract.
 - Allow `@wire(rust.type: "...")` on a `semantic` declaration over `int` or a temporal primitive, so one shared alias such as `semantic When: timestamp` carries the Rust type for every field that uses it. It becomes part of that declaration's schema signature; existing declarations keep theirs.
 - Keep multiple playground tabs on the same workspace in sync: a tab without unsaved edits adopts a newer revision saved by another tab, and a tab with unsaved edits is marked memory-only instead of silently losing the race.
