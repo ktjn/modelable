@@ -34,4 +34,4 @@ Run this command from `examples/components/` using the repository's Python envir
 - Remove the `fakes` entry → `COMP-09`.
 - Remove `req-reserve-contract` (or its evidence) → `COMP-10`: the fake models behavior nobody tests at the provider.
 
-Limits: Python imports and JSON Schema property names only; fake fidelity to the contract is not verified.
+Limits: Python imports and schema field names (JSON Schema, Modelable `.mdl`) only; fake fidelity to the contract is not verified.

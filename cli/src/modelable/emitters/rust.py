@@ -19,6 +19,13 @@ from modelable.emitters.naming import pascalize_titlecase as _pascalize
 from modelable.emitters.naming import snake_case as _snake_case
 from modelable.emitters.package_graph import PackageGraph, build_package_graph
 from modelable.emitters.rust_plan import emit_rust_projection_plan
+from modelable.emitters.rust_temporal import (
+    DEFAULT_TEMPORAL,
+    TEMPORAL_DEPENDENCIES,
+    current_temporal,
+    temporal_scope,
+    temporal_type,
+)
 from modelable.emitters.shapes import TypeShape, TypeShapeField, TypeShapeVariant
 from modelable.parser.ir import (
     ArrayType,
@@ -148,14 +155,28 @@ def emit_rust(
     *,
     registry_ids: dict[str, int] | None = None,
     enum_numbers: dict[str, EnumNumberAllocation] | None = None,
+    temporal: str = DEFAULT_TEMPORAL,
 ) -> list[EmittedArtifact]:
     """Emit Rust source files for every model and projection version.
+
+    ``temporal`` selects the crate for temporal primitives (``chrono`` or ``jiff``).
 
     When the workspace has no ``package {}`` blocks, this emits the flat
     single-crate layout unchanged. When packages are configured, each
     package's domains are emitted under their own ``src/`` tree with a
     generated Cargo.toml, lib.rs, and per-domain mod.rs.
     """
+    with temporal_scope(temporal):
+        return _emit_rust(workspace, out_dir, registry_ids=registry_ids, enum_numbers=enum_numbers)
+
+
+def _emit_rust(
+    workspace: Workspace,
+    out_dir: Path,
+    *,
+    registry_ids: dict[str, int] | None,
+    enum_numbers: dict[str, EnumNumberAllocation] | None,
+) -> list[EmittedArtifact]:
     _validate_rust_enum_projection_versions(workspace)
     package_graph = build_package_graph(workspace.mdl)
     plans: dict[tuple[object, object, object], PlanDocument] = {
@@ -452,7 +473,11 @@ def _emit_cargo_toml(
     needs_serde_with = any("requires: serde_with" in _artifact_text(a) for a in pkg_artifacts)
     needs_sqlx = any("requires: sqlx" in _artifact_text(a) for a in pkg_artifacts)
     needs_clickhouse = any("requires: clickhouse" in _artifact_text(a) for a in pkg_artifacts)
-    needs_chrono = any("requires: chrono" in _artifact_text(a) for a in pkg_artifacts)
+    needs_temporal = [
+        crate
+        for crate in TEMPORAL_DEPENDENCIES
+        if any(f"requires: {crate} " in _artifact_text(a) for a in pkg_artifacts)
+    ]
 
     lines = [
         "[package]",
@@ -473,8 +498,7 @@ def _emit_cargo_toml(
         lines.append('sqlx = "0.8"')
     if needs_clickhouse:
         lines.append('clickhouse = "0.13"')
-    if needs_chrono:
-        lines.append('chrono = { version = "0.4", features = ["serde"] }')
+    lines.extend(TEMPORAL_DEPENDENCIES[crate] for crate in needs_temporal)
     for dep in deps:
         # Cargo dependency table keys can contain hyphens directly; the key IS
         # the package name unless a `package = "..."` override is given, and
@@ -818,7 +842,7 @@ def _emit_semantic_type(
 
     needs_uuid = rust_type == "uuid::Uuid"
     needs_serde_json = rust_type == "serde_json::Value"
-    needs_chrono = rust_type.startswith("chrono::")
+    needs_chrono = rust_type.startswith(f"{current_temporal()}::")
     lines = _header_lines(
         uuid=needs_uuid,
         serde_json=needs_serde_json,
@@ -1486,7 +1510,11 @@ def _serde_attrs_for_field(wire: dict[str, WireTargetHint], shape: TypeShape, *,
     temporal = (
         shape.ref if shape.kind == "primitive" and shape.ref in {"date", "time", "timestamp", "duration"} else None
     )
-    if temporal == "duration" and (rust_hint is None or getattr(rust_hint, "type", None) is None):
+    if (
+        temporal == "duration"
+        and current_temporal() == "chrono"
+        and (rust_hint is None or getattr(rust_hint, "type", None) is None)
+    ):
         module = "modelable_duration::option" if shape.optional or shape.nullable else "modelable_duration"
         return [f'#[serde(with = "{module}")]']
     # u64-as-string: rust.type is overridden to u64 and json serialization is string.
@@ -1534,10 +1562,10 @@ def _any_needs_uuid(field_specs: list[_FieldSpec]) -> bool:
 
 
 def _any_needs_chrono(field_specs: list[_FieldSpec]) -> bool:
+    crate = f"{current_temporal()}::"
     return any(
-        "chrono::" in spec.annotation or "modelable_duration" in attr
+        crate in spec.annotation or any("modelable_duration" in attr for attr in spec.serde_attrs)
         for spec in field_specs
-        for attr in spec.serde_attrs
     )
 
 
@@ -1683,7 +1711,8 @@ def _header_lines(
     if serde_json:
         lines.insert(1, "// requires: serde_json (https://docs.rs/serde_json)")
     if chrono:
-        lines.insert(1, "// requires: chrono (https://docs.rs/chrono)")
+        crate = current_temporal()
+        lines.insert(1, f"// requires: {crate} (https://docs.rs/{crate})")
     if extra_uses:
         # Insert use statements just before the trailing empty string
         lines[-1:-1] = extra_uses
@@ -2280,16 +2309,15 @@ def _shape_base_annotation(
 
 
 def _primitive_to_rust(kind: str) -> str:
+    temporal = temporal_type(kind)
+    if temporal is not None:
+        return temporal
     mapping = {
         "string": "String",
         "bool": "bool",
         "int": "i64",
         "float": "f64",
         "uuid": "uuid::Uuid",
-        "timestamp": "chrono::DateTime<chrono::Utc>",
-        "date": "chrono::NaiveDate",
-        "time": "chrono::NaiveTime",
-        "duration": "chrono::Duration",
         "binary": "Vec<u8>",
         "json": "serde_json::Value",
         "u8": "u8",

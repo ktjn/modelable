@@ -24,6 +24,34 @@ Preserve transaction and consistency boundaries when setting context budgets. Ex
 
 Separate source imports, runtime calls, shared payload definitions and deployed providers. Inspect provider implementations before treating a named adapter as live: a stub can deliberately reject every operation. For nested types, record both definition authority and the owner/lifetime of state instances; an import alone does not transfer ownership.
 
+## Layers, domains and architecture rules
+
+The metamodel prescribes neither a layering model nor a kind of domain ([`spec.md` § 2](../spec.md#2-systems)); the rules that fit follow from the choice, and the project owns that policy ([MODEL-SCOPE.md](../MODEL-SCOPE.md)).
+
+| Record | Observed value |
+|---|---|
+| What `layers` mean | Application tiers, an engine's abstraction levels, a protocol stack, or a fine-grained dependency order (8–10 layers, skipping normal); how they were derived (dependency-graph levels, abstraction provided) |
+| What `domains` mean | Business bounded contexts, or technical subsystems (concurrency control, recovery, replication, storage) |
+| Layer policy | `layer_policy.skip` and `same_layer`: allow or deny, and why |
+| Layer responsibilities | Per layer: `description` and `forbids` (packages its own code must not name) |
+| Shared kernel | Shared domain or `domain_neutral` layer, if any, and why it is legitimate (stable, technical or vocabulary only) |
+
+**Architecture rules.** For each rule, record whether the project adopts it, and how: a hard check (fails the gate), a report (reviewed on refresh), review only, or not at all.
+
+| Rule | Covered by | Adopted as | Notes |
+|---|---|---|---|
+| Directional layering | `COMP-05`, `COMP-06` | hard check | Always on when `layers` are declared |
+| No skipped layers / no same-layer dependencies | `system.layer_policy`, `COMP-14` | | |
+| Forbidden dependencies per layer | `Layer.forbids`, `--check-drift` (`--forbids-dev` for tests) | | |
+| Ports and plug-in interfaces | Contract in the lowest layer, else `Capability.defined_by` and `contract_paths` (`CAP-05`) | | |
+| Domain-neutral layers | `Layer.domain_neutral`, `DOM-04` | | |
+| Distinct storage namespaces | `DATA-07` | hard check | Always on |
+| Copies with no channel | `system.lineage_channel: required`, `DATA-08`; channels in `--report architecture` | | |
+| Resource access | `--check-access FILE` (grants, query logs, access traces) | | |
+| Glossary, duplicated concepts and rules | `Domain.terms`, `--report duplicates` | report | |
+| Architecture changes on refresh | `--compat` (notes or `--compat-architecture strict`), `--compat git:<rev>`, `--max-cross-domain N` | | |
+| Schema drift | `--check-drift` with `schema_path` (JSON Schema, `#/$defs/…`, `.mdl#Type`; `field_naming`) | | |
+
 ### Relational & Storage Isolation (OBS-FB-01)
 
 When multiple components share a physical relational database engine (e.g., PostgreSQL):
@@ -61,6 +89,14 @@ When legacy code bases use transitional boundary allowlists (e.g., `component-bo
 - For asynchronous characterization, establish that the requested operation/state is rendered before inspecting output; visible data from a previous state is insufficient. Negative readiness checks can also pass before the target element exists; require the intended positive terminal state. If correct synchronization exposes a product discrepancy, retain the assertion and record product rework instead of relabeling the result as a timing-only failure.
 - For cross-host reruns, pin export configuration and inspect actual source bytes. Git archives can apply checkout line-ending settings; an archive is not automatically byte-identical to Git blobs. Compare the exported implementation/tests with the intended immutable source, retain platform/image/dependency pins and require the named cases to execute without skips before superseding their partial record. A suitable-host pass does not establish coverage on every platform.
 - Run `--check-artifacts --root <repository>` to check local integrity. Review Git/source authenticity, build correspondence, criterion coverage and historical evidence independently; do not claim those checks from hashes alone.
+
+### Formal verification assessment
+
+Mirrors `Component.formal_assessment` (record it in the spec; this table is the review record).
+
+| Component | Applies (yes/no/unassessed) | Indicators or rationale | Evidence IDs / open gap |
+|---|---|---|---|
+| One row per internal component | Unassessed stays open until judged | concurrency, distributed state, financial transactions, safety-critical, state machine, protocol; or why none applies | `model-check` / `proof` records, or the missing model |
 
 ## Local operation protocol
 

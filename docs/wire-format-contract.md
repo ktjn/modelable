@@ -96,6 +96,8 @@ Neither emitter sorts, groups, or otherwise reorders fields.
 | `map<K,V>` | `HashMap<K,V>` | native `map<K,V>` for supported Protobuf key/value shapes. Supported keys are string, bool, and integer primitives. Supported values include primitive scalars, timestamps, fixed bytes, inline enums, and semantic wrapper messages. Unsupported map shapes fail emission clearly instead of degrading to opaque `bytes`. |
 | Semantic type reference (`semantic Name: Underlying`) | the generated newtype (see the [compiler reference](compiler-reference.md)) | a fully qualified declaring-domain wrapper message with one `value = 1` field mapped from the terminal scalar; alias chains flatten rather than nest. The schema manifest records the qualified semantic ref and optional registry allocation, including when the semantic type is used as a supported map value. |
 
+With `[targets.rust] temporal = "jiff"` in `modelable.toml`, the Rust column becomes `jiff::Timestamp` (RFC 3339), `jiff::civil::Date`, `jiff::civil::Time` and `jiff::SignedDuration` (ISO 8601). The wire encoding is unchanged. The option selects a Rust binding only and does not enter `SCHEMA_CONTENT_SIGNATURE`; a per-field `@wire(rust.type: ...)` does.
+
 Adopting a generated Protobuf semantic wrapper is an intentional wire change
 from the previous opaque `bytes` fallback. Existing consumers must regenerate
 their schemas and bindings together when moving to this compiler behavior.

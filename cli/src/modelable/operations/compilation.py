@@ -38,6 +38,7 @@ from modelable.emitters.protobuf import emit_protobuf
 from modelable.emitters.python import emit_python
 from modelable.emitters.registry_manifest import emit_registry_manifest
 from modelable.emitters.rust import emit_rust
+from modelable.emitters.rust_temporal import DEFAULT_TEMPORAL, validate_temporal
 from modelable.emitters.sql import emit_sql
 from modelable.emitters.targets import get_codegen_target, list_implemented_codegen_targets
 from modelable.emitters.typescript import emit_typescript
@@ -1482,6 +1483,14 @@ def _run_compilation(
 
     output = request.out_dir or _DEFAULT_OUT_DIRS[request.target]
     output.mkdir(parents=True, exist_ok=True)
+    rust_temporal = DEFAULT_TEMPORAL
+    if request.target == "rust":
+        try:
+            configured = load_config(workspace_root).values.get("targets.rust.temporal")
+            if configured is not None:
+                rust_temporal = validate_temporal(configured.value)
+        except ValueError as exc:
+            raise CompilationError(str(exc)) from exc
     try:
         artifacts = _emit_target(
             emit_workspace,
@@ -1491,6 +1500,7 @@ def _run_compilation(
             descriptor_set=request.descriptor_set,
             enum_numbers=enum_numbers,
             overlay=overlay,
+            rust_temporal=rust_temporal,
         )
     except ValueError as exc:
         raise CompilationError(str(exc)) from exc
@@ -1705,6 +1715,7 @@ def _emit_target(
     descriptor_set: bool,
     enum_numbers: dict[str, EnumNumberAllocation] | None = None,
     overlay: OverlayDocument | None = None,
+    rust_temporal: str = DEFAULT_TEMPORAL,
 ) -> list[EmittedArtifact]:
     if target == "json-schema":
         return emit_json_schema(workspace, output)
@@ -1719,7 +1730,9 @@ def _emit_target(
     if target == "python":
         return emit_python(workspace, output)
     if target == "rust":
-        return emit_rust(workspace, output, registry_ids=registry_ids, enum_numbers=enum_numbers)
+        return emit_rust(
+            workspace, output, registry_ids=registry_ids, enum_numbers=enum_numbers, temporal=rust_temporal
+        )
     if target == "go":
         return emit_go(workspace, output)
     if target == "dbt-yaml":

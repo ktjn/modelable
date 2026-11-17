@@ -2642,3 +2642,58 @@ binding cart-row-table {
     model = next(a for a in artifacts if a.ref == "orders.Cart@1").content
     assert "#[serde(default)]" in model
     assert "skip_serializing_if" not in model
+
+
+_TEMPORAL_MDL = """\
+domain demo {
+  owner: "demo-team"
+  semantic When : timestamp
+  aggregate Event @ 1 (additive) {
+    @key eventId: uuid
+    occurredAt: timestamp
+    day: date
+    at: time
+    ttl: duration
+    seen: When
+  }
+}
+"""
+
+
+def _emit_temporal(tmp_path, temporal):
+    from modelable.compiler.workspace import load_workspace
+
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "demo.mdl").write_text(_TEMPORAL_MDL, encoding="utf-8")
+    return emit_rust(load_workspace(src), tmp_path / "out", temporal=temporal)
+
+
+def test_emit_rust_temporal_jiff_replaces_chrono(tmp_path):
+    artifacts = _emit_temporal(tmp_path, "jiff")
+    text = "\n".join(a.content for a in artifacts if isinstance(a.content, str))
+    assert "pub occurred_at: jiff::Timestamp," in text
+    assert "pub day: jiff::civil::Date," in text
+    assert "pub at: jiff::civil::Time," in text
+    assert "pub ttl: jiff::SignedDuration," in text
+    assert "requires: jiff" in text
+    event = next(a for a in artifacts if str(a.path).endswith("demo_event_v1.rs"))
+    assert "// requires: jiff" in event.content
+    assert "chrono" not in text
+    assert "modelable_duration" not in text
+
+
+def test_emit_rust_temporal_default_is_chrono(tmp_path):
+    artifacts = _emit_temporal(tmp_path, "chrono")
+    text = "\n".join(a.content for a in artifacts if isinstance(a.content, str))
+    assert "chrono::DateTime<chrono::Utc>" in text
+    assert "jiff" not in text
+
+
+def test_validate_temporal_rejects_unknown():
+    import pytest
+
+    from modelable.emitters.rust_temporal import validate_temporal
+
+    with pytest.raises(ValueError, match="temporal"):
+        validate_temporal("time")

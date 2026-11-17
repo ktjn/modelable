@@ -8,6 +8,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Add `[targets.rust] temporal = "chrono" | "jiff"` to `modelable.toml`. `jiff` emits `jiff::Timestamp`, `jiff::civil::Date`, `jiff::civil::Time` and `jiff::SignedDuration` (including semantic types and the generated `Cargo.toml`) without per-field `@wire(rust.type: ...)`; `chrono` stays the default. The option does not change `SCHEMA_CONTENT_SIGNATURE`. Addresses the `chrono` unmaintained advisory (RUSTSEC-2026-0543).
+
 - Keep multiple playground tabs on the same workspace in sync: a tab without unsaved edits adopts a newer revision saved by another tab, and a tab with unsaved edits is marked memory-only instead of silently losing the race.
 
 ### Changed
