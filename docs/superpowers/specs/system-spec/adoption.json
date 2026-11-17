@@ -114,6 +114,17 @@
   ],
   "current_toolkit": {
     "distribution": "system-spec-ref",
+    "version": "0.17.4",
+    "receipt": "evidence/toolkit-pypi-0.17.4.json",
+    "schema_sha256": "ce3b0aeab5b0127dbc0693e04f3ede10474eff440ead426a4097b2ebcb580b52",
+    "validator_sha256": "cea225a11660b321f38afa922ccfab059a2276645dc04a87bd1de3571a84a4e2",
+    "migration": "toolkit-upgrade-0.17.4.md",
+    "prior_manifest": "evidence/adoption-before-toolkit-0.17.4.json",
+    "prior_schema": "evidence/schema-before-toolkit-0.17.4.json",
+    "capture_policy": "Specifications are unchanged: all five stage validations pass under 0.17.4 without metadata migration. Source/evidence pins and hashes remain as captured at deb6d668 (Windows byte convention); no evidence was re-captured and none is claimed for later source."
+  },
+  "previous_toolkit_0_5_0": {
+    "distribution": "system-spec-ref",
     "version": "0.5.0",
     "receipt": "evidence/toolkit-pypi-0.5.0.json",
     "schema_sha256": "84596ec00f8ed866bcce2d90d2e844ae16b46c980ba568a1ba0f7530a3486595",
