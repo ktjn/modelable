@@ -102,3 +102,24 @@ def test_config_rejects_unknown_registry_blocked_action(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="unsupported registry blocked action"):
         load_config(tmp_path)
+
+
+def test_config_exposes_rust_temporal_backend(tmp_path: Path) -> None:
+    assert load_config(tmp_path).rust_temporal() is None
+    (tmp_path / "modelable.toml").write_text('[[target]]\nname = "rust"\ntemporal = "time"\n', encoding="utf-8")
+
+    assert load_config(tmp_path).rust_temporal() == "time"
+
+
+def test_config_rejects_unknown_rust_temporal_backend(tmp_path: Path) -> None:
+    (tmp_path / "modelable.toml").write_text('[[target]]\nname = "rust"\ntemporal = "speedy"\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unsupported Rust temporal backend"):
+        load_config(tmp_path).rust_temporal()
+
+
+def test_config_rejects_temporal_on_non_rust_target(tmp_path: Path) -> None:
+    (tmp_path / "modelable.toml").write_text('[[target]]\nname = "go"\ntemporal = "jiff"\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="only supported for the rust target"):
+        load_config(tmp_path)

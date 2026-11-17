@@ -734,6 +734,13 @@ Chains must be acyclic and are limited to 32 levels. Referencing an undeclared s
 - The underlying type must be a primitive, `decimal(p,s)`, `binary(N)`, enum, or another semantic type — not an `array`, `map`, `object`, or model reference.
 - Versioned semantic declarations for one name must have strictly increasing versions. An additive enum version may add values but may not remove one; removing a value requires `(breaking)`. Additive versions may not change a non-enum underlying type.
 - A semantic type's name must not collide with a model name in its domain.
+- A semantic type over `int` or a temporal primitive (`timestamp`, `date`, `time`, `duration`) may carry `@wire(rust.type: "...")` before the `semantic` keyword. It replaces the Rust type inside the generated newtype, so every field that uses the semantic type picks it up once. No other wire target or option is allowed on a `semantic` declaration. Like a field-level hint, it is part of the declaration's schema signature.
+
+  ```
+  @wire(rust.type: "jiff::Timestamp") semantic When: timestamp
+  ```
+
+  To switch every temporal primitive to another Rust crate, set `temporal` on the `rust` target in `modelable.toml` instead (see the [wire-format contract](wire-format-contract.md#choosing-the-rust-temporal-crate)).
 
 #### Semantic-type emitter support (this slice)
 

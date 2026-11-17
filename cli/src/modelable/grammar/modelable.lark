@@ -296,7 +296,7 @@ pinned_import: "at" dotted_ref "@" INT "#" IDENT
 consumer_decl: "consumer" IDENT? "{" ignored_block_item* "}"
 auto_projections_decl: "auto" "projections" IDENT "@" INT "{" auto_projection_item* "}"
 
-semantic_decl: "semantic" IDENT semantic_header? ":" type_expr semantic_body?
+semantic_decl: wire_annotation* "semantic" IDENT semantic_header? ":" type_expr semantic_body?
 semantic_header: "@" INT semantic_change?
 
 // -- Enum projections ---------------------------------------------------------

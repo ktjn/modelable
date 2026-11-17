@@ -790,6 +790,12 @@ def _requested_overlay_path(request: CompilationRequest, workspace_root: Path) -
     return conventional if (workspace_root / conventional).is_file() else None
 
 
+def _configured_rust_temporal(request: CompilationRequest, workspace_root: Path) -> str | None:
+    if request.target != "rust":
+        return None
+    return load_config(workspace_root).rust_temporal()
+
+
 def _configuration_input_path(request: CompilationRequest, workspace_root: Path) -> Path | None:
     if request.overlay_path is not None:
         return None
@@ -1491,6 +1497,7 @@ def _run_compilation(
             descriptor_set=request.descriptor_set,
             enum_numbers=enum_numbers,
             overlay=overlay,
+            rust_temporal=_configured_rust_temporal(request, workspace_root),
         )
     except ValueError as exc:
         raise CompilationError(str(exc)) from exc
@@ -1705,6 +1712,7 @@ def _emit_target(
     descriptor_set: bool,
     enum_numbers: dict[str, EnumNumberAllocation] | None = None,
     overlay: OverlayDocument | None = None,
+    rust_temporal: str | None = None,
 ) -> list[EmittedArtifact]:
     if target == "json-schema":
         return emit_json_schema(workspace, output)
@@ -1719,7 +1727,9 @@ def _emit_target(
     if target == "python":
         return emit_python(workspace, output)
     if target == "rust":
-        return emit_rust(workspace, output, registry_ids=registry_ids, enum_numbers=enum_numbers)
+        return emit_rust(
+            workspace, output, registry_ids=registry_ids, enum_numbers=enum_numbers, temporal=rust_temporal
+        )
     if target == "go":
         return emit_go(workspace, output)
     if target == "dbt-yaml":

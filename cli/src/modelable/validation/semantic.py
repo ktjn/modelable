@@ -614,6 +614,37 @@ _SEMANTIC_UNDERLYING_TYPES = (PrimitiveType, DecimalType, FixedBinaryType, EnumT
 _SEMANTIC_CHAIN_DEPTH_LIMIT = 32
 
 
+def _validate_semantic_wire(
+    domain_name: str,
+    decl: SemanticTypeDecl,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+) -> None:
+    """Allow only ``@wire(rust.type: ...)`` on an int or temporal semantic type.
+
+    The hint replaces the Rust type inside the generated newtype, so every field
+    that uses the semantic type picks it up.
+    """
+    label = f"{domain_name}: semantic type '{decl.name}'"
+    for annotation in decl.annotations:
+        if not isinstance(annotation, AnnWire):
+            continue
+        for target_name, hint in annotation.targets.items():
+            if target_name != "rust":
+                diagnostics.append(
+                    _diag("SEM", f"{label} only supports @wire(rust.type: ...), not target '{target_name}'", path)
+                )
+            elif hint.type is None or hint.encoding is not None or hint.case is not None or hint.overrides:
+                diagnostics.append(_diag("SEM", f"{label} only supports the rust.type option in @wire", path))
+            elif not (
+                isinstance(decl.underlying, PrimitiveType)
+                and decl.underlying.kind in {"int", "date", "time", "timestamp", "duration"}
+            ):
+                diagnostics.append(
+                    _diag("SEM", f"{label} only supports rust.type on int and temporal underlying types", path)
+                )
+
+
 def _validate_semantic_types(
     domain: DomainDef,
     mdl: MdlFile,
@@ -669,6 +700,8 @@ def _validate_semantic_types(
                     path,
                 )
             )
+
+        _validate_semantic_wire(domain.name, decl, diagnostics, path)
 
         # Member-identity checks specific to enum-backed declarations (E1):
         # reuse the anonymous-enum member rules on the declared member set.

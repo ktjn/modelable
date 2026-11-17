@@ -55,6 +55,7 @@ INCLUDE_FILES = (
     "emitters/java_plan.py",
     "emitters/csharp_plan.py",
     "emitters/rust_plan.py",
+    "emitters/rust_temporal.py",
     "emitters/protobuf_plan.py",
     "emitters/avro_plan.py",
     "emitters/naming.py",

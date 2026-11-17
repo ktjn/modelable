@@ -148,8 +148,12 @@ def test_codegen_types_include_rust_mappings():
 
     assert result.exit_code == 0, result.output
     assert "rust type mappings" in result.output
-    assert "String" in result.output
     assert "Vec<T>" in result.output
+    # The table must match what the emitter produces, not the pre-chrono String mapping.
+    assert "uuid::Uuid" in result.output
+    assert "chrono::DateTime<chrono::Utc>" in result.output
+    assert "jiff::Timestamp" in result.output
+    assert "timestamp -> String" not in result.output
 
 
 def test_codegen_types_include_go_mappings():

@@ -2642,3 +2642,269 @@ binding cart-row-table {
     model = next(a for a in artifacts if a.ref == "orders.Cart@1").content
     assert "#[serde(default)]" in model
     assert "skip_serializing_if" not in model
+
+
+_TEMPORAL_MDL = """
+domain events {
+  owner: "test-team"
+  semantic When : timestamp
+  entity Event @ 1 (additive) {
+    @key eventId: uuid
+    occurredAt: timestamp
+    scheduledDate: date
+    windowStart: time
+    ttl: duration
+    maybeAt?: timestamp
+    maybeTtl?: duration
+    dates: array<date>
+    when: When
+  }
+  projection EventView @ 1 from events.Event @ 1 as e {
+    eventId <- e.eventId
+    occurredAt <- e.occurredAt
+    ttl <- e.ttl
+  }
+}
+"""
+
+
+def _emit_temporal(tmp_path, temporal, text=_TEMPORAL_MDL):
+    (tmp_path / "test.mdl").write_text(text, encoding="utf-8")
+    workspace = load_workspace(tmp_path)
+    return emit_rust(workspace, tmp_path / "out", temporal=temporal)
+
+
+@pytest.mark.parametrize(
+    ("backend", "types", "absent"),
+    [
+        (
+            "jiff",
+            ["jiff::Timestamp", "jiff::civil::Date", "jiff::civil::Time", "jiff::SignedDuration"],
+            ["chrono", "time::"],
+        ),
+        (
+            "time",
+            ["time::OffsetDateTime", "time::Date", "time::Time", "time::Duration"],
+            ["chrono", "jiff"],
+        ),
+    ],
+)
+def test_emit_rust_temporal_backend_replaces_chrono(tmp_path, backend, types, absent):
+    artifacts = _emit_temporal(tmp_path, backend)
+    texts = {a.ref: a.content for a in artifacts if isinstance(a.content, str)}
+
+    for ref in ("events.Event@1", "events.EventView@1", "events.When"):
+        for forbidden in absent:
+            assert forbidden not in texts[ref], f"{ref} still references {forbidden}"
+        assert f"requires: {backend} " in texts[ref]
+    event = texts["events.Event@1"]
+    for expected in types:
+        assert expected in event
+    assert "Vec<" + types[1] + ">" in event
+    assert "chrono" not in texts["events.EventView@1"]
+
+
+def test_emit_rust_time_backend_serde_modules(tmp_path):
+    artifacts = _emit_temporal(tmp_path, "time")
+    event = next(a.content for a in artifacts if a.ref == "events.Event@1")
+    view = next(a.content for a in artifacts if a.ref == "events.EventView@1")
+    when = next(a.content for a in artifacts if a.ref == "events.When")
+
+    assert '#[serde(with = "time::serde::rfc3339")]\n    pub occurred_at: time::OffsetDateTime,' in event
+    assert '#[serde(with = "time::serde::rfc3339::option")]' in event
+    assert '#[serde(with = "modelable_time")]\n    pub window_start: time::Time,' in event
+    assert "time::serde::format_description!(" in event
+    assert '#[serde(with = "modelable_duration")]\n    pub ttl: time::Duration,' in event
+    assert "fn to_iso(value: &time::Duration) -> String" in event
+    assert '#[serde(with = "time::serde::rfc3339")]' in view
+    assert '#[serde(with = "modelable_duration")]' in view
+    assert 'pub struct When(#[serde(with = "time::serde::rfc3339")] pub time::OffsetDateTime);' in when
+
+
+def test_emit_rust_jiff_backend_uses_native_serde_for_timestamps(tmp_path):
+    artifacts = _emit_temporal(tmp_path, "jiff")
+    event = next(a.content for a in artifacts if a.ref == "events.Event@1")
+
+    assert "pub occurred_at: jiff::Timestamp," in event
+    assert "rfc3339" not in event
+    assert '#[serde(with = "modelable_duration")]\n    pub ttl: jiff::SignedDuration,' in event
+    assert "Ok(jiff::SignedDuration::from_nanos(total_nanos))" in event
+
+
+def test_emit_rust_default_temporal_backend_is_chrono(tmp_path):
+    default = {a.ref: a.content for a in _emit_temporal(tmp_path, None)}
+    explicit = {a.ref: a.content for a in _emit_temporal(tmp_path, "chrono")}
+
+    assert default == explicit
+    assert "pub occurred_at: chrono::DateTime<chrono::Utc>," in default["events.Event@1"]
+
+
+def test_emit_rust_temporal_backend_does_not_change_schema_signature(tmp_path):
+    signatures = {}
+    for backend in ("chrono", "jiff", "time"):
+        event = next(a.content for a in _emit_temporal(tmp_path, backend) if a.ref == "events.Event@1")
+        signatures[backend] = re.search(r"SCHEMA_CONTENT_SIGNATURE: \[u8; 32\] = \[(.*?)\];", event, re.S).group(1)
+
+    assert signatures["chrono"] == signatures["jiff"] == signatures["time"]
+
+
+def test_emit_rust_temporal_backend_rejects_unknown_crate(tmp_path):
+    with pytest.raises(ValueError, match="unsupported Rust temporal backend 'speedy'"):
+        _emit_temporal(tmp_path, "speedy")
+
+
+def test_emit_rust_time_backend_rejects_timestamp_collections(tmp_path):
+    text = """
+domain events {
+  owner: "test-team"
+  entity Event @ 1 (additive) {
+    @key eventId: uuid
+    stamps: array<timestamp>
+  }
+}
+"""
+    with pytest.raises(ValueError, match="cannot serialize timestamp values inside array/map"):
+        _emit_temporal(tmp_path, "time", text)
+    assert "Vec<jiff::Timestamp>" in next(
+        a.content for a in _emit_temporal(tmp_path, "jiff", text) if a.ref == "events.Event@1"
+    )
+
+
+def test_emit_rust_field_override_wins_over_temporal_backend(tmp_path):
+    text = """
+domain events {
+  owner: "test-team"
+  entity Event @ 1 (additive) {
+    @key eventId: uuid
+    @wire(rust.type: "String")
+    occurredAt: timestamp
+    ttl: duration
+  }
+}
+"""
+    event = next(a.content for a in _emit_temporal(tmp_path, "time", text) if a.ref == "events.Event@1")
+
+    assert "pub occurred_at: String," in event
+    assert "rfc3339" not in event
+    assert "pub ttl: time::Duration," in event
+
+
+def test_multi_package_cargo_toml_uses_selected_temporal_crate(tmp_path):
+    text = _MULTI_PACKAGE_MDL.replace("price: dom_b.Money", "price: dom_b.Money\n    seenAt: timestamp")
+    workspace = _load_multi_package_workspace(tmp_path, text)
+
+    cargo = {
+        backend: next(
+            a.content
+            for a in emit_rust(workspace, tmp_path / backend, temporal=backend)
+            if a.path.name == "Cargo.toml" and a.path.parent.name == "pkg-a"
+        )
+        for backend in ("chrono", "jiff", "time")
+    }
+
+    assert 'chrono = { version = "0.4", features = ["serde"] }' in cargo["chrono"]
+    assert 'jiff = { version = "0.2", features = ["serde"] }' in cargo["jiff"]
+    assert "chrono" not in cargo["jiff"]
+    assert 'time = { version = "0.3", features = ["serde-human-readable", "macros"] }' in cargo["time"]
+    assert "chrono" not in cargo["time"]
+
+
+def test_cli_compile_rust_honours_workspace_temporal_setting(tmp_path):
+    (tmp_path / "events.mdl").write_text(_TEMPORAL_MDL, encoding="utf-8")
+    (tmp_path / "modelable.toml").write_text('[[target]]\nname = "rust"\ntemporal = "jiff"\n', encoding="utf-8")
+    out = tmp_path / "dist" / "rust"
+
+    result = CliRunner().invoke(cli, ["compile", str(tmp_path), "--target", "rust", "--out", str(out)])
+
+    assert result.exit_code == 0, result.output
+    text = (out / "events" / "events_event_v1.rs").read_text(encoding="utf-8")
+    assert "pub occurred_at: jiff::Timestamp," in text
+    assert "chrono" not in text
+
+
+def test_cli_compile_rust_rejects_unknown_temporal_setting(tmp_path):
+    (tmp_path / "events.mdl").write_text(_TEMPORAL_MDL, encoding="utf-8")
+    (tmp_path / "modelable.toml").write_text('[[target]]\nname = "rust"\ntemporal = "speedy"\n', encoding="utf-8")
+
+    result = CliRunner().invoke(cli, ["compile", str(tmp_path), "--target", "rust", "--out", str(tmp_path / "o")])
+
+    assert result.exit_code != 0
+    assert "unsupported Rust temporal backend 'speedy'" in result.output
+
+
+_SEMANTIC_WIRE_MDL = """
+domain events {
+  owner: "test-team"
+  @wire(rust.type: "jiff::Timestamp") semantic When : timestamp
+  @wire(rust.type: "u64")
+  semantic Big @ 1 (additive) : int
+  @wire(rust.type: "my_crate::Moment") semantic Custom : timestamp
+  semantic Plain : timestamp
+  entity Event @ 1 (additive) {
+    @key eventId: uuid
+    at: When
+    count: Big
+    custom: Custom
+    plain: Plain
+  }
+}
+"""
+
+
+def test_emit_rust_semantic_wire_rust_type_overrides_newtype_inner_type(tmp_path):
+    artifacts = _emit_temporal(tmp_path, None, _SEMANTIC_WIRE_MDL)
+    texts = {a.ref: a.content for a in artifacts}
+
+    when = texts["events.When"]
+    assert "pub struct When(pub jiff::Timestamp);" in when
+    assert "requires: jiff " in when
+    assert "chrono" not in when
+    assert "Copy, PartialEq, Eq, Hash" in when
+    assert "pub struct Big(pub u64);" in texts["events.Big"]
+    # Unknown override types get the conservative derive set and no serde adapter.
+    custom = texts["events.Custom"]
+    assert "pub struct Custom(pub my_crate::Moment);" in custom
+    assert "Copy" not in custom
+    # Fields pick the override up through the newtype; an unannotated one follows the crate setting.
+    event = texts["events.Event@1"]
+    assert "pub at: When," in event
+    assert "pub count: Big," in event
+    assert "pub struct Plain(pub chrono::DateTime<chrono::Utc>);" in texts["events.Plain"]
+
+
+def test_emit_rust_semantic_wire_override_beats_temporal_backend(tmp_path):
+    artifacts = _emit_temporal(tmp_path, "time", _SEMANTIC_WIRE_MDL)
+    texts = {a.ref: a.content for a in artifacts}
+
+    assert "pub struct When(pub jiff::Timestamp);" in texts["events.When"]
+    assert "rfc3339" not in texts["events.When"]
+    assert (
+        'pub struct Plain(#[serde(with = "time::serde::rfc3339")] pub time::OffsetDateTime);' in texts["events.Plain"]
+    )
+
+
+def test_semantic_wire_annotation_round_trips_through_render():
+    from modelable.compiler.render import render_mdl
+    from modelable.parser.parse import parse_text_to_ir
+
+    rendered = render_mdl(parse_text_to_ir(_SEMANTIC_WIRE_MDL))
+
+    assert '@wire(rust.type: "jiff::Timestamp") semantic When: timestamp' in rendered
+    assert render_mdl(parse_text_to_ir(rendered)) == rendered
+
+
+def test_semantic_wire_annotation_changes_semantic_signature_only_when_present():
+    from modelable.parser.parse import parse_text_to_ir
+    from modelable.registry.signature import compute_semantic_signature
+
+    def signature(declaration: str) -> str:
+        mdl = parse_text_to_ir(f'domain events {{\n owner: "t"\n {declaration}\n}}')
+        domain = mdl.domains[0]
+        return compute_semantic_signature(domain.name, domain.semantic_types[0])
+
+    plain = signature("semantic When : timestamp")
+    annotated = signature('@wire(rust.type: "jiff::Timestamp") semantic When : timestamp')
+    assert plain != annotated
+    assert annotated != signature('@wire(rust.type: "time::OffsetDateTime") semantic When : timestamp')
+    # Declarations without a hint keep the signature they always had.
+    assert plain == signature("semantic When : timestamp")

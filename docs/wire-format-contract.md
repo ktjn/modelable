@@ -107,6 +107,52 @@ ISO 8601 duration text. Rust fields may opt into a target-specific type with
 interval arithmetic with `@wire(postgres.type: "INTERVAL")`, otherwise the
 duration remains `TEXT` so its wire value round-trips byte-for-byte.
 
+### Choosing the Rust temporal crate
+
+`chrono` is the default but is flagged unmaintained
+([RUSTSEC-2026-0543](https://rustsec.org/advisories/RUSTSEC-2026-0543)). A
+workspace selects the crate for every temporal primitive once, in
+`modelable.toml`, instead of annotating each field:
+
+```toml
+[[target]]
+name = "rust"
+temporal = "jiff"   # "chrono" (default) | "jiff" | "time"
+```
+
+| `.mdl` type | `chrono` (default) | `jiff` | `time` |
+|---|---|---|---|
+| `timestamp` | `chrono::DateTime<chrono::Utc>` | `jiff::Timestamp` | `time::OffsetDateTime` |
+| `date` | `chrono::NaiveDate` | `jiff::civil::Date` | `time::Date` |
+| `time` | `chrono::NaiveTime` | `jiff::civil::Time` | `time::Time` |
+| `duration` | `chrono::Duration` | `jiff::SignedDuration` | `time::Duration` |
+
+The JSON wire form is the same for all three crates. Durations go through the
+generated `modelable_duration` ISO 8601 adapter. With `time`, timestamps use
+`time::serde::rfc3339` and `time` values accept `HH:MM:SS[.fraction]` (written
+with a fraction, e.g. `12:30:00.0`). The generated `Cargo.toml` (package
+layouts) and each file's `// requires:` header name the selected crate, and no
+`chrono` dependency is emitted.
+
+Notes:
+
+- `time` cannot give `timestamp`/`time` values inside `array`/`map` fields the
+  ISO form, so emission fails with a clear error for those shapes; use `jiff` or
+  annotate the field with `@wire(rust.type: "...")`.
+- A per-field `@wire(rust.type: "...")` still wins over the crate selection.
+- **Schema identity:** the crate selection is build configuration, not part of
+  the model, so it does **not** change `SCHEMA_CONTENT_SIGNATURE`. A per-field
+  `@wire(rust.type: "...")` is part of the model and **does** change it, even
+  when the override names the default type. The signature identifies the schema
+  across every language, so a Rust-only binding choice made with `@wire`
+  changes the schema's identity everywhere; prefer the `temporal` setting for a
+  crate migration.
+- `@wire(rust.type: ...)` may also sit on a `semantic` declaration over `int` or a
+  temporal primitive (`@wire(rust.type: "jiff::Timestamp") semantic When: timestamp`).
+  It sets the newtype's inner Rust type, so every field using the semantic type
+  picks it up. It is part of the declaration's schema signature; declarations
+  without a hint keep their existing signature. It wins over the crate selection.
+
 ## 4. Enum Discriminant Stability
 
 Protobuf enums get a synthetic zero value (protobuf3 requires every enum
