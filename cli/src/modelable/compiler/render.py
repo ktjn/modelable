@@ -150,6 +150,10 @@ def render_signature_semantic_type(domain_name: str, declaration: SemanticTypeDe
         f"semantic {domain_name}.{declaration.name} @ {declaration.version} "
         f"({declaration.change_kind}): {_render_type(declaration.underlying)}"
     )
+    # Wire annotations are part of the schema identity, as they are for fields and
+    # models. Declarations without one keep their existing signature text.
+    if declaration.annotations:
+        header = f"{' '.join(_render_annotations(declaration.annotations))} {header}"
     if declaration.registry:
         header += " { registry: true }"
     return header + "\n"
@@ -425,7 +429,8 @@ def _render_semantic_type(declaration: SemanticTypeDecl) -> list[str]:
         version = f" @ {declaration.version}"
         if declaration.has_change_kind:
             version += f" ({declaration.change_kind})"
-    header = f"semantic {declaration.name}{version}: {_render_type(declaration.underlying)}"
+    prefix = " ".join(_render_annotations(declaration.annotations))
+    header = _with_prefix(prefix, f"semantic {declaration.name}{version}: {_render_type(declaration.underlying)}")
     if not declaration.registry:
         return [header]
     return [f"{header} {{", "  registry: true", "}"]

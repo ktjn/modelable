@@ -56,6 +56,18 @@ class ModelableConfig:
             raise ValueError(f"[targets.{target}].overlay must be workspace-relative")
         return path
 
+    def rust_temporal(self) -> str | None:
+        """Return the configured Rust temporal crate (``[targets.rust].temporal``), if any."""
+        configured = self.values.get("targets.rust.temporal")
+        if configured is None:
+            return None
+        from modelable.emitters.rust_temporal import validate_backend
+
+        try:
+            return validate_backend(configured.value)
+        except ValueError as exc:
+            raise ValueError(f"rust target temporal: {exc}") from exc
+
     def blocked_registry_actions(self) -> tuple[str, ...]:
         configured = self.values.get("registry.blocked_actions")
         if configured is None:
@@ -140,6 +152,12 @@ def load_config(path: str | Path) -> ModelableConfig:
         if "overlay" in target_values:
             values[f"targets.{target_name}.overlay"] = ConfigValue(
                 target_values["overlay"], f"{config_path} [[target]] ({target_name})"
+            )
+        if "temporal" in target_values:
+            if target_name != "rust":
+                raise ValueError(f"[[target]] 'temporal' is only supported for the rust target, not {target_name!r}")
+            values["targets.rust.temporal"] = ConfigValue(
+                target_values["temporal"], f"{config_path} [[target]] ({target_name})"
             )
     return ModelableConfig(config_path, values)
 

@@ -637,6 +637,12 @@ class SemanticTypeDecl(BaseModel):
     has_version_header: bool = False
     has_change_kind: bool = False
     registry: bool = False
+    annotations: list[Annotation] = Field(default_factory=list)
+
+    def wire_targets(self) -> dict[str, WireTargetHint]:
+        from modelable.parser.wire import wire_targets_from_annotations
+
+        return wire_targets_from_annotations(self.annotations)
 
 
 class EnumProjectionDecl(BaseModel):
