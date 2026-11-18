@@ -367,7 +367,7 @@ type ConversationPlan = Annotated[
     Field(discriminator="kind"),
 ]
 
-_CONVERSATION_PLAN_ADAPTER: TypeAdapter[ConversationPlan] = TypeAdapter(ConversationPlan)
+_CONVERSATION_PLAN_ADAPTER: TypeAdapter[ConversationPlan] = TypeAdapter(ConversationPlan.__value__)
 
 
 _THINK_BLOCK_RE = re.compile(r"\A<think>.*?</think>\s*", re.IGNORECASE | re.DOTALL)
