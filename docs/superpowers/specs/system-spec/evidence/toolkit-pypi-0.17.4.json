@@ -1,0 +1,39 @@
+{
+  "recorded_date": "2026-11-17",
+  "package": "system-spec-ref",
+  "version": "0.17.4",
+  "index": "https://pypi.org/simple",
+  "pypi_metadata": "https://pypi.org/pypi/system-spec-ref/0.17.4/json",
+  "wheel": {
+    "filename": "system_spec_ref-0.17.4-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/87/3b/154bbcb3c3442cbb7848bc42a2797f30131d1bedfe1cb4339fad7f49afca/system_spec_ref-0.17.4-py3-none-any.whl",
+    "sha256": "c5817ee54cad09b1813652fd921ed4752e589bcda38c681afb78f0d27c6f2c67",
+    "uploaded": "2026-11-17T10:30:26.311583Z"
+  },
+  "installation": {
+    "command": [
+      "uv",
+      "tool",
+      "install",
+      "--index-url",
+      "https://pypi.org/simple",
+      "system-spec-ref==0.17.4"
+    ],
+    "reported_version": "0.17.4"
+  },
+  "export": {
+    "command": [
+      "system-spec",
+      "export",
+      "<fresh-destination>"
+    ],
+    "destination": "tools/system-spec",
+    "files": 89,
+    "all_files_match_wheel_entries": true,
+    "vendor_edits": false
+  },
+  "schema_sha256": "ce3b0aeab5b0127dbc0693e04f3ede10474eff440ead426a4097b2ebcb580b52",
+  "validator_sha256": "cea225a11660b321f38afa922ccfab059a2276645dc04a87bd1de3571a84a4e2",
+  "previous_version": "0.5.0",
+  "previous_receipt": "toolkit-pypi-0.5.0.json"
+}

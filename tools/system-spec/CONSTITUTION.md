@@ -48,7 +48,7 @@ Capability → Contract → Data model → Tests → Code
 
 ## Components
 
-- Derived from invariants and consistency requirements, not technology categories.
+- Derived from invariants and consistency requirements, not technology categories; skill [`ddd`](.github/skills/ddd/SKILL.md) maps bounded contexts and aggregates to domains and components.
   - Bad: `Database`, `REST`, `Kafka` components.
   - Good: `Customer Management`, `Inventory Management`, `Payments`.
 - Strong consistency inside a component; eventual consistency between components.
@@ -107,8 +107,8 @@ No implementation is accepted until all categories are addressed:
 
 ## Formal Verification
 
-- Assess per component. Indicators: concurrency, distributed state, financial transactions, safety-critical logic, complex state machines, protocols.
-- If applicable, produce TLA+/Alloy/Quint models or state machines; see skills [`tla`](.github/skills/tla/SKILL.md) (concurrency, protocols), [`quint`](.github/skills/quint/SKILL.md) (typed state machines) and [`alloy`](.github/skills/alloy/SKILL.md) (structure, relations).
+- Assess per component and record the outcome as `formal_assessment`. Indicators: concurrency, distributed state, financial transactions, safety-critical logic, complex state machines, protocols.
+- If applicable, produce TLA+/Alloy/Quint models, Lean proofs or state machines; see skills [`tla`](.github/skills/tla/SKILL.md) (concurrency, protocols), [`quint`](.github/skills/quint/SKILL.md) (typed state machines) [`alloy`](.github/skills/alloy/SKILL.md) (structure, relations) and [`lean`](.github/skills/lean/SKILL.md) (unbounded proofs).
 - Record bounded checks as `method: model-check` with explicit `bounds` and unbounded proofs as `method: proof` ([`spec.md` § 8](spec.md#8-verification)).
 
 ## Layering
@@ -146,12 +146,13 @@ Capability → Requirement → Invariant → Component → Contract → Test →
 ```
 
 - Every test traces to a requirement; every implementation element traces to a capability.
+- Test-first unit tests bind to the component sub-requirement (`refines`) whose criterion they elaborate; a test that elaborates no criterion reveals a missing criterion or sub-requirement.
 
 ## Acceptance
 
 A system is complete only when capabilities, invariants, components, contracts, data models and APIs are specified; verification is complete; formal models are reviewed; performance and concurrency goals are met; traceability is established; and architecture constraints are preserved.
 
-Implementation completion, verification completion and release acceptance are separate states. Record each only when its obligations have been met.
+Implementation completion, verification completion and release acceptance are separate states. Record each only when its obligations have been met. A passing `--stage release` is not acceptance: record the decision (`system.acceptance`: who, when, at which revision) so tools can tell "passes" from "accepted" and notice an acceptance older than later evidence or code. The record is committed after the revision it names; under squash or rebase merges name a revision that stays on the main branch (the merge commit, with the acceptance added on top) or put the PR in `notes`.
 
 ### Gate Decision Record
 
@@ -193,6 +194,7 @@ When discovery, implementation, verification, formal modeling or incident review
 1. **Surface the finding immediately** in the handoff return or [gate decision record](#gate-decision-record); never mask a missing contract clause, invariant or dependency with an ad-hoc code workaround.
 2. **Update the system model**: feed discovered facts back into `capabilities`, `components`, `data_models`, `requirements`, `risks` or formal models, run `--impact`, and reopen the earliest affected gate.
 3. **Improve the metamodel and tooling**: when a finding exposes an uncheckable rule or recurring blind spot in [`spec.md`](spec.md), track workflows or [`metamodel.py`](reference-implementation/metamodel.py), propose a minimal update to `spec.md` § 11, `INVARIANTS`, `schema.json` and `corpus.yaml`.
+4. **Report upstream without project specifics**: toolkit issues and reviews are public; follow [README § Giving feedback](README.md#giving-feedback) (metamodel and tool terms, a minimal synthetic example, no real names, URLs or requirement text).
 
 ---
 

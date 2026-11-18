@@ -19,12 +19,15 @@
 - { id: REF-12, set: { data_models.2.declassified_by: ghost } }
 - { id: REF-13, set: { capabilities.1.interface.request: ghost } }
 - { id: REF-14, set: { subject_bindings: { ghost: { version: "1.0", revision: commit-a, artifacts: { source.py: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa } } } } }
+- { id: REF-15, set: { evidence.0.run: ghost } }
 - { id: DATA-01, set: { data_models.0.external_source: untracked } }
 - { id: DATA-02, set: { components.0.owns_data: [] } }
 - { id: DATA-03, set: { components.0.owns_data.-: [stock-item] } }
 - { id: DATA-04, set: { data_models.2.classification: public } }
 - { id: DATA-05, stage: architecture, set: { data_models.0.classification: unknown, data_models.0.classification_review: req-security } }
 - { id: DATA-06, stage: inventory, set: { data_models.0.classification: unknown } }
+- { id: DATA-08, set: { system.lineage_channel: required, components.0.requires: [] } }
+- { id: DATA-07, set: { data_models.0.storage_role: shop_rw, data_models.1.storage_role: shop_rw } }
 - { id: EV-01, drop: [evidence.1.bounds] }
 - id: EV-02
   set: { evidence.-: [{ id: ev-fix, requirement_id: req-order, requirement_version: "1.0", method: test, passed: true, provenance: ci, supersedes: ev-order-test, supersession_reason: rerun, subject_revision: "1.0", timestamp: 2026-10-30, verifier: ci }] }
@@ -61,6 +64,7 @@
 - { id: CAP-03, set: { capabilities.1.interface.errors: { insufficient_inventory: 409 } } }
 - { id: CAP-03, drop: [capabilities.1.interface.auth] }
 - { id: CAP-03, drop: [capabilities.1.interface.idempotent] }
+- { id: CAP-05, set: { capabilities.1.defined_by: inventory } }
 - { id: CAP-04, set: { requirements.1.target: commerce-system } }
 - { id: COMP-01, set: { components.0.provides: [] } }
 - { id: COMP-02, set: { components.0.layer: ui } }
@@ -70,13 +74,18 @@
 - { id: COMP-04, set: { components.0.requires: [reserve-inventory@^1.0-beta] } }
 - { id: COMP-05, also: [COMP-06], set: { components.1.requires: [place-order@^1.0] } }
 - { id: COMP-06, set: { system.layers: [], components.1.requires: [place-order@^1.0] } }
+- { id: COMP-14, set: { system.layer_policy: { skip: deny }, components.1.layer: infrastructure } }
+- { id: COMP-14, set: { system.layer_policy: { same_layer: deny }, components.1.layer: application } }
 - { id: COMP-07, stage: architecture, set: { capabilities.1.status: deprecated } }
 - { id: COMP-08, also: [COMP-09], stage: verification, set: { components.0.test_paths: [tests/checkout] } }
 - { id: COMP-10, set: { components.0.fakes: { reserve-inventory: tests/checkout/fakes/reserve.py } } }
 - { id: COMP-11, set: { components.1.external: true } }
+- { id: COMP-12, stage: verification, set: { components.0.formal_assessment: { applies: true } } }
+- { id: COMP-13, set: { components.0.formal_assessment: { applies: true, indicators: [concurrency] } } }
 - { id: COMP-09, also: [COMP-08], stage: verification, set: { components.0.test_paths: [tests/checkout] } }
 - { id: DOM-01, set: { system.domains: [{ id: sales }], components.0.domain: sales, components.1.domain: stock } }
 - { id: DOM-02, set: { system.domains: [{ id: sales }, { id: stock }], components.0.domain: sales, components.1.domain: stock } }
+- { id: DOM-04, set: { system.domains: [{ id: sales, uses: [stock] }, { id: stock }], system.layers.1: { id: application, domain_neutral: true }, components.0.domain: sales, components.1.domain: stock } }
 - { id: DOM-03, set: { system.domains: [{ id: sales, uses: [stock] }, { id: stock, uses: [sales] }], components.0.domain: sales, components.1.domain: stock } }
 - { id: REQ-01, stage: verification, drop: [requirements.3.category] }
 - { id: REQ-02, set: { requirements.0.depends_on: [req-reserve], requirements.1.refines: [req-order] } }
@@ -115,7 +124,11 @@
 - { id: EXP-04, set: { views: [*v1, *v2], experiences: [{ <<: *exp, interactions: [{ id: open, from_view: overview, to_view: detail, trigger: select, outcome: detail shown, failure_modes: { missing: no-such-state } }] }] } }
 - { id: EXP-05, set: { views: [*v1, *v2], experiences: [{ <<: *exp, critical: true, scenarios: [] }] } }
 - { id: EXP-06, set: { views: [{ <<: *v1, references: [{ path: ui/overview.svg, authority: normative }] }, *v2], experiences: [*exp] } }
-- { id: EXP-08, set: { views: [*v1, *v2], experiences: [{ <<: *exp, critical: true, exhaustive: true, requirements: [req-order, req-reserve], scenarios: [{ id: s1, requirement: req-order, interactions: [open] }, { id: s2, requirement: req-order, kind: negative, interactions: [open] }] }] } }
+- { id: EXP-08, set: { views: [*v1, { <<: *v2, actions: [] }], experiences: [{ <<: *exp, critical: true, exhaustive: true, requirements: [req-order, req-reserve], scenarios: [{ id: s1, requirement: req-order, interactions: [open], states: [overview.empty, detail.ready] }, { id: s2, requirement: req-order, kind: negative, interactions: [open], states: [overview.error] }] }] } }
+- { id: EXP-09, set: { views: [*v1, *v2], experiences: [{ <<: *exp, critical: true, exhaustive: true, scenarios: [{ id: s1, requirement: req-order, interactions: [open], states: [overview.empty, detail.ready] }, { id: s2, requirement: req-order, kind: negative, interactions: [open], states: [overview.error] }] }] } }
+- { id: EXP-10, set: { views: [*v1, { <<: *v2, actions: [] }], experiences: [{ <<: *exp, critical: true, exhaustive: true, scenarios: [{ id: s1, requirement: req-order, interactions: [open], states: [detail.ready] }, { id: s2, requirement: req-order, kind: negative, interactions: [open], states: [overview.error] }] }] } }
+- { id: EXP-11, set: { views: [*v1, *v2], experiences: [{ <<: *exp, critical: true, scenarios: [{ id: s1, requirement: req-order, interactions: [open] }, { id: s2, requirement: req-order, kind: negative, interactions: [open], states: [overview.empty] }] }] } }
+- { id: EXP-12, set: { views: [*v1, *v2], experiences: [{ <<: *exp, critical: true, scenarios: [{ id: s1, requirement: req-order, interactions: [open], states: [overview.error] }, { id: s2, requirement: req-order, kind: negative, interactions: [open, open], states: [overview.error] }] }] } }
 - id: EXP-07
   set:
     requirements.-: [{ id: req-ux, version: "1.0", status: verified, category: functional, mandatory: false, target: place-order, criteria: [x] }]
@@ -123,4 +136,9 @@
     experiences:
       - <<: *exp
         critical: true
-        scenarios: [{ id: s1, requirement: req-ux, interactions: [open] }, { id: s2, requirement: req-ux, interactions: [open], kind: negative }]
+        scenarios: [{ id: s1, requirement: req-ux, interactions: [open] }, { id: s2, requirement: req-ux, interactions: [open], kind: negative, states: [overview.error] }]
+- { id: REQ-10, set: { requirements.0.criteria: [{ id: c1, text: order created when stock available }, { id: c1, text: stock reserved }] } }
+- { id: REQ-11, set: { requirements.0.applies_to: { kind: component, has_interface: true } } }
+- { id: EV-07, set: { requirements.0.holder: organization, system.evidence_methods: { organization: [inspection] } } }
+- { id: EV-09, set: { requirements.3.criteria.0: { id: c1, text: p95 < 100ms, threshold: { metric: p95_ms, op: "<", value: 100 } }, evidence.3.measurements: { p95_ms: 150 } } }
+- { id: EV-08, also: [REQ-05, RISK-04], set: { system.evidence_policy: { require_criteria: true } } }
