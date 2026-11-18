@@ -1224,3 +1224,35 @@ def test_distinct_json_wire_values_produce_no_sem_error():
     workspace = load_workspace_from_sources([source])
 
     assert not [e.message for e in workspace.errors if "wire value" in e.message]
+
+
+def _semantic_wire_errors(declaration: str) -> list[str]:
+    mdl = parse_text_to_ir(f"""
+    domain events {{
+      owner: "test-team"
+      {declaration}
+    }}
+    """)
+    return [str(error) for error in validate(mdl)]
+
+
+def test_semantic_wire_rust_type_is_accepted_on_temporal_and_int_types():
+    assert _semantic_wire_errors('@wire(rust.type: "jiff::Timestamp") semantic When: timestamp') == []
+    assert _semantic_wire_errors('@wire(rust.type: "u64") semantic Big: int') == []
+
+
+def test_semantic_wire_rejects_other_targets_and_options():
+    assert any(
+        "only supports @wire(rust.type" in error
+        for error in _semantic_wire_errors('@wire(json: "string") semantic Big: int')
+    )
+    assert any(
+        "only supports the rust.type option" in error
+        for error in _semantic_wire_errors('@wire(rust.case: "snake_case") semantic Big: int')
+    )
+
+
+def test_semantic_wire_rust_type_rejects_non_int_non_temporal_underlying():
+    errors = _semantic_wire_errors('@wire(rust.type: "String") semantic Label: string')
+
+    assert any("only supports rust.type on int and temporal" in error for error in errors)

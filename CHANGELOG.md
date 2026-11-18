@@ -8,8 +8,16 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
-- Add `[targets.rust] temporal = "chrono" | "jiff"` to `modelable.toml`. `jiff` emits `jiff::Timestamp`, `jiff::civil::Date`, `jiff::civil::Time` and `jiff::SignedDuration` (including semantic types and the generated `Cargo.toml`) without per-field `@wire(rust.type: ...)`; `chrono` stays the default. The option does not change `SCHEMA_CONTENT_SIGNATURE`. Addresses the `chrono` unmaintained advisory (RUSTSEC-2026-0543).
+### Changed
 
+### Fixed
+
+## [1.16.0] - 2026-11-17
+
+### Added
+
+- Select the Rust crate for temporal primitives once per workspace with `temporal = "chrono" | "jiff" | "time"` on the `rust` entry in `modelable.toml` (`[[target]]`), so a workspace can generate Rust with no `chrono` dependency (RUSTSEC-2026-0543) without annotating every field. `chrono` stays the default. The setting does not change `SCHEMA_CONTENT_SIGNATURE`; see the wire-format contract.
+- Allow `@wire(rust.type: "...")` on a `semantic` declaration over `int` or a temporal primitive, so one shared alias such as `semantic When: timestamp` carries the Rust type for every field that uses it. It becomes part of that declaration's schema signature; existing declarations keep theirs.
 - Keep multiple playground tabs on the same workspace in sync: a tab without unsaved edits adopts a newer revision saved by another tab, and a tab with unsaved edits is marked memory-only instead of silently losing the race.
 
 ### Changed
@@ -18,6 +26,7 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- `modelable codegen types --format rust` now reports the types the emitter produces (`uuid::Uuid` and the `chrono` temporal types) instead of the stale `String` mapping.
 - Recover from a compilation that was killed mid-promotion: the next compilation rolls the workspace back to its pre-promotion files using a journal kept under `.modelable/locks`. An unreadable journal blocks compilation instead of being ignored.
 
 - Show the playground as memory-only instead of saved when a workspace save is rejected because a newer revision is already stored (for example from another tab).

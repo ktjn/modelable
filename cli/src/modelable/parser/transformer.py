@@ -383,6 +383,8 @@ class MdlTransformer(Transformer[list[object], Any]):
         return dict(items)  # type: ignore[arg-type]
 
     def semantic_decl(self, items: list[object]) -> tuple[str, SemanticTypeDecl]:
+        annotations = [item for item in items if isinstance(item, ANNOTATION_TYPES)]
+        items = [item for item in items if not isinstance(item, ANNOTATION_TYPES)]
         name = str(items[0])
         header = cast(
             tuple[str, int, ChangeKind, bool] | None,
@@ -407,6 +409,7 @@ class MdlTransformer(Transformer[list[object], Any]):
                 has_version_header=header is not None,
                 has_change_kind=has_change_kind,
                 registry=body.get("registry", False),
+                annotations=annotations,
             ),
         )
 

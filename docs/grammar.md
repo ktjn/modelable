@@ -313,7 +313,7 @@ pinned_import: "at" dotted_ref "@" INT "#" IDENT
 consumer_decl: "consumer" IDENT? "{" ignored_block_item* "}"
 auto_projections_decl: "auto" "projections" IDENT "@" INT "{" auto_projection_item* "}"
 
-semantic_decl: "semantic" IDENT semantic_header? ":" type_expr semantic_body?
+semantic_decl: wire_annotation* "semantic" IDENT semantic_header? ":" type_expr semantic_body?
 semantic_header: "@" INT semantic_change?
 
 // -- Enum projections ---------------------------------------------------------
@@ -516,7 +516,7 @@ Alphabetical listing of every named rule and its production.
 | `selector` | `qualified_field \| auto_projection_exclusion` |
 | `semantic_body` | `"{" semantic_item* "}"` |
 | `semantic_change` | `"(" change_kind ")"` |
-| `semantic_decl` | `"semantic" IDENT semantic_header? ":" type_expr semantic_body?` |
+| `semantic_decl` | `wire_annotation* "semantic" IDENT semantic_header? ":" type_expr semantic_body?` |
 | `semantic_header` | `"@" INT semantic_change?` |
 | `semantic_item` | `"registry" ":" bool_literal` |
 | `sort_dir` | `"asc"  -> sd_asc \| "desc" -> sd_desc` |

@@ -96,8 +96,6 @@ Neither emitter sorts, groups, or otherwise reorders fields.
 | `map<K,V>` | `HashMap<K,V>` | native `map<K,V>` for supported Protobuf key/value shapes. Supported keys are string, bool, and integer primitives. Supported values include primitive scalars, timestamps, fixed bytes, inline enums, and semantic wrapper messages. Unsupported map shapes fail emission clearly instead of degrading to opaque `bytes`. |
 | Semantic type reference (`semantic Name: Underlying`) | the generated newtype (see the [compiler reference](compiler-reference.md)) | a fully qualified declaring-domain wrapper message with one `value = 1` field mapped from the terminal scalar; alias chains flatten rather than nest. The schema manifest records the qualified semantic ref and optional registry allocation, including when the semantic type is used as a supported map value. |
 
-With `[targets.rust] temporal = "jiff"` in `modelable.toml`, the Rust column becomes `jiff::Timestamp` (RFC 3339), `jiff::civil::Date`, `jiff::civil::Time` and `jiff::SignedDuration` (ISO 8601). The wire encoding is unchanged. The option selects a Rust binding only and does not enter `SCHEMA_CONTENT_SIGNATURE`; a per-field `@wire(rust.type: ...)` does.
-
 Adopting a generated Protobuf semantic wrapper is an intentional wire change
 from the previous opaque `bytes` fallback. Existing consumers must regenerate
 their schemas and bindings together when moving to this compiler behavior.
@@ -108,6 +106,52 @@ ISO 8601 duration text. Rust fields may opt into a target-specific type with
 `@wire(rust.type: "...")`; PostgreSQL duration storage may opt into native
 interval arithmetic with `@wire(postgres.type: "INTERVAL")`, otherwise the
 duration remains `TEXT` so its wire value round-trips byte-for-byte.
+
+### Choosing the Rust temporal crate
+
+`chrono` is the default but is flagged unmaintained
+([RUSTSEC-2026-0543](https://rustsec.org/advisories/RUSTSEC-2026-0543)). A
+workspace selects the crate for every temporal primitive once, in
+`modelable.toml`, instead of annotating each field:
+
+```toml
+[[target]]
+name = "rust"
+temporal = "jiff"   # "chrono" (default) | "jiff" | "time"
+```
+
+| `.mdl` type | `chrono` (default) | `jiff` | `time` |
+|---|---|---|---|
+| `timestamp` | `chrono::DateTime<chrono::Utc>` | `jiff::Timestamp` | `time::OffsetDateTime` |
+| `date` | `chrono::NaiveDate` | `jiff::civil::Date` | `time::Date` |
+| `time` | `chrono::NaiveTime` | `jiff::civil::Time` | `time::Time` |
+| `duration` | `chrono::Duration` | `jiff::SignedDuration` | `time::Duration` |
+
+The JSON wire form is the same for all three crates. Durations go through the
+generated `modelable_duration` ISO 8601 adapter. With `time`, timestamps use
+`time::serde::rfc3339` and `time` values accept `HH:MM:SS[.fraction]` (written
+with a fraction, e.g. `12:30:00.0`). The generated `Cargo.toml` (package
+layouts) and each file's `// requires:` header name the selected crate, and no
+`chrono` dependency is emitted.
+
+Notes:
+
+- `time` cannot give `timestamp`/`time` values inside `array`/`map` fields the
+  ISO form, so emission fails with a clear error for those shapes; use `jiff` or
+  annotate the field with `@wire(rust.type: "...")`.
+- A per-field `@wire(rust.type: "...")` still wins over the crate selection.
+- **Schema identity:** the crate selection is build configuration, not part of
+  the model, so it does **not** change `SCHEMA_CONTENT_SIGNATURE`. A per-field
+  `@wire(rust.type: "...")` is part of the model and **does** change it, even
+  when the override names the default type. The signature identifies the schema
+  across every language, so a Rust-only binding choice made with `@wire`
+  changes the schema's identity everywhere; prefer the `temporal` setting for a
+  crate migration.
+- `@wire(rust.type: ...)` may also sit on a `semantic` declaration over `int` or a
+  temporal primitive (`@wire(rust.type: "jiff::Timestamp") semantic When: timestamp`).
+  It sets the newtype's inner Rust type, so every field using the semantic type
+  picks it up. It is part of the declaration's schema signature; declarations
+  without a hint keep their existing signature. It wins over the crate selection.
 
 ## 4. Enum Discriminant Stability
 

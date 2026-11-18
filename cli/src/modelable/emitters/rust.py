@@ -20,11 +20,12 @@ from modelable.emitters.naming import snake_case as _snake_case
 from modelable.emitters.package_graph import PackageGraph, build_package_graph
 from modelable.emitters.rust_plan import emit_rust_projection_plan
 from modelable.emitters.rust_temporal import (
-    DEFAULT_TEMPORAL,
-    TEMPORAL_DEPENDENCIES,
-    current_temporal,
-    temporal_scope,
-    temporal_type,
+    TEMPORAL_BACKENDS,
+    crates_in,
+    current_backend,
+    requires_header,
+    temporal_rust_type,
+    use_backend,
 )
 from modelable.emitters.shapes import TypeShape, TypeShapeField, TypeShapeVariant
 from modelable.parser.ir import (
@@ -155,18 +156,19 @@ def emit_rust(
     *,
     registry_ids: dict[str, int] | None = None,
     enum_numbers: dict[str, EnumNumberAllocation] | None = None,
-    temporal: str = DEFAULT_TEMPORAL,
+    temporal: str | None = None,
 ) -> list[EmittedArtifact]:
     """Emit Rust source files for every model and projection version.
 
-    ``temporal`` selects the crate for temporal primitives (``chrono`` or ``jiff``).
+    ``temporal`` selects the crate temporal primitives map to: ``chrono``
+    (default), ``jiff`` or ``time``.
 
     When the workspace has no ``package {}`` blocks, this emits the flat
     single-crate layout unchanged. When packages are configured, each
     package's domains are emitted under their own ``src/`` tree with a
     generated Cargo.toml, lib.rs, and per-domain mod.rs.
     """
-    with temporal_scope(temporal):
+    with use_backend(temporal):
         return _emit_rust(workspace, out_dir, registry_ids=registry_ids, enum_numbers=enum_numbers)
 
 
@@ -473,10 +475,8 @@ def _emit_cargo_toml(
     needs_serde_with = any("requires: serde_with" in _artifact_text(a) for a in pkg_artifacts)
     needs_sqlx = any("requires: sqlx" in _artifact_text(a) for a in pkg_artifacts)
     needs_clickhouse = any("requires: clickhouse" in _artifact_text(a) for a in pkg_artifacts)
-    needs_temporal = [
-        crate
-        for crate in TEMPORAL_DEPENDENCIES
-        if any(f"requires: {crate} " in _artifact_text(a) for a in pkg_artifacts)
+    temporal_crates = [
+        crate for crate in TEMPORAL_BACKENDS if any(f"requires: {crate} " in _artifact_text(a) for a in pkg_artifacts)
     ]
 
     lines = [
@@ -498,7 +498,8 @@ def _emit_cargo_toml(
         lines.append('sqlx = "0.8"')
     if needs_clickhouse:
         lines.append('clickhouse = "0.13"')
-    lines.extend(TEMPORAL_DEPENDENCIES[crate] for crate in needs_temporal)
+    for crate in temporal_crates:
+        lines.append(_cargo_dependency_for(crate))
     for dep in deps:
         # Cargo dependency table keys can contain hyphens directly; the key IS
         # the package name unless a `package = "..."` override is given, and
@@ -516,6 +517,10 @@ def _emit_cargo_toml(
         content_hash=compute_content_hash(text),
         warnings=[],
     )
+
+
+def _cargo_dependency_for(crate: str) -> str:
+    return TEMPORAL_BACKENDS[crate].cargo_dependency
 
 
 def _artifact_text(artifact: EmittedArtifact) -> str:
@@ -724,6 +729,12 @@ def _resolve_enum_backed_named(
     return None
 
 
+def _known_scalar_rust_types() -> set[str]:
+    integer_types = {"u8", "u16", "u32", "u64", "u128", "i8", "i16", "i32", "i64", "i128"}
+    temporal_types = {rust for backend in TEMPORAL_BACKENDS.values() for rust in backend.types.values()}
+    return integer_types | temporal_types
+
+
 def _rust_type_for_semantic_underlying(
     underlying: FieldType,
     *,
@@ -731,12 +742,20 @@ def _rust_type_for_semantic_underlying(
     current_domain: str | None = None,
     current_pkg: str | None = None,
     package_for_domain: dict[str, str] | None = None,
+    rust_type_override: str | None = None,
 ) -> tuple[str, list[str], str | None]:
     """Resolve a semantic type's underlying FieldType to (rust_type, derive_traits, use_statement).
+
+    ``rust_type_override`` is a ``@wire(rust.type: ...)`` on the declaration. Only
+    types the emitter knows to be ``Copy + Eq + Hash`` keep those derives.
 
     derive_traits excludes Copy/Eq/Hash for underlying Rust types that don't
     support them (String, Vec<u8>, f64, serde_json::Value).
     """
+    if isinstance(underlying, PrimitiveType) and rust_type_override is not None:
+        if rust_type_override in _known_scalar_rust_types():
+            return rust_type_override, ["Debug", "Clone", "Copy", "PartialEq", "Eq", "Hash"], None
+        return rust_type_override, ["Debug", "Clone", "PartialEq"], None
     if isinstance(underlying, PrimitiveType):
         rust_type = _primitive_to_rust(underlying.kind)
         if rust_type == "f64":
@@ -809,6 +828,24 @@ def _render_schema_identity_impl(
     return lines
 
 
+def _semantic_temporal_serde_attr(underlying: FieldType) -> str | None:
+    """Field-level ``#[serde(with = ...)]`` a temporal semantic newtype needs, if any.
+
+    ``chrono`` keeps its crate-native serde form. For ``jiff`` and ``time`` the
+    same ISO-8601/RFC 3339 wire form is selected explicitly where the crate's
+    default differs: ``time`` timestamps use ``time::serde::rfc3339`` and
+    durations of either crate go through the shared ``modelable_duration`` adapter.
+    """
+    if not isinstance(underlying, PrimitiveType):
+        return None
+    backend = current_backend()
+    if underlying.kind in backend.serde_modules:
+        return f'#[serde(with = "{backend.serde_modules[underlying.kind]}")]'
+    if underlying.kind == "duration" and backend.name != "chrono":
+        return '#[serde(with = "modelable_duration")]'
+    return None
+
+
 def _emit_semantic_type(
     domain: DomainDef,
     decl: SemanticTypeDecl,
@@ -831,29 +868,38 @@ def _emit_semantic_type(
             allocated_id=allocated_id,
             enum_allocation=enum_allocation,
         )
+    rust_hint = decl.wire_targets().get("rust")
+    rust_type_override = rust_hint.type if rust_hint is not None and isinstance(rust_hint.type, str) else None
     rust_type, base_derives, use_statement = _rust_type_for_semantic_underlying(
         decl.underlying,
         mdl=mdl,
         current_domain=domain.name,
         current_pkg=current_pkg,
         package_for_domain=package_for_domain,
+        rust_type_override=rust_type_override,
     )
     derives = [*base_derives, "serde::Serialize", "serde::Deserialize"]
 
     needs_uuid = rust_type == "uuid::Uuid"
     needs_serde_json = rust_type == "serde_json::Value"
-    needs_chrono = rust_type.startswith(f"{current_temporal()}::")
+    field_attr = None if rust_type_override is not None else _semantic_temporal_serde_attr(decl.underlying)
+    temporal_crates = crates_in(rust_type)
+    if field_attr is not None:
+        temporal_crates |= crates_in(field_attr) | {current_backend().name}
     lines = _header_lines(
         uuid=needs_uuid,
         serde_json=needs_serde_json,
-        chrono=needs_chrono,
+        temporal=temporal_crates,
         extra_uses=[use_statement] if use_statement else None,
     )
+    if field_attr is not None:
+        lines.extend(_render_temporal_serde_helpers_for(field_attr))
     if allocated_id is not None:
         lines.append(f"/// registry id: {allocated_id}")
     lines.append(f"#[derive({', '.join(derives)})]")
     lines.append("#[serde(transparent)]")
-    lines.append(f"pub struct {struct_name}(pub {rust_type});")
+    field_prefix = f"{field_attr} " if field_attr is not None else ""
+    lines.append(f"pub struct {struct_name}({field_prefix}pub {rust_type});")
     if allocated_id is not None:
         lines.extend(_render_registry_id_impl(struct_name, allocated_id))
     lines.append("")
@@ -1080,17 +1126,16 @@ def _emit_model(
     needs_uuid = _any_needs_uuid(field_specs)
     needs_serde_json = _any_needs_serde_json(field_specs)
     needs_hashmap = _any_needs_hashmap(field_specs, nested_definitions)
-    needs_chrono = _any_needs_chrono(field_specs)
+    temporal_crates = _temporal_crates(field_specs, nested_definitions)
     lines = _header_lines(
         serde_with=needs_serde_with,
         uuid=needs_uuid,
         serde_json=needs_serde_json,
         hashmap=needs_hashmap,
-        chrono=needs_chrono,
+        temporal=temporal_crates,
         extra_uses=use_statements,
     )
-    if _any_needs_duration_serde(field_specs):
-        lines.extend(_render_duration_serde_module())
+    lines.extend(_render_temporal_serde_helpers(field_specs))
     lines.extend(_render_struct_definition(type_name, field_specs))
     lines.extend(
         _render_schema_identity_impl(
@@ -1226,7 +1271,7 @@ def _emit_projection(
         _projection_field_is_json_passthrough_to_string(f, version, mdl) for f in version.fields
     )
     needs_hashmap = _any_needs_hashmap(field_specs, nested_definitions)
-    needs_chrono = _any_needs_chrono(field_specs)
+    temporal_crates = _temporal_crates(field_specs, nested_definitions)
     extra_derives: list[str] = []
     if sqlx_fromrow:
         extra_derives.append("sqlx::FromRow")
@@ -1239,11 +1284,10 @@ def _emit_projection(
         uuid=needs_uuid,
         serde_json=needs_serde_json,
         hashmap=needs_hashmap,
-        chrono=needs_chrono,
+        temporal=temporal_crates,
         extra_uses=use_statements,
     )
-    if _any_needs_duration_serde(field_specs):
-        lines.extend(_render_duration_serde_module())
+    lines.extend(_render_temporal_serde_helpers(field_specs))
     lines.extend(
         _render_struct_definition(type_name, field_specs, extra_derives=extra_derives, storage_gated=storage_gated)
     )
@@ -1328,7 +1372,26 @@ def _can_route_rust_projection_plan(
             return False
         if field.get("optional") is True and isinstance(field_type, dict) and field_type.get("kind") == "array":
             return False
+        if (
+            current_backend().name != "chrono"
+            and isinstance(field_type, dict)
+            and _plan_type_needs_temporal_serde(field_type)
+        ):
+            # jiff/time timestamps and durations need field-level serde attributes
+            # that only the direct emitter renders.
+            return False
     return True
+
+
+def _plan_type_needs_temporal_serde(field_type: dict[str, object]) -> bool:
+    kind = field_type.get("kind")
+    if kind in {"timestamp", "duration"} or field_type.get("type") in {"timestamp", "duration"}:
+        return True
+    for key in ("item", "value"):
+        nested = field_type.get(key)
+        if isinstance(nested, dict) and _plan_type_needs_temporal_serde(nested):
+            return True
+    return False
 
 
 def _rust_plan_type_is_plain(field_type: dict[str, object]) -> bool:
@@ -1510,13 +1573,21 @@ def _serde_attrs_for_field(wire: dict[str, WireTargetHint], shape: TypeShape, *,
     temporal = (
         shape.ref if shape.kind == "primitive" and shape.ref in {"date", "time", "timestamp", "duration"} else None
     )
-    if (
-        temporal == "duration"
-        and current_temporal() == "chrono"
-        and (rust_hint is None or getattr(rust_hint, "type", None) is None)
-    ):
-        module = "modelable_duration::option" if shape.optional or shape.nullable else "modelable_duration"
-        return [f'#[serde(with = "{module}")]']
+    has_type_override = rust_hint is not None and getattr(rust_hint, "type", None) is not None
+    suffix = "::option" if shape.optional or shape.nullable else ""
+    if temporal == "duration" and not has_type_override:
+        return [f'#[serde(with = "modelable_duration{suffix}")]']
+    backend = current_backend()
+    if temporal in backend.serde_modules and not has_type_override:
+        return [f'#[serde(with = "{backend.serde_modules[temporal]}{suffix}")]']
+    if backend.serde_modules and not has_type_override:
+        unsupported = _collection_temporal_kinds(shape) & backend.serde_modules.keys()
+        if unsupported:
+            raise ValueError(
+                f"Rust temporal backend '{backend.name}' cannot serialize {'/'.join(sorted(unsupported))} values "
+                "inside array/map fields in their ISO-8601 form; use the 'jiff' or 'chrono' backend, "
+                "or annotate the field with @wire(rust.type: ...)"
+            )
     # u64-as-string: rust.type is overridden to u64 and json serialization is string.
     if (
         rust_hint is not None
@@ -1532,6 +1603,21 @@ def _serde_attrs_for_field(wire: dict[str, WireTargetHint], shape: TypeShape, *,
         if ch_hint is not None and getattr(ch_hint, "encoding", None) == "uuid":
             return ['#[serde(with = "clickhouse::serde::uuid")]']
     return []
+
+
+def _collection_temporal_kinds(shape: TypeShape) -> set[str]:
+    """Temporal primitive kinds nested inside an array/map shape."""
+    if shape.kind == "array" and shape.element is not None:
+        return _temporal_kinds_in(shape.element)
+    if shape.kind == "map" and shape.value is not None:
+        return _temporal_kinds_in(shape.value)
+    return set()
+
+
+def _temporal_kinds_in(shape: TypeShape) -> set[str]:
+    if shape.kind == "primitive" and shape.ref in {"timestamp", "date", "time", "duration"}:
+        return {shape.ref}
+    return _collection_temporal_kinds(shape)
 
 
 def _serde_json_name_attrs(field_name: str, wire: dict[str, WireTargetHint]) -> list[str]:
@@ -1561,33 +1647,71 @@ def _any_needs_uuid(field_specs: list[_FieldSpec]) -> bool:
     return any("uuid::Uuid" in spec.annotation for spec in field_specs)
 
 
-def _any_needs_chrono(field_specs: list[_FieldSpec]) -> bool:
-    crate = f"{current_temporal()}::"
-    return any(
-        crate in spec.annotation or any("modelable_duration" in attr for attr in spec.serde_attrs)
-        for spec in field_specs
-    )
+def _temporal_crates(field_specs: list[_FieldSpec], nested_definitions: dict[str, list[str]] | None = None) -> set[str]:
+    """Temporal crates (chrono/jiff/time) the rendered fields reference."""
+    crates: set[str] = set()
+    for spec in field_specs:
+        crates |= crates_in(spec.annotation)
+        for attr in spec.serde_attrs:
+            crates |= crates_in(attr)
+            if "modelable_duration" in attr:
+                crates.add(current_backend().name)
+    for lines in (nested_definitions or {}).values():
+        for line in lines:
+            crates |= crates_in(line)
+    return crates
 
 
-def _any_needs_duration_serde(field_specs: list[_FieldSpec]) -> bool:
-    return any("modelable_duration" in attr for spec in field_specs for attr in spec.serde_attrs)
+def _render_temporal_serde_helpers(field_specs: list[_FieldSpec]) -> list[str]:
+    """Render in-file serde helper modules the field attributes refer to."""
+    attrs = " ".join(attr for spec in field_specs for attr in spec.serde_attrs)
+    return _render_temporal_serde_helpers_for(attrs)
+
+
+def _render_temporal_serde_helpers_for(attrs: str) -> list[str]:
+    lines: list[str] = []
+    if "modelable_duration" in attrs:
+        lines.extend(_render_duration_serde_module())
+    for name, source in current_backend().serde_helper_items.items():
+        if f'"{name}' in attrs:
+            lines.extend(["", *source])
+    return lines
 
 
 def _render_duration_serde_module() -> list[str]:
-    """Render a dependency-light ISO-8601 serde adapter for chrono durations."""
-    return [
+    """Render a dependency-light ISO-8601 serde adapter for the active backend's duration type."""
+    backend = current_backend()
+    to_iso_lines = (
+        []
+        if backend.duration_to_iso_body is None
+        else [
+            "    fn to_iso(value: &__DURATION__) -> String {",
+            *backend.duration_to_iso_body,
+            "    }",
+            "",
+        ]
+    )
+    custom_iso = backend.duration_to_iso_body is not None
+    replacements = {
+        "__DURATION__": backend.types["duration"],
+        "__FROM_NANOS__": backend.duration_from_nanos,
+        "__TO_ISO__": "to_iso(value)" if custom_iso else "value.to_string()",
+        "__TO_ISO_FN__": "to_iso" if custom_iso else "ToString::to_string",
+        "__PARSE_IMPORT__": "{parse, to_iso}" if custom_iso else "parse",
+    }
+    template = [
         "",
         "mod modelable_duration {",
         "    use serde::{Deserialize, Deserializer, Serializer};",
         "",
-        "    pub fn serialize<S>(value: &chrono::Duration, serializer: S) -> Result<S::Ok, S::Error>",
+        "    pub fn serialize<S>(value: &__DURATION__, serializer: S) -> Result<S::Ok, S::Error>",
         "    where",
         "        S: Serializer,",
         "    {",
-        "        serializer.serialize_str(&value.to_string())",
+        "        serializer.serialize_str(&__TO_ISO__)",
         "    }",
         "",
-        "    pub fn deserialize<'de, D>(deserializer: D) -> Result<chrono::Duration, D::Error>",
+        "    pub fn deserialize<'de, D>(deserializer: D) -> Result<__DURATION__, D::Error>",
         "    where",
         "        D: Deserializer<'de>,",
         "    {",
@@ -1596,17 +1720,17 @@ def _render_duration_serde_module() -> list[str]:
         "    }",
         "",
         "    pub mod option {",
-        "        use super::parse;",
+        "        use super::__PARSE_IMPORT__;",
         "        use serde::{Deserialize, Deserializer, Serialize, Serializer};",
         "",
-        "        pub fn serialize<S>(value: &Option<chrono::Duration>, serializer: S) -> Result<S::Ok, S::Error>",
+        "        pub fn serialize<S>(value: &Option<__DURATION__>, serializer: S) -> Result<S::Ok, S::Error>",
         "        where",
         "            S: Serializer,",
         "        {",
-        "            value.as_ref().map(ToString::to_string).serialize(serializer)",
+        "            value.as_ref().map(__TO_ISO_FN__).serialize(serializer)",
         "        }",
         "",
-        "        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<chrono::Duration>, D::Error>",
+        "        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<__DURATION__>, D::Error>",
         "        where",
         "            D: Deserializer<'de>,",
         "        {",
@@ -1616,7 +1740,8 @@ def _render_duration_serde_module() -> list[str]:
         "        }",
         "    }",
         "",
-        "    fn parse(value: &str) -> Result<chrono::Duration, String> {",
+        *to_iso_lines,
+        "    fn parse(value: &str) -> Result<__DURATION__, String> {",
         "        let (negative, body) = value.strip_prefix('-').map_or((false, value), |rest| (true, rest));",
         "        let body = body.strip_prefix('P').ok_or_else(|| \"duration must start with P\".to_string())?;",
         "        let mut total_nanos: i128 = 0;",
@@ -1650,10 +1775,16 @@ def _render_duration_serde_module() -> list[str]:
         "        }",
         "        let total_nanos = if negative { -total_nanos } else { total_nanos };",
         '        let total_nanos = i64::try_from(total_nanos).map_err(|_| "duration is out of range".to_string())?;',
-        "        Ok(chrono::Duration::nanoseconds(total_nanos))",
+        "        Ok(__FROM_NANOS__)",
         "    }",
         "}",
     ]
+    rendered: list[str] = []
+    for line in template:
+        for placeholder, value in replacements.items():
+            line = line.replace(placeholder, value)
+        rendered.append(line)
+    return rendered
 
 
 def _any_needs_serde_json(field_specs: list[_FieldSpec]) -> bool:
@@ -1693,7 +1824,7 @@ def _header_lines(
     uuid: bool = False,
     serde_json: bool = False,
     hashmap: bool = False,
-    chrono: bool = False,
+    temporal: set[str] | None = None,
     extra_uses: list[str] | None = None,
 ) -> list[str]:
     lines = ["// @generated by Modelable"]
@@ -1710,9 +1841,8 @@ def _header_lines(
         lines.insert(1, "// requires: uuid (https://docs.rs/uuid)")
     if serde_json:
         lines.insert(1, "// requires: serde_json (https://docs.rs/serde_json)")
-    if chrono:
-        crate = current_temporal()
-        lines.insert(1, f"// requires: {crate} (https://docs.rs/{crate})")
+    for crate in sorted(temporal or (), reverse=True):
+        lines.insert(1, requires_header(crate))
     if extra_uses:
         # Insert use statements just before the trailing empty string
         lines[-1:-1] = extra_uses
@@ -2309,9 +2439,6 @@ def _shape_base_annotation(
 
 
 def _primitive_to_rust(kind: str) -> str:
-    temporal = temporal_type(kind)
-    if temporal is not None:
-        return temporal
     mapping = {
         "string": "String",
         "bool": "bool",
@@ -2331,6 +2458,9 @@ def _primitive_to_rust(kind: str) -> str:
         "i64": "i64",
         "i128": "i128",
     }
+    temporal = temporal_rust_type(kind)
+    if temporal is not None:
+        return temporal
     return mapping.get(kind, "String")
 
 

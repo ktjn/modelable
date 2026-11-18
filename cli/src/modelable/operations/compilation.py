@@ -38,7 +38,6 @@ from modelable.emitters.protobuf import emit_protobuf
 from modelable.emitters.python import emit_python
 from modelable.emitters.registry_manifest import emit_registry_manifest
 from modelable.emitters.rust import emit_rust
-from modelable.emitters.rust_temporal import DEFAULT_TEMPORAL, validate_temporal
 from modelable.emitters.sql import emit_sql
 from modelable.emitters.targets import get_codegen_target, list_implemented_codegen_targets
 from modelable.emitters.typescript import emit_typescript
@@ -791,6 +790,12 @@ def _requested_overlay_path(request: CompilationRequest, workspace_root: Path) -
     return conventional if (workspace_root / conventional).is_file() else None
 
 
+def _configured_rust_temporal(request: CompilationRequest, workspace_root: Path) -> str | None:
+    if request.target != "rust":
+        return None
+    return load_config(workspace_root).rust_temporal()
+
+
 def _configuration_input_path(request: CompilationRequest, workspace_root: Path) -> Path | None:
     if request.overlay_path is not None:
         return None
@@ -1483,14 +1488,6 @@ def _run_compilation(
 
     output = request.out_dir or _DEFAULT_OUT_DIRS[request.target]
     output.mkdir(parents=True, exist_ok=True)
-    rust_temporal = DEFAULT_TEMPORAL
-    if request.target == "rust":
-        try:
-            configured = load_config(workspace_root).values.get("targets.rust.temporal")
-            if configured is not None:
-                rust_temporal = validate_temporal(configured.value)
-        except ValueError as exc:
-            raise CompilationError(str(exc)) from exc
     try:
         artifacts = _emit_target(
             emit_workspace,
@@ -1500,7 +1497,7 @@ def _run_compilation(
             descriptor_set=request.descriptor_set,
             enum_numbers=enum_numbers,
             overlay=overlay,
-            rust_temporal=rust_temporal,
+            rust_temporal=_configured_rust_temporal(request, workspace_root),
         )
     except ValueError as exc:
         raise CompilationError(str(exc)) from exc
@@ -1715,7 +1712,7 @@ def _emit_target(
     descriptor_set: bool,
     enum_numbers: dict[str, EnumNumberAllocation] | None = None,
     overlay: OverlayDocument | None = None,
-    rust_temporal: str = DEFAULT_TEMPORAL,
+    rust_temporal: str | None = None,
 ) -> list[EmittedArtifact]:
     if target == "json-schema":
         return emit_json_schema(workspace, output)
