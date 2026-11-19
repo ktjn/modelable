@@ -85,12 +85,12 @@ Prepared/reviewed by Codex from source and local test output; maintainers own ac
 
 ## Validation and bounded work
 
-Published toolkit onboarding: [toolkit-upgrade-0.17.4.md](toolkit-upgrade-0.17.4.md) (previous: [toolkit-upgrade-0.5.0.md](toolkit-upgrade-0.5.0.md), [toolkit-upgrade-0.4.0.md](toolkit-upgrade-0.4.0.md)). Use PyPI `system-spec-ref==0.17.4`; its intact offline export is committed at [tools/system-spec](../../../../tools/system-spec/WIRING.md). Follow the exported constitution plus the brownfield track. Existing project specification paths remain authoritative; no duplicate idealized baseline is created.
+Published toolkit onboarding: [toolkit-upgrade-0.17.5.md](toolkit-upgrade-0.17.5.md) (previous: [toolkit-upgrade-0.17.4.md](toolkit-upgrade-0.17.4.md), [toolkit-upgrade-0.5.0.md](toolkit-upgrade-0.5.0.md), [toolkit-upgrade-0.4.0.md](toolkit-upgrade-0.4.0.md)). Use PyPI `system-spec-ref==0.17.5`; its intact offline export is committed at [tools/system-spec](../../../../tools/system-spec/WIRING.md). Follow the exported constitution plus the brownfield track. Existing project specification paths remain authoritative; no duplicate idealized baseline is created.
 
 Run from the Modelable repository root:
 
 ```powershell
-uv tool install --index-url https://pypi.org/simple system-spec-ref==0.17.4
+uv tool install --index-url https://pypi.org/simple system-spec-ref==0.17.5
 system-spec --version
 system-spec docs/superpowers/specs/system-spec/inventory.yaml --stage inventory --check-artifacts --root .
 system-spec docs/superpowers/specs/system-spec/compilation.yaml --stage verification --check-artifacts --root .
@@ -111,9 +111,9 @@ Offline fallback (Pydantic/PyYAML are already native CLI dependencies):
 uv run --project cli python tools/system-spec/reference-implementation/metamodel.py docs/superpowers/specs/system-spec/compilation.yaml --stage verification --check-artifacts --root .
 ```
 
-- [toolkit-pypi-0.17.4.json](evidence/toolkit-pypi-0.17.4.json) records the published wheel (0.5.0: [receipt](evidence/toolkit-pypi-0.5.0.json)), verified installation/export bytes and current schema/validator hashes. [packaged-toolkit-validation-0.5.0.json](evidence/packaged-toolkit-validation-0.5.0.json) records installed/offline parity and remaining acceptance blockers.
+- [toolkit-pypi-0.17.5.json](evidence/toolkit-pypi-0.17.5.json) records the published wheel (0.5.0: [receipt](evidence/toolkit-pypi-0.5.0.json)), verified installation/export bytes and current schema/validator hashes. [packaged-toolkit-validation-0.5.0.json](evidence/packaged-toolkit-validation-0.5.0.json) records installed/offline parity and remaining acceptance blockers.
 - [adoption.json](adoption.json) separates original capture/verifier pins from the current toolkit. Prior specifications, schemas and manifests are preserved in its `current_toolkit` and `previous_toolkit_0_4_0` records. Active compilation source/evidence bindings are refreshed at `deb6d668` following promotion-journaling changes (`cdab2da7`), and `whole-product.yaml` artifact hashes match worktree files.
-- Toolkit version 0.17.4 is separate from modeled contract versions. The proposal still has three expected `COMPAT-04` diagnostics; compilation release and whole-product conformance remain open.
+- Toolkit version 0.17.5 is separate from modeled contract versions. The proposal still has three expected `COMPAT-04` diagnostics; compilation release and whole-product conformance remain open.
 - Paths in source/provenance/artifact maps remain repository-relative. Review source/dependency/environment changes before reusing evidence; native semantic/manual gates remain authoritative.
 - Upgrade using a pinned package version and a fresh destination, for example `system-spec export tools/system-spec-next` (it must not exist). Compare snapshots and their provenance, follow [WIRING.md](../../../../tools/system-spec/WIRING.md), revalidate active specs at their stages, and retain historical captures/decisions.
 

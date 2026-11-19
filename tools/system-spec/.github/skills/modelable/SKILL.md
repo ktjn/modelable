@@ -24,7 +24,7 @@ Rules: [constitution § Data Contracts](../../../CONSTITUTION.md#data-contracts)
 | Metamodel | `.mdl` |
 |---|---|
 | `owner` (component ID) | `domain` with `owner: "<component>"` |
-| `id`, `version` `"N.0"` | `entity`/`event`/`value` `<Name> @ N` |
+| `id`, `version` `"N.0"` | `entity`/`event`/`value` `<Name> @ N (additive)`; `(breaking)` when the major bump removes or retypes a field (the change kind is required) |
 | `fields` | Typed fields; exactly one `@key` for entities |
 | `classification` | `@classification("…")`/`@pii` on fields; model level = strictest field. `open` → `public`; `secret` → `restricted` |
 | `derived_from` | `projection … from <src> @ N` / `join <src> @ N`; fields use `<-` or `=` |
@@ -35,7 +35,7 @@ Rules: [constitution § Data Contracts](../../../CONSTITUTION.md#data-contracts)
    - Annotate `@pii`/`@classification` explicitly on every projection field; it is not inherited by generated artifacts.
 2. **Validate**: `modelable validate <dir> --strict`.
 3. **Lineage**: `modelable lineage <domain>.<Projection>@N --path <dir>`; sources must match `derived_from`, otherwise fix the metamodel first.
-4. **Compatibility** (new version): `modelable diff <ref>@N <ref>@N+1 --path <dir>` and `modelable validate-compat --from <old> --to <new> --target <json-schema|protobuf|openapi|…>`. Exit `1` = breaking; bump the `data_models` major version and run `metamodel.py --impact <id>`.
+4. **Compatibility** (new version): `modelable diff <ref>@N <ref>@N+1 --path <dir>` and `modelable validate-compat --from <old> --to <new> --target <json-schema|protobuf|openapi|…>`. `modelable impact --from <ref>@N --to <ref>@N+1 --path <dir>` lists the consequences (`--usage-manifest` from `compile --usage-manifest` names known consumers). Exit `1` = breaking (`diff`, `impact`: the model; `validate-compat`: that target, so a removed field can still pass); bump the `data_models` major version and run `metamodel.py --impact <id>`.
 5. **Generate**: `modelable compile <dir> --target <target> --out <dir>`; keep `modelable-artifact-manifest.json`.
 6. **Drift** (greenfield direction): any change starts in `data_models`; regenerate `.mdl` and artifacts, never edit them first.
 
@@ -66,7 +66,7 @@ evidence:
 
 ## Notes
 
-- Requires Python 3.14: `uvx modelable`. If import fails on `selectolax`, use `uvx --with 'selectolax<1' modelable`.
+- Requires Python 3.14: `uvx modelable` (verified with 1.16.0).
 - `(additive)` versions reject removals; declare breaking versions explicitly.
 
 ## Prompt
